@@ -1,0 +1,59 @@
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { ToastProvider } from './components/Toast'
+import { useSessao } from './hooks/useSessao'
+import { Entrar } from './pages/Entrar'
+import { Home } from './pages/Home'
+import { Acervo } from './pages/Acervo'
+import { Vitrine } from './pages/Vitrine'
+import { VitrinePublica } from './pages/VitrinePublica'
+import { Pedidos } from './pages/Pedidos'
+import { Clientes } from './pages/Clientes'
+import { Inspiracoes } from './pages/Inspiracoes'
+import { Calendario } from './pages/Calendario'
+import { Cardapio } from './pages/Cardapio'
+import { Anotacoes } from './pages/Anotacoes'
+import { Planos } from './pages/Planos'
+import { Config } from './pages/Config'
+
+/** Rotas privadas exigem sessão; sem sessão, vão para /entrar. */
+function Privada({ children }: { children: React.ReactNode }) {
+  const { sessao, carregando } = useSessao()
+  if (carregando) return null
+  if (!sessao) return <Navigate to="/entrar" replace />
+  return <>{children}</>
+}
+
+/**
+ * Rota coringa: /@usuaria abre a vitrine pública (sem login).
+ * Qualquer outro caminho desconhecido volta para a home.
+ */
+function Coringa() {
+  const { arroba } = useParams()
+  if (arroba?.startsWith('@')) return <VitrinePublica />
+  return <Navigate to="/" replace />
+}
+
+export function App() {
+  return (
+    // basename '/encanto': o app vive em cabideia.com.br/encanto/ (Decisão #5)
+    <BrowserRouter basename="/encanto">
+      <ToastProvider>
+        <Routes>
+          <Route path="/entrar" element={<Entrar />} />
+          <Route path="/" element={<Privada><Home /></Privada>} />
+          <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
+          <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />
+          <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
+          <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
+          <Route path="/inspiracoes" element={<Privada><Inspiracoes /></Privada>} />
+          <Route path="/calendario" element={<Privada><Calendario /></Privada>} />
+          <Route path="/cardapio" element={<Privada><Cardapio /></Privada>} />
+          <Route path="/anotacoes" element={<Privada><Anotacoes /></Privada>} />
+          <Route path="/planos" element={<Privada><Planos /></Privada>} />
+          <Route path="/config" element={<Privada><Config /></Privada>} />
+          <Route path="/:arroba" element={<Coringa />} />
+        </Routes>
+      </ToastProvider>
+    </BrowserRouter>
+  )
+}

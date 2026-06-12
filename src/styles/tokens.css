@@ -1,0 +1,292 @@
+/* ============================================================
+   CABIDEIA ENCANTO — SISTEMA DE DESIGN v5.1 (portado do protótipo)
+   Tokens únicos · todas as telas derivam daqui (UX-003)
+   ============================================================ */
+:root{
+  --massa:#FFF6F1;
+  --acucar:#FFFFFF;
+  --cacau:#43302B;
+  --cacau-claro:#8B6F65;
+  --framboesa:#C2476B;
+  --framboesa-escura:#A93A5C;
+  --framboesa-suave:#FBE9EE;
+  --pistache:#5E8C61;
+  --pistache-suave:#E9F2E9;
+  --caramelo:#B8762E;
+  --caramelo-suave:#FBEEDC;
+  --neutro:#9A8C86;
+  --neutro-suave:#F1ECEA;
+  --linha:#F0DFD8;
+
+  --fonte-titulo:"Fraunces",Georgia,serif;
+  --fonte-texto:"Nunito Sans",system-ui,-apple-system,sans-serif;
+
+  --t-marca:26px; --t-titulo:20px; --t-card:17px; --t-base:15px; --t-apoio:13px;
+
+  --raio-card:16px; --raio-pill:999px;
+  --espaco:16px;
+  --sombra:0 1px 3px rgba(67,48,43,.07);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,#raiz{height:100%}
+body{
+  font-family:var(--fonte-texto);font-size:var(--t-base);color:var(--cacau);
+  background:#EFE3DC;display:flex;justify-content:center;
+}
+#raiz{
+  width:100%;max-width:420px;min-height:100dvh;background:var(--massa);
+  position:relative;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(67,48,43,.12);
+}
+.tela{display:flex;flex-direction:column;flex:1;min-height:0;position:relative}
+
+/* ---------- PADRÃO 1 · BARRA SUPERIOR ---------- */
+.barra{
+  display:flex;align-items:center;gap:8px;height:56px;padding:0 8px;
+  background:var(--massa);position:sticky;top:0;z-index:20;
+}
+.barra .titulo{
+  flex:1;text-align:center;font-family:var(--fonte-titulo);
+  font-size:var(--t-titulo);font-weight:600;letter-spacing:.2px;
+}
+.btn-icone{
+  width:44px;height:44px;border:none;background:transparent;border-radius:50%;
+  font-size:20px;color:var(--cacau);cursor:pointer;flex:none;
+  display:flex;align-items:center;justify-content:center;text-decoration:none;
+}
+.btn-icone:active{background:var(--framboesa-suave)}
+.barra .vaga{width:44px;flex:none}
+
+/* ---------- PADRÃO 2 · CONTEÚDO ---------- */
+.conteudo{flex:1;overflow-y:auto;padding:8px var(--espaco) 110px}
+.secao{margin:20px 0 10px;display:flex;align-items:center;gap:8px}
+.secao .confeito{width:8px;height:8px;border-radius:3px;background:var(--framboesa);flex:none}
+.secao h2{font-family:var(--fonte-titulo);font-size:var(--t-card);font-weight:600}
+.apoio{font-size:var(--t-apoio);color:var(--cacau-claro);line-height:1.5}
+
+/* ---------- PADRÃO 3 · CTA PRIMÁRIO ---------- */
+.cta-area{
+  position:absolute;left:0;right:0;bottom:0;padding:12px var(--espaco) 20px;
+  background:linear-gradient(transparent,var(--massa) 35%);z-index:30;
+}
+.cta{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  height:54px;border:none;border-radius:var(--raio-pill);cursor:pointer;
+  background:var(--framboesa);color:#fff;font-family:var(--fonte-texto);
+  font-size:var(--t-card);font-weight:800;box-shadow:0 4px 14px rgba(194,71,107,.30);
+  text-decoration:none;
+}
+.cta:active{background:var(--framboesa-escura)}
+.btn-secundario{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:42px;padding:0 18px;border-radius:var(--raio-pill);cursor:pointer;
+  border:1.5px solid var(--framboesa);background:transparent;color:var(--framboesa);
+  font-family:var(--fonte-texto);font-size:var(--t-base);font-weight:700;text-decoration:none;
+}
+.btn-secundario:active{background:var(--framboesa-suave)}
+
+/* ---------- PADRÃO 4 · CARDS ---------- */
+.card{
+  background:var(--acucar);border:1px solid var(--linha);border-radius:var(--raio-card);
+  padding:var(--espaco);box-shadow:var(--sombra);margin-bottom:10px;
+}
+.card-toque{cursor:pointer}
+.card-toque:active{border-color:var(--framboesa)}
+.card-linha{display:flex;gap:12px;align-items:center}
+.miniatura{
+  width:64px;height:64px;border-radius:12px;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+}
+.card-info{flex:1;min-width:0}
+.card-nome{font-size:var(--t-card);font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- PADRÃO 5 · CHIPS DE STATUS ---------- */
+.chip{
+  display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:var(--raio-pill);
+  font-size:var(--t-apoio);font-weight:700;white-space:nowrap;
+}
+.chip.afazer{background:var(--framboesa-suave);color:var(--framboesa)}
+.chip.producao{background:var(--caramelo-suave);color:var(--caramelo)}
+.chip.entregue{background:var(--pistache-suave);color:var(--pistache)}
+.chip.cancelado{background:var(--neutro-suave);color:var(--neutro)}
+
+/* ---------- PADRÃO 6 · BUSCA + FILTROS ---------- */
+.busca{
+  display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;margin-top:4px;
+  background:var(--acucar);border:1px solid var(--linha);border-radius:var(--raio-pill);
+  color:var(--cacau-claro);
+}
+.busca input{border:none;outline:none;flex:1;font:inherit;color:var(--cacau);background:transparent}
+.filtros{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
+.filtros::-webkit-scrollbar{display:none}
+.filtro{
+  flex:none;height:34px;padding:0 14px;border-radius:var(--raio-pill);cursor:pointer;
+  border:1px solid var(--linha);background:var(--acucar);color:var(--cacau-claro);
+  font:inherit;font-size:var(--t-apoio);font-weight:700;
+}
+.filtro.ativo{background:var(--cacau);border-color:var(--cacau);color:#fff}
+
+/* ---------- PADRÃO 7 · FORMULÁRIOS ---------- */
+.campo{margin-bottom:14px}
+.campo label{display:block;font-size:var(--t-apoio);font-weight:800;color:var(--cacau-claro);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.campo input,.campo textarea,.campo select{
+  width:100%;min-height:50px;padding:13px 16px;font:inherit;color:var(--cacau);
+  background:var(--acucar);border:1px solid var(--linha);border-radius:14px;outline:none;
+}
+.campo textarea{min-height:90px;resize:vertical}
+.campo input:focus,.campo textarea:focus,.campo select:focus{border-color:var(--framboesa)}
+.escolha{display:flex;gap:8px;flex-wrap:wrap}
+.escolha .filtro{height:40px}
+
+/* ---------- PADRÃO 8 · ESTADO VAZIO ---------- */
+.vazio{text-align:center;padding:40px 24px;color:var(--cacau-claro)}
+.vazio .icone{font-size:44px;margin-bottom:10px}
+.vazio p{margin-bottom:16px;line-height:1.5}
+
+/* ---------- GRADES DE FOTOS ---------- */
+.grade{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.foto{
+  aspect-ratio:1;border-radius:var(--raio-card);position:relative;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:42px;overflow:hidden;
+  border:1px solid var(--linha);
+}
+.foto .etiqueta{
+  position:absolute;left:8px;bottom:8px;right:8px;
+  background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
+  font-size:12px;font-weight:800;color:var(--cacau);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.foto .selo-vitrine{
+  position:absolute;top:8px;right:8px;background:var(--framboesa);color:#fff;
+  font-size:11px;font-weight:800;border-radius:var(--raio-pill);padding:3px 9px;
+}
+.massa-1{background:linear-gradient(135deg,#FBD3DE,#F6A8BE)}
+.massa-2{background:linear-gradient(135deg,#FDEBD2,#F7CD94)}
+.massa-3{background:linear-gradient(135deg,#DCEEDC,#B5D8B7)}
+.massa-4{background:linear-gradient(135deg,#E5DAF5,#C7B2EA)}
+.massa-5{background:linear-gradient(135deg,#D7ECF7,#A9D4EC)}
+.massa-6{background:linear-gradient(135deg,#FBE3D2,#F2B795)}
+
+/* ---------- HOME EM BLOCOS (UX-001) ---------- */
+.ola{padding:14px 4px 2px}
+.ola .marca{font-family:var(--fonte-titulo);font-size:var(--t-marca);font-weight:600}
+.ola .marca em{color:var(--framboesa);font-style:normal}
+.blocos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.bloco{
+  background:var(--acucar);border:1px solid var(--linha);border-radius:var(--raio-card);
+  box-shadow:var(--sombra);padding:18px 16px;cursor:pointer;min-height:104px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:10px;
+  color:inherit;text-decoration:none;
+}
+.bloco:active{border-color:var(--framboesa)}
+.bloco .emoji{
+  width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  font-size:22px;background:var(--framboesa-suave);
+}
+.bloco .nome{font-size:var(--t-base);font-weight:800}
+.bloco .conta{font-size:var(--t-apoio);color:var(--cacau-claro);font-weight:600}
+.bloco.destaque{grid-column:1/-1;flex-direction:row;align-items:center;min-height:0}
+.bloco.destaque .texto{flex:1}
+
+.entregas{display:flex;gap:10px;overflow-x:auto;padding:4px 0 6px;scrollbar-width:none}
+.entregas::-webkit-scrollbar{display:none}
+.entrega{
+  flex:none;width:200px;background:var(--acucar);border:1px solid var(--linha);
+  border-radius:var(--raio-card);padding:12px 14px;box-shadow:var(--sombra);cursor:pointer;
+}
+.entrega .quando{font-size:var(--t-apoio);font-weight:800;color:var(--framboesa);margin-bottom:4px}
+.entrega .o-que{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.aviso-teste{
+  display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px 14px;cursor:pointer;
+  background:var(--framboesa-suave);border-radius:var(--raio-card);
+  font-size:var(--t-apoio);font-weight:700;color:var(--framboesa);text-decoration:none;
+}
+.aviso-teste .seta{margin-left:auto}
+
+/* ---------- ASSINATURA VISUAL · BABADO DE VITRINE ---------- */
+.vitrine-moldura{
+  background:var(--acucar);border:1px solid var(--linha);border-radius:var(--raio-card);
+  box-shadow:var(--sombra);overflow:hidden;margin-bottom:10px;
+}
+.babado{
+  height:18px;background:var(--framboesa);
+  -webkit-mask:radial-gradient(circle 9px at 9px 0,transparent 8.5px,#000 9px) left top/18px 100% repeat-x;
+          mask:radial-gradient(circle 9px at 9px 0,transparent 8.5px,#000 9px) left top/18px 100% repeat-x;
+  transform:rotate(180deg);
+}
+.vitrine-corpo{padding:18px 16px 16px;text-align:center}
+.logo-redonda{
+  width:64px;height:64px;border-radius:50%;margin:0 auto 8px;
+  background:var(--framboesa-suave);display:flex;align-items:center;justify-content:center;
+  font-family:var(--fonte-titulo);font-size:24px;color:var(--framboesa);font-weight:600;
+  border:2px solid var(--framboesa);
+}
+.vitrine-corpo .nome-negocio{font-family:var(--fonte-titulo);font-size:var(--t-titulo);font-weight:600}
+.link-vitrine{
+  display:flex;align-items:center;gap:8px;margin-top:12px;padding:11px 14px;
+  background:var(--massa);border:1px dashed var(--framboesa);border-radius:14px;
+  font-size:var(--t-apoio);font-weight:700;color:var(--framboesa);justify-content:center;cursor:pointer;
+}
+
+/* ---------- LISTAS SIMPLES ---------- */
+.lista .item{
+  display:flex;align-items:center;gap:12px;padding:15px 4px;cursor:pointer;
+  border-bottom:1px solid var(--linha);
+}
+.lista .item:last-child{border-bottom:none}
+.bola{
+  width:44px;height:44px;border-radius:50%;flex:none;font-weight:800;font-size:15px;
+  background:var(--framboesa-suave);color:var(--framboesa);
+  display:flex;align-items:center;justify-content:center;
+}
+.zap{
+  margin-left:auto;flex:none;height:38px;padding:0 14px;border-radius:var(--raio-pill);
+  border:none;background:var(--pistache-suave);color:var(--pistache);
+  font:inherit;font-size:var(--t-apoio);font-weight:800;cursor:pointer;
+}
+
+/* ---------- PLANOS ---------- */
+.troca-periodo{display:flex;background:var(--neutro-suave);border-radius:var(--raio-pill);padding:4px;margin:8px 0 14px}
+.troca-periodo button{
+  flex:1;height:40px;border:none;border-radius:var(--raio-pill);background:transparent;
+  font:inherit;font-weight:800;color:var(--cacau-claro);cursor:pointer;
+}
+.troca-periodo button.ativo{background:var(--acucar);color:var(--cacau);box-shadow:var(--sombra)}
+.plano-preco{font-family:var(--fonte-titulo);font-size:32px;font-weight:600}
+.plano-preco small{font-family:var(--fonte-texto);font-size:var(--t-apoio);color:var(--cacau-claro);font-weight:700}
+.beneficio{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:var(--t-base)}
+.beneficio .ok{color:var(--pistache);font-weight:800;flex:none}
+.selo-fundadora{
+  display:inline-flex;align-items:center;gap:6px;background:var(--caramelo-suave);color:var(--caramelo);
+  border-radius:var(--raio-pill);padding:5px 12px;font-size:var(--t-apoio);font-weight:800;margin-bottom:8px;
+}
+
+/* ---------- TOAST ---------- */
+#toast{
+  position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);
+  background:var(--cacau);color:#fff;padding:11px 20px;border-radius:var(--raio-pill);
+  font-size:var(--t-base);font-weight:700;opacity:0;pointer-events:none;
+  transition:.25s;z-index:60;white-space:nowrap;
+}
+#toast.mostra{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- INTERRUPTOR ---------- */
+.interruptor{position:relative;width:50px;height:30px;flex:none;cursor:pointer}
+.interruptor input{opacity:0;width:0;height:0}
+.interruptor .pista{
+  position:absolute;inset:0;background:var(--neutro-suave);border-radius:var(--raio-pill);transition:.2s;
+}
+.interruptor .pista::after{
+  content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+  background:#fff;box-shadow:var(--sombra);transition:.2s;
+}
+.interruptor input:checked + .pista{background:var(--framboesa)}
+.interruptor input:checked + .pista::after{left:23px}
+
+@media (prefers-reduced-motion:no-preference){
+  .conteudo{animation:chega .22s ease}
+  @keyframes chega{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.card-toque:focus-visible{
+  outline:3px solid var(--framboesa);outline-offset:2px;
+}
