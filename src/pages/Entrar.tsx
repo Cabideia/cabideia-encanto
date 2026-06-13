@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
@@ -6,33 +6,49 @@ import { useSessao } from '../hooks/useSessao'
 /**
  * Login com Google (M-001).
  *
- * Fluxo:
- *  1) O botão chama signInWithOAuth e o Google redireciona de volta para
- *     /encanto/entrar?code=...  (redirectTo aponta para esta MESMA rota).
- *  2) Ao voltar, o cliente Supabase (detectSessionInUrl + PKCE) troca o
- *     ?code por uma sessão. O useSessao percebe a sessão via
- *     onAuthStateChange e esta tela redireciona para a home (/).
+ * Fluxo (PKCE, troca manual e controlada):
+ *  1) O botão chama signInWithOAuth; o Google volta para
+ *     /encanto/entrar?code=...
+ *  2) Ao montar, esta página detecta o ?code= e chama
+ *     exchangeCodeForSession — esperando a troca TERMINAR antes de decidir a
+ *     rota. Sem essa espera, o app decidia "sem sessão" e voltava ao login
+ *     (era o loop).
+ *  3) Com a sessão criada, redireciona para a home (/).
  *
- * Por que /entrar e não /: a rota raiz é privada; se o Google voltasse para
- * "/", a guarda Privada mandaria para /entrar ANTES de a sessão ser trocada,
- * criando o loop. Voltando para /entrar (rota pública), a troca acontece em paz.
+ * Volta para /entrar (rota pública) e não para "/" (privada) de propósito:
+ * a guarda Privada mandaria para /entrar antes da troca, recriando o loop.
  */
 export function Entrar() {
-  const { sessao, carregando } = useSessao()
+  const { sessao } = useSessao()
+  const [trocando, setTrocando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
 
-  // Limpa o ?code=... da barra de endereço depois que a sessão foi criada,
-  // para a URL não ficar suja e um recarregamento não reprocessar o código.
+  // Ao chegar de volta do Google com ?code=, troca o code por uma sessão.
   useEffect(() => {
-    if (sessao && window.location.search.includes('code=')) {
-      const limpa = window.location.origin + window.location.pathname
-      window.history.replaceState({}, '', limpa)
-    }
-  }, [sessao])
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (!code) return
 
-  // Já logado (ou acabou de logar): entra no app.
-  if (!carregando && sessao) return <Navigate to="/" replace />
+    setTrocando(true)
+    supabase.auth
+      .exchangeCodeForSession(code)
+      .then(({ error }) => {
+        if (error) {
+          console.error('[Cabideia Encanto] Falha ao trocar code por sessão:', error.message)
+          setErro('Não consegui concluir o login. Tente novamente.')
+        }
+        // Limpa o ?code= da barra de endereço (uso único; evita reprocessar).
+        const limpa = window.location.origin + window.location.pathname
+        window.history.replaceState({}, '', limpa)
+      })
+      .finally(() => setTrocando(false))
+  }, [])
+
+  // Sessão pronta: entra no app.
+  if (sessao) return <Navigate to="/" replace />
 
   async function entrarComGoogle() {
+    setErro(null)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -42,7 +58,7 @@ export function Entrar() {
     })
     if (error) {
       console.error('[Cabideia Encanto] Falha ao iniciar login Google:', error.message)
-      alert('Não consegui abrir o login do Google. Verifique a conexão e tente de novo.')
+      setErro('Não consegui abrir o login do Google. Verifique a conexão e tente de novo.')
     }
   }
 
@@ -62,9 +78,14 @@ export function Entrar() {
         <p className="apoio" style={{ textAlign: 'center', margin: '10px 0 18px' }}>
           Seus trabalhos guardados na nuvem, organizados e prontos para encantar clientes.
         </p>
-        <button className="cta" onClick={entrarComGoogle} disabled={carregando}>
-          Entrar com Google
+        <button className="cta" onClick={entrarComGoogle} disabled={trocando}>
+          {trocando ? 'Entrando…' : 'Entrar com Google'}
         </button>
+        {erro && (
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 12, color: '#b00020' }}>
+            {erro}
+          </p>
+        )}
       </div>
     </div>
   )
