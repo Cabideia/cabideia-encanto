@@ -4,29 +4,25 @@ import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
 
 /**
- * Login com Google (M-001).
- *
- * Fluxo (PKCE, troca manual e controlada):
- *  1) O botão chama signInWithOAuth; o Google volta para
- *     /encanto/entrar?code=...
- *  2) Ao montar, esta página detecta o ?code= e chama
- *     exchangeCodeForSession — esperando a troca TERMINAR antes de decidir a
- *     rota. Sem essa espera, o app decidia "sem sessão" e voltava ao login
- *     (era o loop).
- *  3) Com a sessão criada, redireciona para a home (/).
- *
- * Volta para /entrar (rota pública) e não para "/" (privada) de propósito:
- * a guarda Privada mandaria para /entrar antes da troca, recriando o loop.
+ * Login com Google (M-001) — versão com diagnóstico visível.
+ * Mostra na tela o motivo técnico de qualquer falha, para depuração no celular.
  */
 export function Entrar() {
   const { sessao } = useSessao()
   const [trocando, setTrocando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  // Ao chegar de volta do Google com ?code=, troca o code por uma sessão.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
+
+    // Captura erro vindo do próprio Google/Supabase no querystring, se houver.
+    const erroUrl = params.get('error_description') || params.get('error')
+    if (erroUrl) {
+      setErro('Retorno do provedor: ' + erroUrl)
+      return
+    }
+
     if (!code) return
 
     setTrocando(true)
@@ -34,17 +30,19 @@ export function Entrar() {
       .exchangeCodeForSession(code)
       .then(({ error }) => {
         if (error) {
-          console.error('[Cabideia Encanto] Falha ao trocar code por sessão:', error.message)
-          setErro('Não consegui concluir o login. Tente novamente.')
+          // Mostra o motivo técnico COMPLETO na tela para diagnóstico.
+          setErro('Falha na troca: ' + error.message + ' [' + (error.status ?? '?') + ']')
+          console.error('[Cabideia Encanto] exchangeCodeForSession:', error)
         }
-        // Limpa o ?code= da barra de endereço (uso único; evita reprocessar).
         const limpa = window.location.origin + window.location.pathname
         window.history.replaceState({}, '', limpa)
+      })
+      .catch((e) => {
+        setErro('Exceção: ' + (e?.message || String(e)))
       })
       .finally(() => setTrocando(false))
   }, [])
 
-  // Sessão pronta: entra no app.
   if (sessao) return <Navigate to="/" replace />
 
   async function entrarComGoogle() {
@@ -52,13 +50,11 @@ export function Entrar() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Volta para esta própria rota /entrar dentro da base /encanto/.
         redirectTo: window.location.origin + import.meta.env.BASE_URL + 'entrar'
       }
     })
     if (error) {
-      console.error('[Cabideia Encanto] Falha ao iniciar login Google:', error.message)
-      setErro('Não consegui abrir o login do Google. Verifique a conexão e tente de novo.')
+      setErro('Falha ao iniciar: ' + error.message)
     }
   }
 
@@ -82,9 +78,22 @@ export function Entrar() {
           {trocando ? 'Entrando…' : 'Entrar com Google'}
         </button>
         {erro && (
-          <p className="apoio" style={{ textAlign: 'center', marginTop: 12, color: '#b00020' }}>
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 8,
+              background: '#fff0f0',
+              border: '1px solid #f5c2c2',
+              color: '#b00020',
+              fontSize: 13,
+              wordBreak: 'break-word'
+            }}
+          >
+            <strong>Diagnóstico:</strong>
+            <br />
             {erro}
-          </p>
+          </div>
         )}
       </div>
     </div>
