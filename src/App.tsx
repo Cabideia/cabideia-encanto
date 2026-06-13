@@ -14,6 +14,7 @@ import { Cardapio } from './pages/Cardapio'
 import { Anotacoes } from './pages/Anotacoes'
 import { Planos } from './pages/Planos'
 import { Config } from './pages/Config'
+import { Perfil } from './pages/Perfil'
 
 /** Rotas privadas exigem sessão; sem sessão, vão para /entrar. */
 function Privada({ children }: { children: React.ReactNode }) {
@@ -43,6 +44,7 @@ export function App() {
           <Route path="/" element={<Privada><Home /></Privada>} />
           <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
           <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />
+          <Route path="/perfil" element={<Privada><Perfil /></Privada>} />
           <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
           <Route path="/inspiracoes" element={<Privada><Inspiracoes /></Privada>} />
@@ -57,3 +59,4 @@ export function App() {
     </BrowserRouter>
   )
 }
+
