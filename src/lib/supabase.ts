@@ -15,12 +15,13 @@ export const supabase = createClient(
   anon ?? 'anon-key-ausente',
   {
     auth: {
-      // Fluxo PKCE: o Google volta com ?code=... que trocamos por sessão na
-      // rota /entrar. Mais seguro e estável que o fluxo implícito por hash.
+      // Fluxo PKCE: o Google volta com ?code=... que trocamos por sessão.
       flowType: 'pkce',
-      // Detecta e processa o código/token presentes na URL ao carregar o app
-      // (era o que faltava: sem isso a sessão chegava e era descartada).
-      detectSessionInUrl: true,
+      // IMPORTANTE: deixamos a detecção automática DESLIGADA e fazemos a troca
+      // do code manualmente na página /entrar (exchangeCodeForSession). Isso
+      // evita a corrida em que o app decide a rota antes de a sessão chegar, e
+      // evita o problema do StrictMode consumir o code de uso único duas vezes.
+      detectSessionInUrl: false,
       // Mantém a sessão entre recarregamentos (localStorage) e renova sozinha.
       persistSession: true,
       autoRefreshToken: true
