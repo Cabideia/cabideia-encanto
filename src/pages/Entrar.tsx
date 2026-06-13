@@ -1,12 +1,49 @@
+import { useEffect } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useSessao } from '../hooks/useSessao'
 
-/** Login com Google (M-001). O redirect volta para a própria rota /encanto/. */
+/**
+ * Login com Google (M-001).
+ *
+ * Fluxo:
+ *  1) O botão chama signInWithOAuth e o Google redireciona de volta para
+ *     /encanto/entrar?code=...  (redirectTo aponta para esta MESMA rota).
+ *  2) Ao voltar, o cliente Supabase (detectSessionInUrl + PKCE) troca o
+ *     ?code por uma sessão. O useSessao percebe a sessão via
+ *     onAuthStateChange e esta tela redireciona para a home (/).
+ *
+ * Por que /entrar e não /: a rota raiz é privada; se o Google voltasse para
+ * "/", a guarda Privada mandaria para /entrar ANTES de a sessão ser trocada,
+ * criando o loop. Voltando para /entrar (rota pública), a troca acontece em paz.
+ */
 export function Entrar() {
+  const { sessao, carregando } = useSessao()
+
+  // Limpa o ?code=... da barra de endereço depois que a sessão foi criada,
+  // para a URL não ficar suja e um recarregamento não reprocessar o código.
+  useEffect(() => {
+    if (sessao && window.location.search.includes('code=')) {
+      const limpa = window.location.origin + window.location.pathname
+      window.history.replaceState({}, '', limpa)
+    }
+  }, [sessao])
+
+  // Já logado (ou acabou de logar): entra no app.
+  if (!carregando && sessao) return <Navigate to="/" replace />
+
   async function entrarComGoogle() {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + import.meta.env.BASE_URL }
+      options: {
+        // Volta para esta própria rota /entrar dentro da base /encanto/.
+        redirectTo: window.location.origin + import.meta.env.BASE_URL + 'entrar'
+      }
     })
+    if (error) {
+      console.error('[Cabideia Encanto] Falha ao iniciar login Google:', error.message)
+      alert('Não consegui abrir o login do Google. Verifique a conexão e tente de novo.')
+    }
   }
 
   return (
@@ -25,7 +62,7 @@ export function Entrar() {
         <p className="apoio" style={{ textAlign: 'center', margin: '10px 0 18px' }}>
           Seus trabalhos guardados na nuvem, organizados e prontos para encantar clientes.
         </p>
-        <button className="cta" onClick={entrarComGoogle}>
+        <button className="cta" onClick={entrarComGoogle} disabled={carregando}>
           Entrar com Google
         </button>
       </div>
