@@ -6,6 +6,7 @@ import { Recorte } from '../components/Recorte'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
+import { useSelecoes } from '../hooks/useSelecoes'
 import { recortarEComprimir, type AreaRecorte } from '../lib/imagem'
 
 const LIMITE_GRATIS = 150
@@ -117,50 +118,72 @@ function PainelTrabalho({
 }
 
 // ─────────────────────────────────────────────────────────
-// Cartão da grade — só visual. Toque na foto abre o painel.
+// Cartão da grade. Em modo seleção, vira um seletor (checkbox).
 // ─────────────────────────────────────────────────────────
 type CartaoProps = {
   trabalho: Trabalho
+  modoSelecao: boolean
+  marcado: boolean
   onAbrir: () => void
+  onAlternarMarca: () => void
   onPedirRemover: () => void
   onAlternarVitrine: () => void
 }
 
-function CartaoTrabalho({ trabalho, onAbrir, onPedirRemover, onAlternarVitrine }: CartaoProps) {
+function CartaoTrabalho({
+  trabalho,
+  modoSelecao,
+  marcado,
+  onAbrir,
+  onAlternarMarca,
+  onPedirRemover,
+  onAlternarVitrine,
+}: CartaoProps) {
   return (
-    <div className="foto-item">
+    <div className={`foto-item${modoSelecao && marcado ? ' marcado' : ''}`}>
       <div
         className="acervo-img-wrap"
-        onClick={onAbrir}
+        onClick={modoSelecao ? onAlternarMarca : onAbrir}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && onAbrir()}
+        onKeyDown={(e) => e.key === 'Enter' && (modoSelecao ? onAlternarMarca() : onAbrir())}
       >
         <img src={trabalho.url} alt={trabalho.descricao ?? ''} loading="lazy" />
-        <button
-          className={`foto-vitrine-btn${trabalho.na_vitrine ? ' ativa' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onAlternarVitrine() }}
-          aria-label={trabalho.na_vitrine ? 'Remover da vitrine' : 'Adicionar à vitrine'}
-          title={trabalho.na_vitrine ? 'Na vitrine — toque para retirar' : 'Toque para mostrar na vitrine'}
-        >
-          🛍️
-        </button>
-        <button
-          className="foto-remover"
-          onClick={(e) => { e.stopPropagation(); onPedirRemover() }}
-          aria-label="Apagar foto"
-        >
-          ✕
-        </button>
+
+        {modoSelecao ? (
+          <span className={`sel-check${marcado ? ' on' : ''}`} aria-hidden>
+            {marcado ? '✓' : ''}
+          </span>
+        ) : (
+          <>
+            <button
+              className={`foto-vitrine-btn${trabalho.na_vitrine ? ' ativa' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onAlternarVitrine() }}
+              aria-label={trabalho.na_vitrine ? 'Remover da vitrine' : 'Adicionar à vitrine'}
+              title={trabalho.na_vitrine ? 'Na vitrine — toque para retirar' : 'Toque para mostrar na vitrine'}
+            >
+              🛍️
+            </button>
+            <button
+              className="foto-remover"
+              onClick={(e) => { e.stopPropagation(); onPedirRemover() }}
+              aria-label="Apagar foto"
+            >
+              ✕
+            </button>
+          </>
+        )}
       </div>
 
-      {trabalho.na_vitrine && (
+      {!modoSelecao && trabalho.na_vitrine && (
         <div className="rotulo-vitrine">🛍️ na vitrine</div>
       )}
 
-      {trabalho.descricao && <div className="foto-legenda">{trabalho.descricao}</div>}
+      {!modoSelecao && trabalho.descricao && (
+        <div className="foto-legenda">{trabalho.descricao}</div>
+      )}
 
-      {trabalho.tags.length > 0 && (
+      {!modoSelecao && trabalho.tags.length > 0 && (
         <button className="acervo-selo-tags" onClick={onAbrir} type="button">
           🏷️ {trabalho.tags.length} tag{trabalho.tags.length !== 1 ? 's' : ''}
         </button>
@@ -187,6 +210,7 @@ export function Acervo() {
     atribuirTag,
     removerTag,
   } = useAcervo(sessao?.user.id)
+  const { criar: criarSelecao } = useSelecoes(sessao?.user.id)
 
   const [formAberto, setFormAberto] = useState(false)
   const [descricao, setDescricao] = useState('')
@@ -196,12 +220,20 @@ export function Acervo() {
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
   const [abertoId, setAbertoId] = useState<string | null>(null)
 
-  // Fluxo de adição: arquivo escolhido → recorte → blob pronto
+  // Fluxo de adição
   const [arquivoBruto, setArquivoBruto] = useState<File | null>(null)
   const [blobPronto, setBlobPronto] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-
   const [aApagar, setAApagar] = useState<Trabalho | null>(null)
+
+  // Modo seleção (M-020)
+  const [modoSelecao, setModoSelecao] = useState(false)
+  const [marcados, setMarcados] = useState<Set<string>>(new Set())
+  const [formSelecao, setFormSelecao] = useState(false)
+  const [tituloSel, setTituloSel] = useState('')
+  const [msgSel, setMsgSel] = useState('')
+  const [criandoLink, setCriandoLink] = useState(false)
+  const [linkPronto, setLinkPronto] = useState<string | null>(null)
 
   const inputCamera = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
@@ -218,13 +250,61 @@ export function Acervo() {
   const pct = Math.min(100, Math.round((total / LIMITE_GRATIS) * 100))
   const corBarra = pct >= 90 ? 'var(--caramelo)' : 'var(--framboesa)'
 
+  // ── Modo seleção ──
+  function entrarSelecao() {
+    setModoSelecao(true)
+    setMarcados(new Set())
+  }
+  function sairSelecao() {
+    setModoSelecao(false)
+    setMarcados(new Set())
+    setFormSelecao(false)
+    setTituloSel('')
+    setMsgSel('')
+    setLinkPronto(null)
+  }
+  function alternarMarca(id: string) {
+    setMarcados((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
+
+  async function gerarLink() {
+    setCriandoLink(true)
+    const res = await criarSelecao(Array.from(marcados), tituloSel, msgSel)
+    setCriandoLink(false)
+    if ('erro' in res) {
+      avisar(res.erro)
+      return
+    }
+    setLinkPronto(`https://cabideia.com.br/encanto/s/${res.token}`)
+  }
+
+  async function enviarLink() {
+    if (!linkPronto) return
+    const texto = `${msgSel ? msgSel + ' ' : ''}${linkPronto}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: tituloSel || 'Seleção', text: texto, url: linkPronto })
+      } catch {
+        /* cancelou */
+      }
+    } else {
+      navigator.clipboard?.writeText(linkPronto)
+      avisar('Link copiado ✓')
+    }
+  }
+
+  // ── Adição de foto ──
   function aoEscolher(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
     setArquivoBruto(f)
   }
-
   async function aoConfirmarRecorte(area: AreaRecorte) {
     if (!arquivoBruto) return
     try {
@@ -238,7 +318,6 @@ export function Acervo() {
       setArquivoBruto(null)
     }
   }
-
   function fecharForm() {
     setFormAberto(false)
     setArquivoBruto(null)
@@ -249,7 +328,6 @@ export function Acervo() {
     setTagsSelecionadas([])
     setNovaTagTexto('')
   }
-
   async function aoEnviar() {
     if (!blobPronto) return avisar('Escolha uma foto primeiro')
     const erro = await adicionarBlob(blobPronto, descricao, tagsSelecionadas)
@@ -259,13 +337,11 @@ export function Acervo() {
       fecharForm()
     }
   }
-
   function toggleTagForm(id: string) {
     setTagsSelecionadas((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
   }
-
   async function aoAdicionarNovaTag() {
     if (!novaTagTexto.trim()) return
     const tag = await criarTag(novaTagTexto)
@@ -273,14 +349,12 @@ export function Acervo() {
       setTagsSelecionadas((prev) => [...prev, tag.id])
     setNovaTagTexto('')
   }
-
   async function confirmarApagar() {
     if (!aApagar) return
     const erro = await remover(aApagar)
     avisar(erro ?? 'Foto apagada')
     setAApagar(null)
   }
-
   async function aoAlternarVitrine(t: Trabalho) {
     const erro = await alternarVitrine(t)
     if (erro) avisar(erro)
@@ -289,28 +363,58 @@ export function Acervo() {
 
   if (carregando) return null
 
+  const qtdMarcados = marcados.size
+
   return (
     <div className="tela">
       <BarraTopo
-        titulo="Meus trabalhos"
-        acao={<Link to="/tags" className="btn-icone" aria-label="Minhas tags">🏷️</Link>}
+        titulo={modoSelecao ? 'Escolha as fotos' : 'Meus trabalhos'}
+        voltar={!modoSelecao}
+        acao={
+          modoSelecao ? (
+            <button className="btn-icone" onClick={sairSelecao} aria-label="Sair da seleção">✕</button>
+          ) : (
+            <Link to="/tags" className="btn-icone" aria-label="Minhas tags">🏷️</Link>
+          )
+        }
       />
-      <div className="conteudo">
+      <div className="conteudo" style={{ paddingBottom: modoSelecao ? 96 : undefined }}>
 
-        {/* Contador + barra de progresso */}
-        <div className="contador-acervo">
-          <div className="contador-texto">
-            <span className="contador-num">{total}</span>
-            <span className="contador-desc">
-              {' '}foto{total !== 1 ? 's' : ''} · limite do plano Grátis: {LIMITE_GRATIS}
-            </span>
-          </div>
-          <div className="contador-barra">
-            <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
-          </div>
-        </div>
+        {!modoSelecao && (
+          <>
+            <div className="contador-acervo">
+              <div className="contador-texto">
+                <span className="contador-num">{total}</span>
+                <span className="contador-desc">
+                  {' '}foto{total !== 1 ? 's' : ''} · limite do plano Grátis: {LIMITE_GRATIS}
+                </span>
+              </div>
+              <div className="contador-barra">
+                <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
+              </div>
+            </div>
 
-        {/* Busca por legenda */}
+            {/* Ações: compartilhar seleção + minhas seleções */}
+            {total > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button className="btn-secundario" style={{ flex: 1 }} onClick={entrarSelecao}>
+                  📤 Compartilhar com cliente
+                </button>
+                <Link to="/selecoes" className="btn-icone" aria-label="Minhas seleções" style={{ background: 'var(--neutro-suave)' }}>
+                  🔗
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+
+        {modoSelecao && (
+          <p className="apoio" style={{ marginTop: 4, marginBottom: 4 }}>
+            Toque nas fotos que quer mandar para a cliente. Depois, crie o link.
+          </p>
+        )}
+
+        {/* Busca */}
         <div className="busca" style={{ marginTop: 12 }}>
           🔎
           <input
@@ -333,10 +437,7 @@ export function Acervo() {
         {/* Filtros por tag */}
         {todasTags.length > 0 && (
           <div className="filtros">
-            <button
-              className={`filtro${!tagFiltro ? ' ativo' : ''}`}
-              onClick={() => setTagFiltro(null)}
-            >
+            <button className={`filtro${!tagFiltro ? ' ativo' : ''}`} onClick={() => setTagFiltro(null)}>
               Todas
             </button>
             {todasTags.map((tag) => (
@@ -367,7 +468,10 @@ export function Acervo() {
               <CartaoTrabalho
                 key={t.id}
                 trabalho={t}
+                modoSelecao={modoSelecao}
+                marcado={marcados.has(t.id)}
                 onAbrir={() => setAbertoId(t.id)}
+                onAlternarMarca={() => alternarMarca(t.id)}
                 onPedirRemover={() => setAApagar(t)}
                 onAlternarVitrine={() => aoAlternarVitrine(t)}
               />
@@ -375,35 +479,17 @@ export function Acervo() {
           </div>
         )}
 
-        {/* Formulário de adição */}
-        {formAberto && (
+        {/* Formulário de adição (não em modo seleção) */}
+        {formAberto && !modoSelecao && (
           <div className="form-acervo">
             <div className="form-acervo-titulo">Guardar um trabalho</div>
 
-            {/* Inputs ocultos: câmera (capture) e galeria */}
-            <input
-              ref={inputCamera}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={aoEscolher}
-            />
-            <input
-              ref={inputGaleria}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              style={{ display: 'none' }}
-              onChange={aoEscolher}
-            />
+            <input ref={inputCamera} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={aoEscolher} />
+            <input ref={inputGaleria} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={aoEscolher} />
 
             {previewUrl ? (
               <div className="foto-seletor" style={{ borderStyle: 'solid' }}>
-                <img
-                  src={previewUrl}
-                  alt="Foto recortada"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }}
-                />
+                <img src={previewUrl} alt="Foto recortada" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }} />
               </div>
             ) : (
               <div className="seletor-origem">
@@ -419,24 +505,14 @@ export function Acervo() {
             )}
 
             {previewUrl && (
-              <button
-                type="button"
-                className="btn-secundario"
-                style={{ width: '100%', marginTop: 10 }}
-                onClick={() => inputGaleria.current?.click()}
-              >
+              <button type="button" className="btn-secundario" style={{ width: '100%', marginTop: 10 }} onClick={() => inputGaleria.current?.click()}>
                 Trocar foto
               </button>
             )}
 
             <div className="campo" style={{ marginTop: 14 }}>
               <label>Legenda (opcional)</label>
-              <input
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Ex.: Bolo de casamento 3 andares"
-                maxLength={80}
-              />
+              <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Bolo de casamento 3 andares" maxLength={80} />
             </div>
 
             <div className="campo">
@@ -466,21 +542,12 @@ export function Acervo() {
                     }
                   }}
                   placeholder="Nova tag… Enter para criar"
-                  style={{
-                    flex: 1, minHeight: 44, padding: '10px 14px',
-                    border: '1px solid var(--linha)', borderRadius: 12,
-                    font: 'inherit', fontSize: 'var(--t-base)', outline: 'none',
-                    background: 'var(--acucar)', color: 'var(--cacau)',
-                  }}
+                  style={{ flex: 1, minHeight: 44, padding: '10px 14px', border: '1px solid var(--linha)', borderRadius: 12, font: 'inherit', fontSize: 'var(--t-base)', outline: 'none', background: 'var(--acucar)', color: 'var(--cacau)' }}
                 />
                 <button
                   type="button"
                   onClick={aoAdicionarNovaTag}
-                  style={{
-                    height: 44, padding: '0 16px', border: '1px solid var(--linha)',
-                    borderRadius: 12, background: 'var(--pistache-suave)',
-                    color: 'var(--pistache)', fontWeight: 700, cursor: 'pointer', fontSize: 18,
-                  }}
+                  style={{ height: 44, padding: '0 16px', border: '1px solid var(--linha)', borderRadius: 12, background: 'var(--pistache-suave)', color: 'var(--pistache)', fontWeight: 700, cursor: 'pointer', fontSize: 18 }}
                 >
                   ＋
                 </button>
@@ -491,13 +558,7 @@ export function Acervo() {
               <button type="button" onClick={fecharForm} className="btn-secundario" style={{ flex: 1 }}>
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={aoEnviar}
-                disabled={enviando || !blobPronto}
-                className="cta"
-                style={{ flex: 2, height: 48 }}
-              >
+              <button type="button" onClick={aoEnviar} disabled={enviando || !blobPronto} className="cta" style={{ flex: 2, height: 48 }}>
                 {enviando ? 'Enviando…' : 'Guardar'}
               </button>
             </div>
@@ -505,7 +566,8 @@ export function Acervo() {
         )}
       </div>
 
-      {!formAberto && (
+      {/* CTA guardar (oculto em modo seleção) */}
+      {!formAberto && !modoSelecao && (
         <div className="cta-area">
           <button className="cta" onClick={() => setFormAberto(true)}>
             ＋ Guardar um trabalho
@@ -513,17 +575,107 @@ export function Acervo() {
         </div>
       )}
 
+      {/* Barra inferior do modo seleção */}
+      {modoSelecao && (
+        <div className="barra-selecao">
+          <span className="barra-selecao-conta">
+            {qtdMarcados} selecionada{qtdMarcados !== 1 ? 's' : ''}
+          </span>
+          <button
+            className="cta"
+            style={{ width: 'auto', flex: 1, marginLeft: 12, height: 48 }}
+            disabled={qtdMarcados === 0}
+            onClick={() => setFormSelecao(true)}
+          >
+            Criar link
+          </button>
+        </div>
+      )}
+
+      {/* Modal: dados da seleção + link gerado */}
+      {formSelecao && (
+        <div className="painel-overlay" onClick={() => !criandoLink && setFormSelecao(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            {linkPronto ? (
+              <>
+                <div className="form-acervo-titulo" style={{ textAlign: 'center' }}>
+                  Link pronto! 🎀
+                </div>
+                <p className="apoio" style={{ textAlign: 'center', marginBottom: 12 }}>
+                  {qtdMarcados} foto{qtdMarcados !== 1 ? 's' : ''} · vale por 30 dias
+                </p>
+                <div className="link-vitrine" style={{ wordBreak: 'break-all' }}>
+                  🔗 {linkPronto}
+                </div>
+                <button className="cta" style={{ marginTop: 14 }} onClick={enviarLink}>
+                  📤 Enviar pra cliente
+                </button>
+                <button
+                  className="btn-secundario"
+                  style={{ width: '100%', marginTop: 10, justifyContent: 'center' }}
+                  onClick={sairSelecao}
+                >
+                  Concluir
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="form-acervo-titulo">Montar a seleção</div>
+                <p className="apoio" style={{ marginBottom: 12 }}>
+                  {qtdMarcados} foto{qtdMarcados !== 1 ? 's' : ''} escolhida{qtdMarcados !== 1 ? 's' : ''}.
+                </p>
+                <div className="campo">
+                  <label>Título (a cliente vê)</label>
+                  <input
+                    value={tituloSel}
+                    onChange={(e) => setTituloSel(e.target.value)}
+                    placeholder="Ex.: Opções de bolo de menina"
+                    maxLength={60}
+                  />
+                </div>
+                <div className="campo">
+                  <label>Mensagem (opcional)</label>
+                  <input
+                    value={msgSel}
+                    onChange={(e) => setMsgSel(e.target.value)}
+                    placeholder="Ex.: Maria, separei essas ideias pra você 💕"
+                    maxLength={120}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn-secundario"
+                    style={{ flex: 1 }}
+                    onClick={() => setFormSelecao(false)}
+                    disabled={criandoLink}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    className="cta"
+                    style={{ flex: 2, height: 48 }}
+                    onClick={gerarLink}
+                    disabled={criandoLink}
+                  >
+                    {criandoLink ? 'Criando…' : 'Gerar link'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Recorte */}
       {arquivoBruto && (
-        <Recorte
-          arquivo={arquivoBruto}
-          onConfirmar={aoConfirmarRecorte}
-          onCancelar={() => setArquivoBruto(null)}
-        />
+        <Recorte arquivo={arquivoBruto} onConfirmar={aoConfirmarRecorte} onCancelar={() => setArquivoBruto(null)} />
       )}
 
       {/* Painel de detalhe/tags */}
-      {trabalhoAberto && (
+      {trabalhoAberto && !modoSelecao && (
         <PainelTrabalho
           trabalho={trabalhoAberto}
           todasTags={todasTags}
@@ -547,4 +699,3 @@ export function Acervo() {
     </div>
   )
 }
-
