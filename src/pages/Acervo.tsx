@@ -1,14 +1,17 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Confirmar } from '../components/Confirmar'
+import { Recorte } from '../components/Recorte'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
+import { recortarEComprimir, type AreaRecorte } from '../lib/imagem'
 
 const LIMITE_GRATIS = 150
 
 // ─────────────────────────────────────────────────────────
 // Painel de detalhe (bottom sheet) — abre ao tocar numa foto.
-// Concentra toda a edição de tags, longe da grade.
 // ─────────────────────────────────────────────────────────
 type PainelProps = {
   trabalho: Trabalho
@@ -29,7 +32,6 @@ function PainelTrabalho({
 }: PainelProps) {
   const [texto, setTexto] = useState('')
 
-  // Tags que ainda NÃO estão nesta foto (candidatas a adicionar)
   const disponiveis = todasTags.filter(
     (t) => !trabalho.tags.some((tg) => tg.id === t.id)
   )
@@ -43,7 +45,6 @@ function PainelTrabalho({
     await onAtribuirTag(trabalho.id, tagId)
     setTexto('')
   }
-
   async function criarEAdicionar() {
     if (!texto.trim()) return
     const tag = await onCriarTag(texto)
@@ -55,15 +56,11 @@ function PainelTrabalho({
     <div className="painel-overlay" onClick={onFechar}>
       <div className="painel" onClick={(e) => e.stopPropagation()}>
         <div className="painel-puxador" />
-        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar">
-          ✕
-        </button>
+        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar">✕</button>
 
         <img className="painel-foto" src={trabalho.url} alt={trabalho.descricao ?? ''} />
-
         {trabalho.descricao && <div className="painel-legenda">{trabalho.descricao}</div>}
 
-        {/* Tags que ESTÃO nesta foto — × remove desta foto */}
         <div className="painel-secao">Tags desta foto</div>
         {trabalho.tags.length > 0 ? (
           <div className="tags-area">
@@ -85,7 +82,6 @@ function PainelTrabalho({
           </p>
         )}
 
-        {/* Adicionar tag: campo + sugestões + criar nova */}
         <div className="painel-secao">Adicionar tag</div>
         <input
           className="painel-input"
@@ -101,16 +97,10 @@ function PainelTrabalho({
           placeholder="Digite para buscar ou criar…"
           autoCapitalize="none"
         />
-
         {(sugestoes.length > 0 || podeCriar) && (
           <div className="tags-area" style={{ paddingTop: 8 }}>
             {sugestoes.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className="tag-chip"
-                onClick={() => adicionar(t.id)}
-              >
+              <button key={t.id} type="button" className="tag-chip" onClick={() => adicionar(t.id)}>
                 + {t.nome}
               </button>
             ))}
@@ -132,11 +122,11 @@ function PainelTrabalho({
 type CartaoProps = {
   trabalho: Trabalho
   onAbrir: () => void
-  onRemover: () => void
+  onPedirRemover: () => void
   onAlternarVitrine: () => void
 }
 
-function CartaoTrabalho({ trabalho, onAbrir, onRemover, onAlternarVitrine }: CartaoProps) {
+function CartaoTrabalho({ trabalho, onAbrir, onPedirRemover, onAlternarVitrine }: CartaoProps) {
   return (
     <div className="foto-item">
       <div
@@ -149,26 +139,16 @@ function CartaoTrabalho({ trabalho, onAbrir, onRemover, onAlternarVitrine }: Car
         <img src={trabalho.url} alt={trabalho.descricao ?? ''} loading="lazy" />
         <button
           className={`foto-vitrine-btn${trabalho.na_vitrine ? ' ativa' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            onAlternarVitrine()
-          }}
+          onClick={(e) => { e.stopPropagation(); onAlternarVitrine() }}
           aria-label={trabalho.na_vitrine ? 'Remover da vitrine' : 'Adicionar à vitrine'}
-          title={
-            trabalho.na_vitrine
-              ? 'Na vitrine — toque para retirar'
-              : 'Toque para mostrar na vitrine'
-          }
+          title={trabalho.na_vitrine ? 'Na vitrine — toque para retirar' : 'Toque para mostrar na vitrine'}
         >
           🛍️
         </button>
         <button
           className="foto-remover"
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemover()
-          }}
-          aria-label="Remover foto"
+          onClick={(e) => { e.stopPropagation(); onPedirRemover() }}
+          aria-label="Apagar foto"
         >
           ✕
         </button>
@@ -196,7 +176,7 @@ export function Acervo() {
     todasTags,
     carregando,
     enviando,
-    adicionar,
+    adicionarBlob,
     remover,
     alternarVitrine,
     criarTag,
@@ -210,22 +190,25 @@ export function Acervo() {
   const [novaTagTexto, setNovaTagTexto] = useState('')
   const [busca, setBusca] = useState('')
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
-  const [arquivo, setArquivo] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [abertoId, setAbertoId] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  // Filtragem local — sem roundtrip ao banco
+  // Fluxo de adição: arquivo escolhido → recorte → blob pronto
+  const [arquivoBruto, setArquivoBruto] = useState<File | null>(null)
+  const [blobPronto, setBlobPronto] = useState<Blob | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  const [aApagar, setAApagar] = useState<Trabalho | null>(null)
+
+  const inputCamera = useRef<HTMLInputElement>(null)
+  const inputGaleria = useRef<HTMLInputElement>(null)
+
   const filtrados = trabalhos.filter((t) => {
     const okTexto = !busca || t.descricao?.toLowerCase().includes(busca.toLowerCase())
     const okTag = !tagFiltro || t.tags.some((tg) => tg.id === tagFiltro)
     return okTexto && okTag
   })
 
-  // O painel lê sempre o trabalho mais atual (tags mudam em tempo real)
-  const trabalhoAberto = abertoId
-    ? trabalhos.find((t) => t.id === abertoId) ?? null
-    : null
+  const trabalhoAberto = abertoId ? trabalhos.find((t) => t.id === abertoId) ?? null : null
 
   const total = trabalhos.length
   const pct = Math.min(100, Math.round((total / LIMITE_GRATIS) * 100))
@@ -235,14 +218,27 @@ export function Acervo() {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
-    setArquivo(f)
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewUrl(URL.createObjectURL(f))
+    setArquivoBruto(f)
+  }
+
+  async function aoConfirmarRecorte(area: AreaRecorte) {
+    if (!arquivoBruto) return
+    try {
+      const { blob } = await recortarEComprimir(arquivoBruto, area)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setBlobPronto(blob)
+      setPreviewUrl(URL.createObjectURL(blob))
+    } catch (e: unknown) {
+      avisar((e as Error)?.message ?? 'Não consegui processar a foto.')
+    } finally {
+      setArquivoBruto(null)
+    }
   }
 
   function fecharForm() {
     setFormAberto(false)
-    setArquivo(null)
+    setArquivoBruto(null)
+    setBlobPronto(null)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
     setDescricao('')
@@ -251,8 +247,8 @@ export function Acervo() {
   }
 
   async function aoEnviar() {
-    if (!arquivo) return avisar('Escolha uma foto primeiro')
-    const erro = await adicionar(arquivo, descricao, tagsSelecionadas)
+    if (!blobPronto) return avisar('Escolha uma foto primeiro')
+    const erro = await adicionarBlob(blobPronto, descricao, tagsSelecionadas)
     if (erro) avisar(erro)
     else {
       avisar('Trabalho guardado ✓')
@@ -274,9 +270,11 @@ export function Acervo() {
     setNovaTagTexto('')
   }
 
-  async function aoRemover(t: Trabalho) {
-    const erro = await remover(t)
-    avisar(erro ?? 'Foto removida')
+  async function confirmarApagar() {
+    if (!aApagar) return
+    const erro = await remover(aApagar)
+    avisar(erro ?? 'Foto apagada')
+    setAApagar(null)
   }
 
   async function aoAlternarVitrine(t: Trabalho) {
@@ -289,7 +287,10 @@ export function Acervo() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo="Meus trabalhos" />
+      <BarraTopo
+        titulo="Meus trabalhos"
+        acao={<Link to="/tags" className="btn-icone" aria-label="Minhas tags">🏷️</Link>}
+      />
       <div className="conteudo">
 
         {/* Contador + barra de progresso */}
@@ -301,10 +302,7 @@ export function Acervo() {
             </span>
           </div>
           <div className="contador-barra">
-            <div
-              className="contador-progresso"
-              style={{ width: `${pct}%`, background: corBarra }}
-            />
+            <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
           </div>
         </div>
 
@@ -320,10 +318,7 @@ export function Acervo() {
             <button
               type="button"
               onClick={() => setBusca('')}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--cacau-claro)', fontSize: 16, lineHeight: 1,
-              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', fontSize: 16, lineHeight: 1 }}
               aria-label="Limpar busca"
             >
               ✕
@@ -352,7 +347,7 @@ export function Acervo() {
           </div>
         )}
 
-        {/* Grade de trabalhos */}
+        {/* Grade */}
         {filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone">📸</div>
@@ -369,49 +364,67 @@ export function Acervo() {
                 key={t.id}
                 trabalho={t}
                 onAbrir={() => setAbertoId(t.id)}
-                onRemover={() => aoRemover(t)}
+                onPedirRemover={() => setAApagar(t)}
                 onAlternarVitrine={() => aoAlternarVitrine(t)}
               />
             ))}
           </div>
         )}
 
-        {/* Formulário de adição (inline, aparece ao clicar no CTA) */}
+        {/* Formulário de adição */}
         {formAberto && (
           <div className="form-acervo">
             <div className="form-acervo-titulo">Guardar um trabalho</div>
 
-            {/* Seletor de foto */}
+            {/* Inputs ocultos: câmera (capture) e galeria */}
             <input
-              ref={inputRef}
+              ref={inputCamera}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={aoEscolher}
+            />
+            <input
+              ref={inputGaleria}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               style={{ display: 'none' }}
               onChange={aoEscolher}
             />
-            <div
-              className="foto-seletor"
-              onClick={() => inputRef.current?.click()}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-              aria-label="Escolher foto"
-            >
-              {previewUrl ? (
+
+            {previewUrl ? (
+              <div className="foto-seletor" style={{ borderStyle: 'solid' }}>
                 <img
                   src={previewUrl}
-                  alt="Preview da foto selecionada"
+                  alt="Foto recortada"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }}
                 />
-              ) : (
-                <>
-                  <div style={{ fontSize: 36 }}>📷</div>
-                  <div className="foto-seletor-texto">Toque para escolher a foto</div>
-                </>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="seletor-origem">
+                <button type="button" className="origem-botao" onClick={() => inputCamera.current?.click()}>
+                  <span className="origem-emoji">📷</span>
+                  Tirar foto
+                </button>
+                <button type="button" className="origem-botao" onClick={() => inputGaleria.current?.click()}>
+                  <span className="origem-emoji">🖼️</span>
+                  Da galeria
+                </button>
+              </div>
+            )}
 
-            {/* Legenda */}
+            {previewUrl && (
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', marginTop: 10 }}
+                onClick={() => inputGaleria.current?.click()}
+              >
+                Trocar foto
+              </button>
+            )}
+
             <div className="campo" style={{ marginTop: 14 }}>
               <label>Legenda (opcional)</label>
               <input
@@ -422,7 +435,6 @@ export function Acervo() {
               />
             </div>
 
-            {/* Tags — aqui o verde = "vai entrar nesta foto ao guardar" */}
             <div className="campo">
               <label>Tags (toque para escolher)</label>
               {todasTags.length > 0 && (
@@ -471,20 +483,14 @@ export function Acervo() {
               </div>
             </div>
 
-            {/* Ações do form */}
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-              <button
-                type="button"
-                onClick={fecharForm}
-                className="btn-secundario"
-                style={{ flex: 1 }}
-              >
+              <button type="button" onClick={fecharForm} className="btn-secundario" style={{ flex: 1 }}>
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={aoEnviar}
-                disabled={enviando || !arquivo}
+                disabled={enviando || !blobPronto}
                 className="cta"
                 style={{ flex: 2, height: 48 }}
               >
@@ -503,7 +509,16 @@ export function Acervo() {
         </div>
       )}
 
-      {/* Painel de detalhe/tags — fora do fluxo da grade */}
+      {/* Recorte */}
+      {arquivoBruto && (
+        <Recorte
+          arquivo={arquivoBruto}
+          onConfirmar={aoConfirmarRecorte}
+          onCancelar={() => setArquivoBruto(null)}
+        />
+      )}
+
+      {/* Painel de detalhe/tags */}
       {trabalhoAberto && (
         <PainelTrabalho
           trabalho={trabalhoAberto}
@@ -512,6 +527,17 @@ export function Acervo() {
           onAtribuirTag={atribuirTag}
           onRemoverTag={removerTag}
           onCriarTag={criarTag}
+        />
+      )}
+
+      {/* Confirmação de exclusão */}
+      {aApagar && (
+        <Confirmar
+          titulo="Apagar esta foto?"
+          descricao="Esta ação não pode ser desfeita. A foto sai do acervo e da vitrine."
+          rotuloConfirmar="Apagar foto"
+          onConfirmar={confirmarApagar}
+          onCancelar={() => setAApagar(null)}
         />
       )}
     </div>
