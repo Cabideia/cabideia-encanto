@@ -333,3 +333,240 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   color: var(--cacau, #5b4636);
   background: #fff;
 }
+
+/* ============================================================
+   M-009 · ACERVO NA NUVEM
+   Novos componentes: cartão, vitrine-btn, tags, contador, form
+   ============================================================ */
+
+/* -- Cartão do acervo (diferente do .foto-item da vitrine) -- */
+/* Imagem com cantos superiores arredondados + botões sobrepostos */
+.acervo-img-wrap {
+  position: relative;
+  border-radius: 14px 14px 0 0;
+  overflow: hidden;
+  background: var(--linha);
+  border: 1px solid var(--linha);
+  border-bottom: none;
+}
+.acervo-img-wrap img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+/* Botão de toggle vitrine — canto superior esquerdo */
+.foto-vitrine-btn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.80);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  opacity: 0.55;
+  transition: opacity .15s, background .15s;
+}
+.foto-vitrine-btn.ativa {
+  background: var(--framboesa);
+  opacity: 1;
+  box-shadow: 0 2px 6px rgba(194, 71, 107, 0.35);
+}
+
+/* Rodapé do cartão: legenda + tags + adder (abaixo da imagem) */
+.acervo-rodape {
+  background: var(--acucar);
+  border: 1px solid var(--linha);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  overflow: visible;
+}
+
+/* -- Tags -- */
+.tags-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 8px 4px;
+}
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--raio-pill);
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--pistache-suave);
+  color: var(--pistache);
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Estado "selecionada" no formulário de adição */
+.tag-chip.selecionada {
+  background: var(--pistache);
+  color: #fff;
+}
+
+/* Botão "+ tag" no rodapé do cartão */
+.foto-add-tag {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  background: transparent;
+  color: var(--cacau-claro);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 0 0 14px 14px;
+}
+.foto-add-tag:active { background: var(--neutro-suave); }
+
+/* Dropdown de tag inline */
+.tag-adder {
+  padding: 8px;
+  background: var(--massa);
+  border-top: 1px solid var(--linha);
+  border-radius: 0 0 14px 14px;
+}
+.tag-adder input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  background: var(--acucar);
+  color: var(--cacau);
+  outline: none;
+}
+.tag-adder input:focus { border-color: var(--pistache); }
+.tag-sugestoes {
+  margin-top: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tag-sugestoes button {
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 12px;
+  background: var(--pistache-suave);
+  color: var(--pistache);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tag-criar {
+  margin-top: 5px;
+  display: block;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px dashed var(--pistache);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--pistache);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tag-cancelar {
+  display: block;
+  margin-top: 5px;
+  border: none;
+  background: none;
+  color: var(--cacau-claro);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+/* -- Contador de fotos (progresso vs. limite do plano) -- */
+.contador-acervo {
+  margin: 8px 0 4px;
+  padding: 12px 16px;
+  background: var(--acucar);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-card);
+  box-shadow: var(--sombra);
+}
+.contador-texto {
+  font-size: var(--t-apoio);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.contador-num {
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-card);
+  font-weight: 600;
+  color: var(--cacau);
+}
+.contador-desc {
+  color: var(--cacau-claro);
+}
+.contador-barra {
+  height: 5px;
+  background: var(--linha);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.contador-progresso {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .4s ease;
+}
+
+/* -- Formulário de adição de trabalho (inline) -- */
+.form-acervo {
+  margin-top: 16px;
+  padding: 20px 16px 24px;
+  background: var(--acucar);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-card);
+  box-shadow: var(--sombra);
+}
+.form-acervo-titulo {
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-card);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.foto-seletor {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 220px;
+  border: 2px dashed var(--framboesa);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--framboesa-suave);
+  overflow: hidden;
+}
+.foto-seletor:active { opacity: .85; }
+.foto-seletor-texto {
+  font-size: var(--t-apoio);
+  color: var(--framboesa);
+  font-weight: 700;
+  margin-top: 8px;
+}
+
