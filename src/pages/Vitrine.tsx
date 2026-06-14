@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
  * M-017 (herói) — gestão da vitrine.
  * Etapa 1: perfil. Etapa 2: fotos (adicionar com compressão / remover).
  * Etapa 4: publicar/despublicar vitrine pelo app.
+ * Etapa 5: compartilhar vitrine com selo viral.
  */
 type Perfil = {
   nome_negocio: string | null
@@ -75,6 +76,25 @@ export function Vitrine() {
     }
     setPerfil({ ...perfil, vitrine_publicada: novoValor })
     avisar(novoValor ? 'Vitrine publicada ✓' : 'Vitrine ocultada')
+  }
+
+  async function compartilhar() {
+    if (!perfil?.arroba) return
+    const url = `https://cabideia.com.br/encanto/@${perfil.arroba}`
+    const nome = perfil.nome_negocio ?? `@${perfil.arroba}`
+    const texto = `Veja os trabalhos de ${nome} ✨`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: nome, text: texto, url })
+      } catch {
+        // usuária cancelou — não faz nada
+      }
+    } else {
+      // fallback: copia o link
+      navigator.clipboard?.writeText(url)
+      avisar('Link copiado ✓')
+    }
   }
 
   if (carregando) return null
@@ -157,6 +177,27 @@ export function Vitrine() {
             {salvando ? '…' : publicada ? 'Ocultar' : 'Publicar'}
           </button>
         </div>
+
+        {/* Botão compartilhar — M-017 Etapa 5 (só aparece se publicada) */}
+        {publicada && temArroba && (
+          <button
+            onClick={compartilhar}
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: 16,
+              border: '2px solid var(--framboesa)',
+              background: 'transparent',
+              color: 'var(--framboesa)',
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: 'pointer',
+              marginBottom: 16,
+            }}
+          >
+            📤 Compartilhar vitrine
+          </button>
+        )}
 
         {/* Aviso se não tem arroba */}
         {!temArroba && (
