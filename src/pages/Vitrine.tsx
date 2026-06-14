@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 /**
  * M-017 (herói) — gestão da vitrine.
  * Etapa 1: perfil. Etapa 2: fotos (adicionar com compressão / remover).
+ * Etapa 4: publicar/despublicar vitrine pelo app.
  */
 type Perfil = {
   nome_negocio: string | null
@@ -21,6 +22,7 @@ export function Vitrine() {
   const avisar = useAviso()
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [carregando, setCarregando] = useState(true)
+  const [salvando, setSalvando] = useState(false)
   const inputFoto = useRef<HTMLInputElement>(null)
   const [legenda, setLegenda] = useState('')
 
@@ -41,7 +43,7 @@ export function Vitrine() {
 
   async function aoEscolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0]
-    e.target.value = '' // permite reescolher a mesma foto depois
+    e.target.value = ''
     if (!arquivo) return
     const erro = await adicionar(arquivo, legenda)
     if (erro) avisar(erro)
@@ -58,10 +60,28 @@ export function Vitrine() {
     avisar(erro ?? 'Foto removida')
   }
 
+  async function alternarPublicacao() {
+    if (!sessao || !perfil || salvando) return
+    const novoValor = !perfil.vitrine_publicada
+    setSalvando(true)
+    const { error } = await supabase
+      .from('perfis')
+      .update({ vitrine_publicada: novoValor })
+      .eq('id', sessao.user.id)
+    setSalvando(false)
+    if (error) {
+      avisar('Erro ao salvar. Tente novamente.')
+      return
+    }
+    setPerfil({ ...perfil, vitrine_publicada: novoValor })
+    avisar(novoValor ? 'Vitrine publicada ✓' : 'Vitrine ocultada')
+  }
+
   if (carregando) return null
 
   const temArroba = !!perfil?.arroba
   const link = temArroba ? `cabideia.com.br/encanto/@${perfil!.arroba}` : ''
+  const publicada = perfil?.vitrine_publicada ?? false
 
   return (
     <div className="tela">
@@ -93,8 +113,60 @@ export function Vitrine() {
           </div>
         </div>
 
+        {/* Toggle publicar/despublicar — M-017 Etapa 4 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            margin: '16px 0',
+            padding: '14px 16px',
+            background: 'var(--branco)',
+            borderRadius: 16,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>
+              {publicada ? '🟢 Vitrine publicada' : '⚫ Vitrine oculta'}
+            </div>
+            <div className="apoio" style={{ marginTop: 2 }}>
+              {publicada
+                ? 'Clientes podem ver sua vitrine'
+                : 'Só você vê. Publique quando estiver pronta.'}
+            </div>
+          </div>
+          <button
+            onClick={alternarPublicacao}
+            disabled={salvando || !temArroba}
+            style={{
+              flexShrink: 0,
+              marginLeft: 12,
+              padding: '8px 18px',
+              borderRadius: 20,
+              border: 'none',
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: salvando || !temArroba ? 'not-allowed' : 'pointer',
+              background: publicada ? 'var(--cinza-claro, #eee)' : 'var(--framboesa)',
+              color: publicada ? 'var(--texto)' : '#fff',
+              opacity: salvando ? 0.6 : 1,
+              transition: 'all 0.2s',
+            }}
+          >
+            {salvando ? '…' : publicada ? 'Ocultar' : 'Publicar'}
+          </button>
+        </div>
+
+        {/* Aviso se não tem arroba */}
+        {!temArroba && (
+          <p className="apoio" style={{ textAlign: 'center', marginBottom: 8 }}>
+            Complete seu perfil para poder publicar a vitrine.
+          </p>
+        )}
+
         {/* Bloco editar perfil */}
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 8 }}>
           <Link to="/perfil" className="bloco">
             <div className="emoji" aria-hidden>📝</div>
             <div className="texto">
@@ -157,10 +229,6 @@ export function Vitrine() {
             ))}
           </div>
         )}
-
-        <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
-          Em breve: publicar/despublicar sua vitrine pelo app.
-        </p>
       </div>
     </div>
   )
