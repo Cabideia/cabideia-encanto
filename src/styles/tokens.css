@@ -290,3 +290,46 @@ body{
 button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.card-toque:focus-visible{
   outline:3px solid var(--framboesa);outline-offset:2px;
 }
+
+/* ---------- M-017 Etapa 2: grade de fotos da vitrine ---------- */
+.grade-fotos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.foto-item {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--creme, #fff6f1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.foto-item img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+.foto-remover {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.foto-legenda {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--cacau, #5b4636);
+  background: #fff;
+}
