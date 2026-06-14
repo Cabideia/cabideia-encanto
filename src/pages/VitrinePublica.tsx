@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 /**
  * M-017 · Etapa 3 — Vitrine pública (cabideia.com.br/encanto/@usuaria).
  *
- * Rota SEM login: é o que a cliente final vê. Lê do banco apenas perfis com
- * vitrine_publicada = true (a política RLS vitrine_perfil_publico garante isso;
- * perfis não publicados simplesmente não retornam).
+ * Rota SEM login. Lê perfis publicados e fotos na vitrine (RLS garante).
+ * Ponto 2: as tags das fotos publicadas viram filtros para a cliente navegar
+ * (ex.: "Natal", "infantil"). Só aparecem tags de fotos que estão na vitrine —
+ * garantido pelas políticas vitrine_tags_publicas / vitrine_trabalho_tags_publicos.
  */
 type PerfilPublico = {
   id: string
@@ -19,6 +20,13 @@ type PerfilPublico = {
   logo_path: string | null
 }
 
+type FotoPublica = {
+  id: string
+  url: string
+  descricao: string | null
+  tags: { id: string; nome: string }[]
+}
+
 const MSG_WHATSAPP = 'Olá! Vi seus trabalhos e gostaria de um orçamento'
 
 export function VitrinePublica() {
@@ -26,8 +34,9 @@ export function VitrinePublica() {
   const usuaria = (arroba ?? '').replace(/^@/, '')
 
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null)
-  const [fotos, setFotos] = useState<{ id: string; url: string; descricao: string | null }[]>([])
+  const [fotos, setFotos] = useState<FotoPublica[]>([])
   const [carregando, setCarregando] = useState(true)
+  const [tagFiltro, setTagFiltro] = useState<string | null>(null)
 
   useEffect(() => {
     if (!usuaria) {
@@ -39,7 +48,7 @@ export function VitrinePublica() {
         .from('perfis')
         .select('id, nome_negocio, bio, cidade, nicho, whatsapp, logo_path')
         .eq('arroba', usuaria)
-        .eq('vitrine_publicada', true) // só publicadas (reforça a RLS)
+        .eq('vitrine_publicada', true)
         .maybeSingle()
 
       setPerfil(p)
@@ -47,19 +56,21 @@ export function VitrinePublica() {
       if (p) {
         const { data: t } = await supabase
           .from('trabalhos')
-          .select('id, foto_publica_path, descricao')
+          .select('id, foto_publica_path, descricao, trabalho_tags(tags(id, nome))')
           .eq('usuaria_id', (p as any).id)
           .eq('na_vitrine', true)
           .order('criado_em', { ascending: false })
 
         setFotos(
           (t ?? [])
-            .filter((x) => x.foto_publica_path)
-            .map((x) => ({
+            .filter((x: any) => x.foto_publica_path)
+            .map((x: any) => ({
               id: x.id,
               descricao: x.descricao,
-              url: supabase.storage.from('publico').getPublicUrl(x.foto_publica_path as string)
-                .data.publicUrl
+              url: supabase.storage.from('publico').getPublicUrl(x.foto_publica_path).data.publicUrl,
+              tags: (x.trabalho_tags ?? [])
+                .filter((wt: any) => wt.tags)
+                .map((wt: any) => ({ id: wt.tags.id, nome: wt.tags.nome })),
             }))
         )
       }
@@ -68,11 +79,23 @@ export function VitrinePublica() {
     carregar()
   }, [usuaria])
 
-  // Monta o link do WhatsApp (só dígitos; assume Brasil se vier sem 55).
+  // Tags presentes nas fotos publicadas (únicas), para a barra de filtro.
+  const tagsDisponiveis = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const f of fotos) for (const t of f.tags) mapa.set(t.id, t.nome)
+    return Array.from(mapa, ([id, nome]) => ({ id, nome })).sort((a, b) =>
+      a.nome.localeCompare(b.nome)
+    )
+  }, [fotos])
+
+  const fotosFiltradas = tagFiltro
+    ? fotos.filter((f) => f.tags.some((t) => t.id === tagFiltro))
+    : fotos
+
   function abrirWhatsApp() {
     if (!perfil?.whatsapp) return
     let num = perfil.whatsapp.replace(/\D/g, '')
-    if (num.length <= 11) num = '55' + num // adiciona DDI Brasil se faltar
+    if (num.length <= 11) num = '55' + num
     const texto = encodeURIComponent(MSG_WHATSAPP)
     window.open(`https://wa.me/${num}?text=${texto}`, '_blank')
   }
@@ -87,7 +110,6 @@ export function VitrinePublica() {
     )
   }
 
-  // Vitrine não encontrada ou não publicada.
   if (!perfil) {
     return (
       <div className="tela">
@@ -105,7 +127,6 @@ export function VitrinePublica() {
     )
   }
 
-  // URL pública da logo (bucket 'publico'), se houver.
   const logoUrl = perfil.logo_path
     ? supabase.storage.from('publico').getPublicUrl(perfil.logo_path).data.publicUrl
     : null
@@ -137,15 +158,40 @@ export function VitrinePublica() {
           </div>
         </div>
 
-        {fotos.length > 0 && (
+        {/* Filtro por tag (só aparece se houver tags nas fotos publicadas) */}
+        {tagsDisponiveis.length > 0 && (
+          <div className="filtros">
+            <button
+              className={`filtro${!tagFiltro ? ' ativo' : ''}`}
+              onClick={() => setTagFiltro(null)}
+            >
+              Tudo
+            </button>
+            {tagsDisponiveis.map((tag) => (
+              <button
+                key={tag.id}
+                className={`filtro${tagFiltro === tag.id ? ' ativo' : ''}`}
+                onClick={() => setTagFiltro(tagFiltro === tag.id ? null : tag.id)}
+              >
+                {tag.nome}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {fotosFiltradas.length > 0 ? (
           <div className="grade-fotos" style={{ marginTop: 16 }}>
-            {fotos.map((f) => (
+            {fotosFiltradas.map((f) => (
               <div key={f.id} className="foto-item">
                 <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
                 {f.descricao && <div className="foto-legenda">{f.descricao}</div>}
               </div>
             ))}
           </div>
+        ) : (
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
+            {tagFiltro ? 'Nenhuma foto nesta categoria.' : 'Vitrine ainda sem fotos.'}
+          </p>
         )}
 
         <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
