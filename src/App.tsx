@@ -4,6 +4,7 @@ import { useSessao } from './hooks/useSessao'
 import { Entrar } from './pages/Entrar'
 import { Home } from './pages/Home'
 import { Acervo } from './pages/Acervo'
+import { MinhasTags } from './pages/MinhasTags'
 import { Vitrine } from './pages/Vitrine'
 import { VitrinePublica } from './pages/VitrinePublica'
 import { Pedidos } from './pages/Pedidos'
@@ -43,6 +44,7 @@ export function App() {
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/" element={<Privada><Home /></Privada>} />
           <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
+          <Route path="/tags" element={<Privada><MinhasTags /></Privada>} />
           <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />
           <Route path="/perfil" element={<Privada><Perfil /></Privada>} />
           <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
