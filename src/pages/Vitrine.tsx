@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
-import { useFotosVitrine } from '../hooks/useFotosVitrine'
 import { supabase } from '../lib/supabase'
 
 /**
  * M-017 (herói) — gestão da vitrine.
- * Etapa 1: perfil. Etapa 2: fotos (adicionar com compressão / remover).
- * Etapa 4: publicar/despublicar vitrine pelo app.
- * Etapa 5: compartilhar vitrine com selo viral.
+ *
+ * Caminho único de fotos (decisão de produto): a usuária NÃO sobe fotos aqui.
+ * Toda foto entra em "Meus trabalhos" (acervo) e é marcada para a vitrine pelo
+ * botão 🛍️. Esta tela cuida só de: publicar/ocultar, link e compartilhar.
  */
 type Perfil = {
   nome_negocio: string | null
@@ -24,42 +24,30 @@ export function Vitrine() {
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
-  const inputFoto = useRef<HTMLInputElement>(null)
-  const [legenda, setLegenda] = useState('')
-
-  const { fotos, enviando, adicionar, remover } = useFotosVitrine(sessao?.user.id)
+  const [qtdNaVitrine, setQtdNaVitrine] = useState<number>(0)
 
   useEffect(() => {
     if (!sessao) return
-    supabase
-      .from('perfis')
-      .select('nome_negocio, arroba, vitrine_publicada')
-      .eq('id', sessao.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setPerfil(data)
-        setCarregando(false)
-      })
-  }, [sessao])
+    async function carregar() {
+      const { data } = await supabase
+        .from('perfis')
+        .select('nome_negocio, arroba, vitrine_publicada')
+        .eq('id', sessao!.user.id)
+        .maybeSingle()
+      setPerfil(data)
 
-  async function aoEscolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const arquivo = e.target.files?.[0]
-    e.target.value = ''
-    if (!arquivo) return
-    const erro = await adicionar(arquivo, legenda)
-    if (erro) avisar(erro)
-    else {
-      avisar('Foto adicionada ✓')
-      setLegenda('')
+      // Conta quantas fotos estão marcadas para a vitrine (informativo)
+      const { count } = await supabase
+        .from('trabalhos')
+        .select('id', { count: 'exact', head: true })
+        .eq('usuaria_id', sessao!.user.id)
+        .eq('na_vitrine', true)
+      setQtdNaVitrine(count ?? 0)
+
+      setCarregando(false)
     }
-  }
-
-  async function aoRemover(id: string) {
-    const foto = fotos.find((f) => f.id === id)
-    if (!foto) return
-    const erro = await remover(foto)
-    avisar(erro ?? 'Foto removida')
-  }
+    carregar()
+  }, [sessao])
 
   async function alternarPublicacao() {
     if (!sessao || !perfil || salvando) return
@@ -83,15 +71,13 @@ export function Vitrine() {
     const url = `https://cabideia.com.br/encanto/@${perfil.arroba}`
     const nome = perfil.nome_negocio ?? `@${perfil.arroba}`
     const texto = `Veja os trabalhos de ${nome} ✨`
-
     if (navigator.share) {
       try {
         await navigator.share({ title: nome, text: texto, url })
       } catch {
-        // usuária cancelou — não faz nada
+        /* usuária cancelou */
       }
     } else {
-      // fallback: copia o link
       navigator.clipboard?.writeText(url)
       avisar('Link copiado ✓')
     }
@@ -133,17 +119,12 @@ export function Vitrine() {
           </div>
         </div>
 
-        {/* Toggle publicar/despublicar — M-017 Etapa 4 */}
+        {/* Toggle publicar/despublicar */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            margin: '16px 0',
-            padding: '14px 16px',
-            background: 'var(--branco)',
-            borderRadius: 16,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            margin: '16px 0', padding: '14px 16px', background: 'var(--acucar)',
+            borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
           }}
         >
           <div>
@@ -151,124 +132,95 @@ export function Vitrine() {
               {publicada ? '🟢 Vitrine publicada' : '⚫ Vitrine oculta'}
             </div>
             <div className="apoio" style={{ marginTop: 2 }}>
-              {publicada
-                ? 'Clientes podem ver sua vitrine'
-                : 'Só você vê. Publique quando estiver pronta.'}
+              {publicada ? 'Clientes podem ver sua vitrine' : 'Só você vê. Publique quando estiver pronta.'}
             </div>
           </div>
           <button
             onClick={alternarPublicacao}
             disabled={salvando || !temArroba}
             style={{
-              flexShrink: 0,
-              marginLeft: 12,
-              padding: '8px 18px',
-              borderRadius: 20,
-              border: 'none',
-              fontWeight: 600,
-              fontSize: 14,
+              flexShrink: 0, marginLeft: 12, padding: '8px 18px', borderRadius: 20,
+              border: 'none', fontWeight: 600, fontSize: 14,
               cursor: salvando || !temArroba ? 'not-allowed' : 'pointer',
-              background: publicada ? 'var(--cinza-claro, #eee)' : 'var(--framboesa)',
-              color: publicada ? 'var(--texto)' : '#fff',
-              opacity: salvando ? 0.6 : 1,
-              transition: 'all 0.2s',
+              background: publicada ? 'var(--neutro-suave)' : 'var(--framboesa)',
+              color: publicada ? 'var(--cacau)' : '#fff',
+              opacity: salvando ? 0.6 : 1, transition: 'all 0.2s',
             }}
           >
             {salvando ? '…' : publicada ? 'Ocultar' : 'Publicar'}
           </button>
         </div>
 
-        {/* Botão compartilhar — M-017 Etapa 5 (só aparece se publicada) */}
+        {/* Compartilhar (só se publicada) */}
         {publicada && temArroba && (
           <button
             onClick={compartilhar}
             style={{
-              width: '100%',
-              padding: '14px',
-              borderRadius: 16,
-              border: '2px solid var(--framboesa)',
-              background: 'transparent',
-              color: 'var(--framboesa)',
-              fontWeight: 600,
-              fontSize: 15,
-              cursor: 'pointer',
-              marginBottom: 16,
+              width: '100%', padding: '14px', borderRadius: 16,
+              border: '2px solid var(--framboesa)', background: 'transparent',
+              color: 'var(--framboesa)', fontWeight: 600, fontSize: 15,
+              cursor: 'pointer', marginBottom: 16,
             }}
           >
             📤 Compartilhar vitrine
           </button>
         )}
 
-        {/* Aviso se não tem arroba */}
         {!temArroba && (
           <p className="apoio" style={{ textAlign: 'center', marginBottom: 8 }}>
             Complete seu perfil para poder publicar a vitrine.
           </p>
         )}
 
-        {/* Bloco editar perfil */}
-        <div style={{ marginTop: 8 }}>
-          <Link to="/perfil" className="bloco">
-            <div className="emoji" aria-hidden>📝</div>
-            <div className="texto">
-              <div className="nome">{temArroba ? 'Editar perfil' : 'Completar perfil'}</div>
-              <div className="conta">nome, @, WhatsApp, bio e nicho</div>
+        {/* Editar perfil */}
+        <Link to="/perfil" className="bloco" style={{ marginTop: 8 }}>
+          <div className="emoji" aria-hidden>📝</div>
+          <div className="texto">
+            <div className="nome">{temArroba ? 'Editar perfil' : 'Completar perfil'}</div>
+            <div className="conta">nome, @, WhatsApp, bio e nicho</div>
+          </div>
+          <span aria-hidden>›</span>
+        </Link>
+
+        {/* Origem das fotos: o acervo. Caminho único. */}
+        <div className="card" style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="emoji" aria-hidden style={{ width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'var(--framboesa-suave)' }}>
+              🛍️
             </div>
-            <span aria-hidden>›</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--t-base)' }}>
+                {qtdNaVitrine > 0
+                  ? `${qtdNaVitrine} foto${qtdNaVitrine !== 1 ? 's' : ''} na vitrine`
+                  : 'Nenhuma foto na vitrine ainda'}
+              </div>
+              <div className="apoio" style={{ marginTop: 2 }}>
+                As fotos da vitrine vêm dos seus trabalhos. Em “Meus trabalhos”,
+                toque no 🛍️ da foto para mostrá-la aqui.
+              </div>
+            </div>
+          </div>
+          <Link
+            to="/acervo"
+            className="btn-secundario"
+            style={{ width: '100%', marginTop: 14, justifyContent: 'center' }}
+          >
+            Ir para Meus trabalhos
           </Link>
         </div>
 
-        {/* Fotos da vitrine */}
-        <h3 style={{ margin: '22px 0 10px', fontSize: 16 }}>
-          Fotos da vitrine {fotos.length > 0 && `(${fotos.length})`}
-        </h3>
-
-        <div className="campo">
-          <label>Legenda da próxima foto (opcional)</label>
-          <input
-            value={legenda}
-            onChange={(e) => setLegenda(e.target.value)}
-            placeholder="Ex.: Bolo de casamento 3 andares"
-            maxLength={80}
-          />
-        </div>
-
-        <input
-          ref={inputFoto}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          style={{ display: 'none' }}
-          onChange={aoEscolherFoto}
-        />
-        <button
-          className="cta"
-          style={{ marginBottom: 16 }}
-          onClick={() => inputFoto.current?.click()}
-          disabled={enviando}
-        >
-          {enviando ? 'Enviando…' : '+ Adicionar foto'}
-        </button>
-
-        {fotos.length === 0 ? (
-          <p className="apoio" style={{ textAlign: 'center' }}>
-            Nenhuma foto ainda. Adicione seus trabalhos para encantar clientes. 🍓
+        {temArroba && publicada && (
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
+            👀 Veja como a cliente vê:{' '}
+            <a
+              href={`https://${link}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--framboesa)', fontWeight: 700 }}
+            >
+              abrir minha vitrine
+            </a>
           </p>
-        ) : (
-          <div className="grade-fotos">
-            {fotos.map((f) => (
-              <div key={f.id} className="foto-item">
-                <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
-                <button
-                  className="foto-remover"
-                  onClick={() => aoRemover(f.id)}
-                  aria-label="Remover foto"
-                >
-                  ✕
-                </button>
-                {f.descricao && <div className="foto-legenda">{f.descricao}</div>}
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>
