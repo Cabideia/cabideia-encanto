@@ -76,6 +76,7 @@ body{
   text-decoration:none;
 }
 .cta:active{background:var(--framboesa-escura)}
+.cta:disabled{opacity:.55;cursor:not-allowed}
 .btn-secundario{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
   height:42px;padding:0 18px;border-radius:var(--raio-pill);cursor:pointer;
@@ -338,254 +339,169 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
    M-009 · ACERVO NA NUVEM
    Card limpo + selo de tags · edição via painel (bottom sheet)
    ============================================================ */
-
-/* -- Card do acervo: imagem clicável + botões sobrepostos -- */
-.acervo-img-wrap {
-  position: relative;
-  cursor: pointer;
-}
+.acervo-img-wrap { position: relative; cursor: pointer; }
 .acervo-img-wrap img {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  display: block;
+  width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block;
 }
-
-/* Botão de toggle vitrine — canto superior esquerdo */
 .foto-vitrine-btn {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.80);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  opacity: 0.55;
-  transition: opacity .15s, background .15s;
+  position: absolute; top: 6px; left: 6px; width: 28px; height: 28px;
+  border-radius: 50%; border: none; background: rgba(255,255,255,.80);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; opacity: .55; transition: opacity .15s, background .15s;
 }
 .foto-vitrine-btn.ativa {
-  background: var(--framboesa);
-  opacity: 1;
-  box-shadow: 0 2px 6px rgba(194, 71, 107, 0.35);
+  background: var(--framboesa); opacity: 1; box-shadow: 0 2px 6px rgba(194,71,107,.35);
 }
-
-/* Selo discreto de tags no rodapé do card (abre o painel) */
 .acervo-selo-tags {
-  display: block;
-  width: 100%;
-  padding: 6px 8px;
-  border: none;
-  background: var(--acucar);
-  color: var(--cacau-claro);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
+  display: block; width: 100%; padding: 6px 8px; border: none;
+  background: var(--acucar); color: var(--cacau-claro); font: inherit;
+  font-size: 11px; font-weight: 700; text-align: left; cursor: pointer;
 }
 .acervo-selo-tags:active { background: var(--neutro-suave); }
 
-/* -- Tags (chip reutilizado no painel e no formulário) -- */
-.tags-area {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 0;
-}
+/* -- Tags (chip reutilizado no painel, no formulário e nos sugeridos) -- */
+.tags-area { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
 .tag-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: var(--raio-pill);
-  border: 1px solid var(--linha);
-  font: inherit;
-  font-size: var(--t-apoio);
-  font-weight: 700;
-  background: var(--acucar);
-  color: var(--cacau-claro);
-  cursor: pointer;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; height: 28px; padding: 0 12px;
+  border-radius: var(--raio-pill); border: 1px solid var(--linha); font: inherit;
+  font-size: var(--t-apoio); font-weight: 700; background: var(--acucar);
+  color: var(--cacau-claro); cursor: pointer; white-space: nowrap;
 }
-/* No painel: tag já aplicada nesta foto (verde cheio, × = remover) */
-.tag-chip.aplicada {
-  background: var(--pistache);
-  border-color: var(--pistache);
-  color: #fff;
-}
-/* No formulário de adição: tag marcada para entrar (verde cheio, ✓) */
-.tag-chip.selecionada {
-  background: var(--pistache);
-  border-color: var(--pistache);
-  color: #fff;
-}
+.tag-chip.aplicada { background: var(--pistache); border-color: var(--pistache); color: #fff; }
+.tag-chip.selecionada { background: var(--pistache); border-color: var(--pistache); color: #fff; }
 .tag-criar {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border: 1px dashed var(--pistache);
-  border-radius: var(--raio-pill);
-  background: transparent;
-  color: var(--pistache);
-  font: inherit;
-  font-size: var(--t-apoio);
-  font-weight: 700;
-  cursor: pointer;
+  display: inline-flex; align-items: center; height: 28px; padding: 0 12px;
+  border: 1px dashed var(--pistache); border-radius: var(--raio-pill);
+  background: transparent; color: var(--pistache); font: inherit;
+  font-size: var(--t-apoio); font-weight: 700; cursor: pointer;
 }
 
-/* -- Contador de fotos (progresso vs. limite do plano) -- */
+/* -- Contador de fotos -- */
 .contador-acervo {
-  margin: 8px 0 4px;
-  padding: 12px 16px;
-  background: var(--acucar);
-  border: 1px solid var(--linha);
-  border-radius: var(--raio-card);
-  box-shadow: var(--sombra);
+  margin: 8px 0 4px; padding: 12px 16px; background: var(--acucar);
+  border: 1px solid var(--linha); border-radius: var(--raio-card); box-shadow: var(--sombra);
 }
-.contador-texto {
-  font-size: var(--t-apoio);
-  margin-bottom: 8px;
-  line-height: 1.3;
-}
-.contador-num {
-  font-family: var(--fonte-titulo);
-  font-size: var(--t-card);
-  font-weight: 600;
-  color: var(--cacau);
-}
+.contador-texto { font-size: var(--t-apoio); margin-bottom: 8px; line-height: 1.3; }
+.contador-num { font-family: var(--fonte-titulo); font-size: var(--t-card); font-weight: 600; color: var(--cacau); }
 .contador-desc { color: var(--cacau-claro); }
-.contador-barra {
-  height: 5px;
-  background: var(--linha);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.contador-progresso {
-  height: 100%;
-  border-radius: 3px;
-  transition: width .4s ease;
-}
+.contador-barra { height: 5px; background: var(--linha); border-radius: 3px; overflow: hidden; }
+.contador-progresso { height: 100%; border-radius: 3px; transition: width .4s ease; }
 
-/* -- Formulário de adição de trabalho (inline) -- */
+/* -- Formulário de adição -- */
 .form-acervo {
-  margin-top: 16px;
-  padding: 20px 16px 24px;
-  background: var(--acucar);
-  border: 1px solid var(--linha);
-  border-radius: var(--raio-card);
-  box-shadow: var(--sombra);
+  margin-top: 16px; padding: 20px 16px 24px; background: var(--acucar);
+  border: 1px solid var(--linha); border-radius: var(--raio-card); box-shadow: var(--sombra);
 }
 .form-acervo-titulo {
-  font-family: var(--fonte-titulo);
-  font-size: var(--t-card);
-  font-weight: 600;
-  margin-bottom: 14px;
+  font-family: var(--fonte-titulo); font-size: var(--t-card); font-weight: 600; margin-bottom: 14px;
 }
 .foto-seletor {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  max-height: 220px;
-  border: 2px dashed var(--framboesa);
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  background: var(--framboesa-suave);
-  overflow: hidden;
+  width: 100%; aspect-ratio: 4 / 3; max-height: 220px;
+  border: 2px dashed var(--framboesa); border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; background: var(--framboesa-suave); overflow: hidden;
 }
 .foto-seletor:active { opacity: .85; }
-.foto-seletor-texto {
-  font-size: var(--t-apoio);
-  color: var(--framboesa);
-  font-weight: 700;
-  margin-top: 8px;
-}
+.foto-seletor-texto { font-size: var(--t-apoio); color: var(--framboesa); font-weight: 700; margin-top: 8px; }
 
-/* -- Painel de detalhe (bottom sheet) — abre ao tocar na foto -- */
+/* -- Seletor de origem: Tirar foto × Da galeria -- */
+.seletor-origem { display: flex; gap: 10px; }
+.origem-botao {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; min-height: 110px; border: 2px dashed var(--framboesa); border-radius: 14px;
+  background: var(--framboesa-suave); color: var(--framboesa); cursor: pointer;
+  font: inherit; font-size: var(--t-base); font-weight: 800;
+}
+.origem-botao:active { opacity: .85; }
+.origem-emoji { font-size: 30px; }
+
+/* -- Painel de detalhe (bottom sheet) -- */
 .painel-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  background: rgba(67, 48, 43, 0.45);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  position: fixed; inset: 0; z-index: 70; background: rgba(67,48,43,.45);
+  display: flex; align-items: flex-end; justify-content: center;
 }
 .painel {
-  width: 100%;
-  max-width: 420px;
-  max-height: 88dvh;
-  overflow-y: auto;
-  background: var(--massa);
-  border-radius: 22px 22px 0 0;
-  padding: 10px 16px 28px;
-  position: relative;
-  box-shadow: 0 -4px 24px rgba(67, 48, 43, 0.18);
+  width: 100%; max-width: 420px; max-height: 88dvh; overflow-y: auto;
+  background: var(--massa); border-radius: 22px 22px 0 0; padding: 10px 16px 28px;
+  position: relative; box-shadow: 0 -4px 24px rgba(67,48,43,.18);
 }
 @media (prefers-reduced-motion: no-preference) {
   .painel { animation: sobe .26s cubic-bezier(.2,.8,.2,1); }
   @keyframes sobe { from { transform: translateY(100%); } to { transform: none; } }
 }
-.painel-puxador {
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--linha);
-  margin: 0 auto 12px;
-}
+.painel-puxador { width: 40px; height: 4px; border-radius: 2px; background: var(--linha); margin: 0 auto 12px; }
 .painel-fechar {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: none;
-  background: var(--neutro-suave);
-  color: var(--cacau);
-  font-size: 15px;
-  cursor: pointer;
+  position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: var(--neutro-suave); color: var(--cacau); font-size: 15px; cursor: pointer;
 }
-.painel-foto {
-  width: 100%;
-  max-height: 240px;
-  object-fit: cover;
-  border-radius: 14px;
-  display: block;
-}
-.painel-legenda {
-  margin-top: 12px;
-  font-size: var(--t-base);
-  font-weight: 700;
-  color: var(--cacau);
-}
+.painel-foto { width: 100%; max-height: 240px; object-fit: cover; border-radius: 14px; display: block; }
+.painel-legenda { margin-top: 12px; font-size: var(--t-base); font-weight: 700; color: var(--cacau); }
 .painel-secao {
-  margin: 18px 0 8px;
-  font-size: var(--t-apoio);
-  font-weight: 800;
-  color: var(--cacau-claro);
-  text-transform: uppercase;
-  letter-spacing: .4px;
+  margin: 18px 0 8px; font-size: var(--t-apoio); font-weight: 800; color: var(--cacau-claro);
+  text-transform: uppercase; letter-spacing: .4px;
 }
 .painel-input {
-  width: 100%;
-  min-height: 48px;
-  padding: 12px 16px;
-  border: 1px solid var(--linha);
-  border-radius: 14px;
-  font: inherit;
-  font-size: var(--t-base);
-  background: var(--acucar);
-  color: var(--cacau);
-  outline: none;
+  width: 100%; min-height: 48px; padding: 12px 16px; border: 1px solid var(--linha);
+  border-radius: 14px; font: inherit; font-size: var(--t-base);
+  background: var(--acucar); color: var(--cacau); outline: none;
 }
 .painel-input:focus { border-color: var(--pistache); }
+
+/* ============================================================
+   RECORTE DE IMAGEM (M-009 · refino)
+   ============================================================ */
+.recorte-overlay {
+  position: fixed; inset: 0; z-index: 80; background: rgba(67,48,43,.55);
+  display: flex; align-items: center; justify-content: center; padding: 12px;
+}
+.recorte-caixa {
+  width: 100%; max-width: 400px; max-height: 92dvh; overflow-y: auto;
+  background: var(--massa); border-radius: 20px; padding: 16px;
+  box-shadow: 0 8px 30px rgba(67,48,43,.28);
+}
+.recorte-titulo {
+  font-family: var(--fonte-titulo); font-size: var(--t-card); font-weight: 600;
+  text-align: center; margin-bottom: 12px;
+}
+.recorte-palco { width: 100%; display: flex; justify-content: center; }
+.recorte-canvas-wrap { position: relative; line-height: 0; touch-action: none; }
+.recorte-canvas { display: block; border-radius: 10px; max-width: 100%; background: #000; }
+.recorte-moldura {
+  position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.42);
+  cursor: move; touch-action: none;
+}
+.recorte-canto {
+  position: absolute; width: 22px; height: 22px; background: var(--framboesa);
+  border: 2px solid #fff; border-radius: 50%; touch-action: none;
+}
+.recorte-canto.nw { left: -11px; top: -11px; cursor: nwse-resize; }
+.recorte-canto.ne { right: -11px; top: -11px; cursor: nesw-resize; }
+.recorte-canto.sw { left: -11px; bottom: -11px; cursor: nesw-resize; }
+.recorte-canto.se { right: -11px; bottom: -11px; cursor: nwse-resize; }
+.recorte-controles { margin-top: 12px; }
+.recorte-props { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.recorte-botoes { display: flex; gap: 10px; margin-top: 16px; }
+
+/* ============================================================
+   CONFIRMAÇÃO (ações destrutivas)
+   ============================================================ */
+.confirmar-overlay {
+  position: fixed; inset: 0; z-index: 90; background: rgba(67,48,43,.5);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.confirmar-caixa {
+  width: 100%; max-width: 340px; background: var(--massa); border-radius: 18px;
+  padding: 22px 20px 18px; box-shadow: 0 8px 30px rgba(67,48,43,.28); text-align: center;
+}
+.confirmar-titulo {
+  font-family: var(--fonte-titulo); font-size: var(--t-card); font-weight: 600; margin-bottom: 8px;
+}
+.confirmar-desc { font-size: var(--t-apoio); color: var(--cacau-claro); line-height: 1.5; margin-bottom: 18px; }
+.confirmar-botoes { display: flex; gap: 10px; }
+.confirmar-botoes .btn-secundario { flex: 1; }
+.confirmar-perigo {
+  flex: 1; height: 42px; border: none; border-radius: var(--raio-pill); cursor: pointer;
+  background: var(--framboesa); color: #fff; font: inherit; font-size: var(--t-base); font-weight: 800;
+}
+.confirmar-perigo:active { background: var(--framboesa-escura); }
+
