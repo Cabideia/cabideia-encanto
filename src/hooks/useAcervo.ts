@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { comprimirImagem } from '../lib/imagem'
 
 export type Tag = { id: string; nome: string }
+export type TagComUso = Tag & { uso: number }
 
 export type Trabalho = {
   id: string
@@ -71,16 +71,15 @@ export function useAcervo(usuariaId: string | undefined) {
     carregarTags()
   }, [carregar, carregarTags])
 
-  // ── Adiciona um trabalho (comprime → sobe → registra → atribui tags) ──
-  async function adicionar(
-    arquivo: File,
+  // ── Adiciona um trabalho a partir de um BLOB já tratado (recorte+compressão) ──
+  async function adicionarBlob(
+    blob: Blob,
     descricao: string,
     tagIds: string[]
   ): Promise<string | null> {
     if (!usuariaId) return 'Sessão expirada. Entre de novo.'
     setEnviando(true)
     try {
-      const { blob } = await comprimirImagem(arquivo)
       const nome = `${usuariaId}/${crypto.randomUUID()}.jpg`
 
       const { error: upErro } = await supabase.storage
@@ -190,16 +189,68 @@ export function useAcervo(usuariaId: string | undefined) {
     )
   }
 
+  // ── Renomeia uma tag (vale em todas as fotos onde ela aparece) ──
+  async function renomearTag(tagId: string, novoNome: string): Promise<string | null> {
+    if (!usuariaId) return 'Sessão expirada.'
+    const limpo = novoNome.trim().toLowerCase()
+    if (!limpo) return 'Dê um nome à tag.'
+    if (todasTags.some((t) => t.nome === limpo && t.id !== tagId))
+      return 'Já existe uma tag com esse nome.'
+    const { error } = await supabase
+      .from('tags')
+      .update({ nome: limpo })
+      .eq('id', tagId)
+      .eq('usuaria_id', usuariaId)
+    if (error) return 'Falha ao renomear: ' + error.message
+    setTodasTags((prev) =>
+      prev.map((t) => (t.id === tagId ? { ...t, nome: limpo } : t)).sort((a, b) => a.nome.localeCompare(b.nome))
+    )
+    setTrabalhos((prev) =>
+      prev.map((t) => ({
+        ...t,
+        tags: t.tags.map((tg) => (tg.id === tagId ? { ...tg, nome: limpo } : tg)),
+      }))
+    )
+    return null
+  }
+
+  // ── Apaga uma tag de vez (on delete cascade tira de todas as fotos) ──
+  async function apagarTag(tagId: string): Promise<string | null> {
+    if (!usuariaId) return 'Sessão expirada.'
+    const { error } = await supabase
+      .from('tags')
+      .delete()
+      .eq('id', tagId)
+      .eq('usuaria_id', usuariaId)
+    if (error) return 'Falha ao apagar: ' + error.message
+    setTodasTags((prev) => prev.filter((t) => t.id !== tagId))
+    setTrabalhos((prev) =>
+      prev.map((t) => ({ ...t, tags: t.tags.filter((tg) => tg.id !== tagId) }))
+    )
+    return null
+  }
+
+  // ── Tags com contagem de uso (para a tela "Minhas tags") ──
+  function tagsComUso(): TagComUso[] {
+    const contagem = new Map<string, number>()
+    for (const t of trabalhos)
+      for (const tg of t.tags) contagem.set(tg.id, (contagem.get(tg.id) ?? 0) + 1)
+    return todasTags.map((t) => ({ ...t, uso: contagem.get(t.id) ?? 0 }))
+  }
+
   return {
     trabalhos,
     todasTags,
     carregando,
     enviando,
-    adicionar,
+    adicionarBlob,
     remover,
     alternarVitrine,
     criarTag,
     atribuirTag,
     removerTag,
+    renomearTag,
+    apagarTag,
+    tagsComUso,
   }
 }
