@@ -301,7 +301,7 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  background: var(--creme, #fff6f1);
+  background: var(--acucar);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 .foto-item img {
@@ -336,18 +336,13 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 
 /* ============================================================
    M-009 · ACERVO NA NUVEM
-   Novos componentes: cartão, vitrine-btn, tags, contador, form
+   Card limpo + selo de tags · edição via painel (bottom sheet)
    ============================================================ */
 
-/* -- Cartão do acervo (diferente do .foto-item da vitrine) -- */
-/* Imagem com cantos superiores arredondados + botões sobrepostos */
+/* -- Card do acervo: imagem clicável + botões sobrepostos -- */
 .acervo-img-wrap {
   position: relative;
-  border-radius: 14px 14px 0 0;
-  overflow: hidden;
-  background: var(--linha);
-  border: 1px solid var(--linha);
-  border-bottom: none;
+  cursor: pointer;
 }
 .acervo-img-wrap img {
   width: 100%;
@@ -380,122 +375,69 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   box-shadow: 0 2px 6px rgba(194, 71, 107, 0.35);
 }
 
-/* Rodapé do cartão: legenda + tags + adder (abaixo da imagem) */
-.acervo-rodape {
+/* Selo discreto de tags no rodapé do card (abre o painel) */
+.acervo-selo-tags {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
   background: var(--acucar);
-  border: 1px solid var(--linha);
-  border-top: none;
-  border-radius: 0 0 14px 14px;
-  overflow: visible;
+  color: var(--cacau-claro);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
 }
+.acervo-selo-tags:active { background: var(--neutro-suave); }
 
-/* -- Tags -- */
+/* -- Tags (chip reutilizado no painel e no formulário) -- */
 .tags-area {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  padding: 6px 8px 4px;
+  gap: 6px;
+  padding: 4px 0;
 }
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 9px;
+  height: 28px;
+  padding: 0 12px;
   border-radius: var(--raio-pill);
-  border: none;
+  border: 1px solid var(--linha);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--t-apoio);
   font-weight: 700;
-  background: var(--pistache-suave);
-  color: var(--pistache);
+  background: var(--acucar);
+  color: var(--cacau-claro);
   cursor: pointer;
   white-space: nowrap;
 }
-/* Estado "selecionada" no formulário de adição */
-.tag-chip.selecionada {
+/* No painel: tag já aplicada nesta foto (verde cheio, × = remover) */
+.tag-chip.aplicada {
   background: var(--pistache);
+  border-color: var(--pistache);
   color: #fff;
 }
-
-/* Botão "+ tag" no rodapé do cartão */
-.foto-add-tag {
-  display: block;
-  width: 100%;
-  padding: 5px 8px;
-  border: none;
-  background: transparent;
-  color: var(--cacau-claro);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: left;
-  border-radius: 0 0 14px 14px;
-}
-.foto-add-tag:active { background: var(--neutro-suave); }
-
-/* Dropdown de tag inline */
-.tag-adder {
-  padding: 8px;
-  background: var(--massa);
-  border-top: 1px solid var(--linha);
-  border-radius: 0 0 14px 14px;
-}
-.tag-adder input {
-  width: 100%;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--linha);
-  border-radius: 8px;
-  font: inherit;
-  font-size: 12px;
-  background: var(--acucar);
-  color: var(--cacau);
-  outline: none;
-}
-.tag-adder input:focus { border-color: var(--pistache); }
-.tag-sugestoes {
-  margin-top: 5px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.tag-sugestoes button {
-  height: 24px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 12px;
-  background: var(--pistache-suave);
-  color: var(--pistache);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
+/* No formulário de adição: tag marcada para entrar (verde cheio, ✓) */
+.tag-chip.selecionada {
+  background: var(--pistache);
+  border-color: var(--pistache);
+  color: #fff;
 }
 .tag-criar {
-  margin-top: 5px;
-  display: block;
-  height: 24px;
-  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
   border: 1px dashed var(--pistache);
-  border-radius: 12px;
+  border-radius: var(--raio-pill);
   background: transparent;
   color: var(--pistache);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--t-apoio);
   font-weight: 700;
   cursor: pointer;
-}
-.tag-cancelar {
-  display: block;
-  margin-top: 5px;
-  border: none;
-  background: none;
-  color: var(--cacau-claro);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  padding: 2px 0;
 }
 
 /* -- Contador de fotos (progresso vs. limite do plano) -- */
@@ -518,9 +460,7 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   font-weight: 600;
   color: var(--cacau);
 }
-.contador-desc {
-  color: var(--cacau-claro);
-}
+.contador-desc { color: var(--cacau-claro); }
 .contador-barra {
   height: 5px;
   background: var(--linha);
@@ -570,3 +510,82 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   margin-top: 8px;
 }
 
+/* -- Painel de detalhe (bottom sheet) — abre ao tocar na foto -- */
+.painel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(67, 48, 43, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.painel {
+  width: 100%;
+  max-width: 420px;
+  max-height: 88dvh;
+  overflow-y: auto;
+  background: var(--massa);
+  border-radius: 22px 22px 0 0;
+  padding: 10px 16px 28px;
+  position: relative;
+  box-shadow: 0 -4px 24px rgba(67, 48, 43, 0.18);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .painel { animation: sobe .26s cubic-bezier(.2,.8,.2,1); }
+  @keyframes sobe { from { transform: translateY(100%); } to { transform: none; } }
+}
+.painel-puxador {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--linha);
+  margin: 0 auto 12px;
+}
+.painel-fechar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--neutro-suave);
+  color: var(--cacau);
+  font-size: 15px;
+  cursor: pointer;
+}
+.painel-foto {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 14px;
+  display: block;
+}
+.painel-legenda {
+  margin-top: 12px;
+  font-size: var(--t-base);
+  font-weight: 700;
+  color: var(--cacau);
+}
+.painel-secao {
+  margin: 18px 0 8px;
+  font-size: var(--t-apoio);
+  font-weight: 800;
+  color: var(--cacau-claro);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.painel-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  font: inherit;
+  font-size: var(--t-base);
+  background: var(--acucar);
+  color: var(--cacau);
+  outline: none;
+}
+.painel-input:focus { border-color: var(--pistache); }
