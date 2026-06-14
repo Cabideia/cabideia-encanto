@@ -154,6 +154,10 @@ function CartaoTrabalho({ trabalho, onAbrir, onPedirRemover, onAlternarVitrine }
         </button>
       </div>
 
+      {trabalho.na_vitrine && (
+        <div className="rotulo-vitrine">🛍️ na vitrine</div>
+      )}
+
       {trabalho.descricao && <div className="foto-legenda">{trabalho.descricao}</div>}
 
       {trabalho.tags.length > 0 && (
