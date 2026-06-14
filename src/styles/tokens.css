@@ -513,3 +513,25 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 }
 .confirmar-perigo:active { background: var(--framboesa-escura); }
 
+/* ============================================================
+   M-020 · SELEÇÃO COMPARTILHÁVEL — modo seleção no acervo
+   ============================================================ */
+/* Card marcado: realce de borda */
+.foto-item.marcado { outline: 3px solid var(--framboesa); outline-offset: -3px; }
+
+/* Checkbox sobreposto no canto da foto, em modo seleção */
+.sel-check {
+  position: absolute; top: 8px; right: 8px; width: 26px; height: 26px;
+  border-radius: 50%; border: 2px solid #fff; background: rgba(0,0,0,.35);
+  color: #fff; font-size: 15px; font-weight: 800; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.sel-check.on { background: var(--framboesa); border-color: #fff; }
+
+/* Barra inferior fixa do modo seleção */
+.barra-selecao {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; align-items: center; padding: 12px var(--espaco) 20px;
+  background: var(--massa); box-shadow: 0 -2px 12px rgba(67,48,43,.10);
+}
+.barra-selecao-conta { font-weight: 800; font-size: var(--t-base); color: var(--cacau); flex: none; }
