@@ -7,142 +7,180 @@ import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
 const LIMITE_GRATIS = 150
 
 // ─────────────────────────────────────────────────────────
-// Cartão individual de um trabalho no acervo
+// Painel de detalhe (bottom sheet) — abre ao tocar numa foto.
+// Concentra toda a edição de tags, longe da grade.
 // ─────────────────────────────────────────────────────────
-type CartaoProps = {
+type PainelProps = {
   trabalho: Trabalho
   todasTags: Tag[]
-  onRemover: () => void
-  onAlternarVitrine: () => void
+  onFechar: () => void
   onAtribuirTag: (trabalhoId: string, tagId: string) => Promise<void>
   onRemoverTag: (trabalhoId: string, tagId: string) => Promise<void>
   onCriarTag: (nome: string) => Promise<Tag | null>
 }
 
-function CartaoTrabalho({
+function PainelTrabalho({
   trabalho,
   todasTags,
-  onRemover,
-  onAlternarVitrine,
+  onFechar,
   onAtribuirTag,
   onRemoverTag,
   onCriarTag,
-}: CartaoProps) {
-  const [adderAberto, setAdderAberto] = useState(false)
-  const [textoTag, setTextoTag] = useState('')
+}: PainelProps) {
+  const [texto, setTexto] = useState('')
 
+  // Tags que ainda NÃO estão nesta foto (candidatas a adicionar)
   const disponiveis = todasTags.filter(
     (t) => !trabalho.tags.some((tg) => tg.id === t.id)
   )
   const sugestoes = disponiveis.filter(
-    (t) => !textoTag || t.nome.includes(textoTag.toLowerCase())
+    (t) => !texto || t.nome.includes(texto.toLowerCase())
   )
+  const podeCriar =
+    !!texto.trim() && !todasTags.some((t) => t.nome === texto.trim().toLowerCase())
 
-  async function aoSelecionarTag(tagId: string) {
+  async function adicionar(tagId: string) {
     await onAtribuirTag(trabalho.id, tagId)
-    setAdderAberto(false)
-    setTextoTag('')
+    setTexto('')
   }
 
-  async function aoCriarESelecionarTag() {
-    if (!textoTag.trim()) return
-    const tag = await onCriarTag(textoTag)
+  async function criarEAdicionar() {
+    if (!texto.trim()) return
+    const tag = await onCriarTag(texto)
     if (tag) await onAtribuirTag(trabalho.id, tag.id)
-    setAdderAberto(false)
-    setTextoTag('')
+    setTexto('')
   }
 
   return (
-    <div>
-      {/* Imagem com botões sobrepostos */}
-      <div className="acervo-img-wrap">
-        <img src={trabalho.url} alt={trabalho.descricao ?? ''} loading="lazy" />
-        <button
-          className={`foto-vitrine-btn${trabalho.na_vitrine ? ' ativa' : ''}`}
-          onClick={onAlternarVitrine}
-          aria-label={trabalho.na_vitrine ? 'Remover da vitrine' : 'Adicionar à vitrine'}
-          title={trabalho.na_vitrine ? 'Na vitrine — toque para retirar' : 'Toque para mostrar na vitrine'}
-        >
-          🛍️
-        </button>
-        <button className="foto-remover" onClick={onRemover} aria-label="Remover foto">
+    <div className="painel-overlay" onClick={onFechar}>
+      <div className="painel" onClick={(e) => e.stopPropagation()}>
+        <div className="painel-puxador" />
+        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar">
           ✕
         </button>
-      </div>
 
-      {/* Rodapé: legenda + tags + adder */}
-      <div className="acervo-rodape">
-        {trabalho.descricao && (
-          <div className="foto-legenda">{trabalho.descricao}</div>
-        )}
+        <img className="painel-foto" src={trabalho.url} alt={trabalho.descricao ?? ''} />
 
-        {trabalho.tags.length > 0 && (
+        {trabalho.descricao && <div className="painel-legenda">{trabalho.descricao}</div>}
+
+        {/* Tags que ESTÃO nesta foto — × remove desta foto */}
+        <div className="painel-secao">Tags desta foto</div>
+        {trabalho.tags.length > 0 ? (
           <div className="tags-area">
             {trabalho.tags.map((tag) => (
               <button
                 key={tag.id}
-                className="tag-chip"
                 type="button"
+                className="tag-chip aplicada"
                 onClick={() => onRemoverTag(trabalho.id, tag.id)}
-                title="Toque para remover"
+                title="Toque para tirar esta tag da foto"
               >
-                {tag.nome} ×
+                {tag.nome} ✕
               </button>
             ))}
           </div>
+        ) : (
+          <p className="apoio" style={{ padding: '2px 2px 4px' }}>
+            Nenhuma tag ainda. Adicione abaixo para achar essa foto depois.
+          </p>
         )}
 
-        {adderAberto ? (
-          <div className="tag-adder">
-            <input
-              autoFocus
-              value={textoTag}
-              onChange={(e) => setTextoTag(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  if (sugestoes.length > 0) aoSelecionarTag(sugestoes[0].id)
-                  else if (textoTag.trim()) aoCriarESelecionarTag()
-                }
-                if (e.key === 'Escape') {
-                  setAdderAberto(false)
-                  setTextoTag('')
-                }
-              }}
-              placeholder="tag…"
-            />
-            {sugestoes.length > 0 && (
-              <div className="tag-sugestoes">
-                {sugestoes.slice(0, 4).map((t) => (
-                  <button key={t.id} type="button" onClick={() => aoSelecionarTag(t.id)}>
-                    {t.nome}
-                  </button>
-                ))}
-              </div>
-            )}
-            {textoTag && !sugestoes.find((t) => t.nome === textoTag.toLowerCase()) && (
-              <button type="button" className="tag-criar" onClick={aoCriarESelecionarTag}>
-                Criar "{textoTag}"
+        {/* Adicionar tag: campo + sugestões + criar nova */}
+        <div className="painel-secao">Adicionar tag</div>
+        <input
+          className="painel-input"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (sugestoes.length > 0) adicionar(sugestoes[0].id)
+              else if (podeCriar) criarEAdicionar()
+            }
+          }}
+          placeholder="Digite para buscar ou criar…"
+          autoCapitalize="none"
+        />
+
+        {(sugestoes.length > 0 || podeCriar) && (
+          <div className="tags-area" style={{ paddingTop: 8 }}>
+            {sugestoes.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="tag-chip"
+                onClick={() => adicionar(t.id)}
+              >
+                + {t.nome}
+              </button>
+            ))}
+            {podeCriar && (
+              <button type="button" className="tag-criar" onClick={criarEAdicionar}>
+                Criar “{texto.trim()}”
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => { setAdderAberto(false); setTextoTag('') }}
-              className="tag-cancelar"
-            >
-              cancelar
-            </button>
           </div>
-        ) : (
-          <button
-            className="foto-add-tag"
-            type="button"
-            onClick={() => setAdderAberto(true)}
-          >
-            + tag
-          </button>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────
+// Cartão da grade — só visual. Toque na foto abre o painel.
+// ─────────────────────────────────────────────────────────
+type CartaoProps = {
+  trabalho: Trabalho
+  onAbrir: () => void
+  onRemover: () => void
+  onAlternarVitrine: () => void
+}
+
+function CartaoTrabalho({ trabalho, onAbrir, onRemover, onAlternarVitrine }: CartaoProps) {
+  return (
+    <div className="foto-item">
+      <div
+        className="acervo-img-wrap"
+        onClick={onAbrir}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onAbrir()}
+      >
+        <img src={trabalho.url} alt={trabalho.descricao ?? ''} loading="lazy" />
+        <button
+          className={`foto-vitrine-btn${trabalho.na_vitrine ? ' ativa' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onAlternarVitrine()
+          }}
+          aria-label={trabalho.na_vitrine ? 'Remover da vitrine' : 'Adicionar à vitrine'}
+          title={
+            trabalho.na_vitrine
+              ? 'Na vitrine — toque para retirar'
+              : 'Toque para mostrar na vitrine'
+          }
+        >
+          🛍️
+        </button>
+        <button
+          className="foto-remover"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemover()
+          }}
+          aria-label="Remover foto"
+        >
+          ✕
+        </button>
+      </div>
+
+      {trabalho.descricao && <div className="foto-legenda">{trabalho.descricao}</div>}
+
+      {trabalho.tags.length > 0 && (
+        <button className="acervo-selo-tags" onClick={onAbrir} type="button">
+          🏷️ {trabalho.tags.length} tag{trabalho.tags.length !== 1 ? 's' : ''}
+        </button>
+      )}
     </div>
   )
 }
@@ -174,6 +212,7 @@ export function Acervo() {
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [abertoId, setAbertoId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Filtragem local — sem roundtrip ao banco
@@ -182,6 +221,11 @@ export function Acervo() {
     const okTag = !tagFiltro || t.tags.some((tg) => tg.id === tagFiltro)
     return okTexto && okTag
   })
+
+  // O painel lê sempre o trabalho mais atual (tags mudam em tempo real)
+  const trabalhoAberto = abertoId
+    ? trabalhos.find((t) => t.id === abertoId) ?? null
+    : null
 
   const total = trabalhos.length
   const pct = Math.min(100, Math.round((total / LIMITE_GRATIS) * 100))
@@ -324,12 +368,9 @@ export function Acervo() {
               <CartaoTrabalho
                 key={t.id}
                 trabalho={t}
-                todasTags={todasTags}
+                onAbrir={() => setAbertoId(t.id)}
                 onRemover={() => aoRemover(t)}
                 onAlternarVitrine={() => aoAlternarVitrine(t)}
-                onAtribuirTag={atribuirTag}
-                onRemoverTag={removerTag}
-                onCriarTag={criarTag}
               />
             ))}
           </div>
@@ -381,11 +422,11 @@ export function Acervo() {
               />
             </div>
 
-            {/* Tags */}
+            {/* Tags — aqui o verde = "vai entrar nesta foto ao guardar" */}
             <div className="campo">
-              <label>Tags</label>
+              <label>Tags (toque para escolher)</label>
               {todasTags.length > 0 && (
-                <div className="tags-area" style={{ marginBottom: 8 }}>
+                <div className="tags-area" style={{ marginBottom: 8, padding: '0 0 2px' }}>
                   {todasTags.map((tag) => (
                     <button
                       key={tag.id}
@@ -393,7 +434,7 @@ export function Acervo() {
                       className={`tag-chip${tagsSelecionadas.includes(tag.id) ? ' selecionada' : ''}`}
                       onClick={() => toggleTagForm(tag.id)}
                     >
-                      {tag.nome}
+                      {tagsSelecionadas.includes(tag.id) ? '✓ ' : ''}{tag.nome}
                     </button>
                   ))}
                 </div>
@@ -460,6 +501,18 @@ export function Acervo() {
             ＋ Guardar um trabalho
           </button>
         </div>
+      )}
+
+      {/* Painel de detalhe/tags — fora do fluxo da grade */}
+      {trabalhoAberto && (
+        <PainelTrabalho
+          trabalho={trabalhoAberto}
+          todasTags={todasTags}
+          onFechar={() => setAbertoId(null)}
+          onAtribuirTag={atribuirTag}
+          onRemoverTag={removerTag}
+          onCriarTag={criarTag}
+        />
       )}
     </div>
   )
