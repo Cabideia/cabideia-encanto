@@ -5,6 +5,8 @@ import { Entrar } from './pages/Entrar'
 import { Home } from './pages/Home'
 import { Acervo } from './pages/Acervo'
 import { MinhasTags } from './pages/MinhasTags'
+import { MinhasSelecoes } from './pages/MinhasSelecoes'
+import { SelecaoPublica } from './pages/SelecaoPublica'
 import { Vitrine } from './pages/Vitrine'
 import { VitrinePublica } from './pages/VitrinePublica'
 import { Pedidos } from './pages/Pedidos'
@@ -45,6 +47,7 @@ export function App() {
           <Route path="/" element={<Privada><Home /></Privada>} />
           <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
           <Route path="/tags" element={<Privada><MinhasTags /></Privada>} />
+          <Route path="/selecoes" element={<Privada><MinhasSelecoes /></Privada>} />
           <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />
           <Route path="/perfil" element={<Privada><Perfil /></Privada>} />
           <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
@@ -55,10 +58,11 @@ export function App() {
           <Route path="/anotacoes" element={<Privada><Anotacoes /></Privada>} />
           <Route path="/planos" element={<Privada><Planos /></Privada>} />
           <Route path="/config" element={<Privada><Config /></Privada>} />
+          {/* Página pública de uma seleção (sem login) */}
+          <Route path="/s/:token" element={<SelecaoPublica />} />
           <Route path="/:arroba" element={<Coringa />} />
         </Routes>
       </ToastProvider>
     </BrowserRouter>
   )
 }
-
