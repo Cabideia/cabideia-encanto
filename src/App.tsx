@@ -11,6 +11,7 @@ import { Vitrine } from './pages/Vitrine'
 import { VitrinePublica } from './pages/VitrinePublica'
 import { Pedidos } from './pages/Pedidos'
 import { Clientes } from './pages/Clientes'
+import { ClienteDetalhe } from './pages/ClienteDetalhe'
 import { Inspiracoes } from './pages/Inspiracoes'
 import { Calendario } from './pages/Calendario'
 import { Cardapio } from './pages/Cardapio'
@@ -52,6 +53,7 @@ export function App() {
           <Route path="/perfil" element={<Privada><Perfil /></Privada>} />
           <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
+          <Route path="/clientes/:id" element={<Privada><ClienteDetalhe /></Privada>} />
           <Route path="/inspiracoes" element={<Privada><Inspiracoes /></Privada>} />
           <Route path="/calendario" element={<Privada><Calendario /></Privada>} />
           <Route path="/cardapio" element={<Privada><Cardapio /></Privada>} />
