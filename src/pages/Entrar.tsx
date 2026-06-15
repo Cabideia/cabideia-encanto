@@ -65,7 +65,7 @@ export function Entrar() {
             <div className="logo-redonda" aria-hidden>✨</div>
             <div className="nome-negocio">Cabideia Encanto</div>
             <p className="apoio" style={{ marginTop: 6 }}>
-              Vitrine, acervo e inspirações de quem trabalha por encomenda.
+              Vitrine, Meus Trabalhos e inspirações de quem trabalha por encomenda.
             </p>
           </div>
         </div>

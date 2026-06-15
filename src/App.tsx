@@ -4,6 +4,7 @@ import { useSessao } from './hooks/useSessao'
 import { Entrar } from './pages/Entrar'
 import { Home } from './pages/Home'
 import { Acervo } from './pages/Acervo'
+import { GuardarTrabalho } from './pages/GuardarTrabalho'
 import { MinhasTags } from './pages/MinhasTags'
 import { MinhasSelecoes } from './pages/MinhasSelecoes'
 import { SelecaoPublica } from './pages/SelecaoPublica'
@@ -49,6 +50,7 @@ export function App() {
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/" element={<Privada><Home /></Privada>} />
           <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
+          <Route path="/acervo/novo" element={<Privada><GuardarTrabalho /></Privada>} />
           <Route path="/tags" element={<Privada><MinhasTags /></Privada>} />
           <Route path="/selecoes" element={<Privada><MinhasSelecoes /></Privada>} />
           <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />

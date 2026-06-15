@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { PerfilForm } from '../components/PerfilForm'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { supabase } from '../lib/supabase'
@@ -10,7 +11,8 @@ import { supabase } from '../lib/supabase'
  *
  * Caminho único de fotos (decisão de produto): a usuária NÃO sobe fotos aqui.
  * Toda foto entra em "Meus trabalhos" (acervo) e é marcada para a vitrine pelo
- * botão 🛍️. Esta tela cuida só de: publicar/ocultar, link e compartilhar.
+ * botão 🛍️. Esta tela cuida só de: editar perfil, publicar/ocultar, link e
+ * compartilhar.
  */
 type Perfil = {
   nome_negocio: string | null
@@ -25,29 +27,31 @@ export function Vitrine() {
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [qtdNaVitrine, setQtdNaVitrine] = useState<number>(0)
+  const [editarPerfil, setEditarPerfil] = useState(false)
+
+  const carregar = useCallback(async () => {
+    if (!sessao) return
+    const { data } = await supabase
+      .from('perfis')
+      .select('nome_negocio, arroba, vitrine_publicada')
+      .eq('id', sessao.user.id)
+      .maybeSingle()
+    setPerfil(data)
+
+    // Conta quantas fotos estão marcadas para a vitrine (informativo)
+    const { count } = await supabase
+      .from('trabalhos')
+      .select('id', { count: 'exact', head: true })
+      .eq('usuaria_id', sessao.user.id)
+      .eq('na_vitrine', true)
+    setQtdNaVitrine(count ?? 0)
+
+    setCarregando(false)
+  }, [sessao])
 
   useEffect(() => {
-    if (!sessao) return
-    async function carregar() {
-      const { data } = await supabase
-        .from('perfis')
-        .select('nome_negocio, arroba, vitrine_publicada')
-        .eq('id', sessao!.user.id)
-        .maybeSingle()
-      setPerfil(data)
-
-      // Conta quantas fotos estão marcadas para a vitrine (informativo)
-      const { count } = await supabase
-        .from('trabalhos')
-        .select('id', { count: 'exact', head: true })
-        .eq('usuaria_id', sessao!.user.id)
-        .eq('na_vitrine', true)
-      setQtdNaVitrine(count ?? 0)
-
-      setCarregando(false)
-    }
     carregar()
-  }, [sessao])
+  }, [carregar])
 
   async function alternarPublicacao() {
     if (!sessao || !perfil || salvando) return
@@ -93,7 +97,15 @@ export function Vitrine() {
     <div className="tela">
       <BarraTopo titulo="Minha vitrine" />
       <div className="conteudo">
-        <div className="vitrine-moldura">
+        {/* 1 · Primeira parte — toque na logo/nome para editar o perfil (M-017) */}
+        <div
+          className="vitrine-moldura"
+          role="button"
+          tabIndex={0}
+          onClick={() => setEditarPerfil(true)}
+          onKeyDown={(e) => e.key === 'Enter' && setEditarPerfil(true)}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="babado" />
           <div className="vitrine-corpo">
             <div className="logo-redonda">✨</div>
@@ -105,10 +117,12 @@ export function Vitrine() {
                   className="link-vitrine"
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     navigator.clipboard?.writeText('https://' + link)
                     avisar('Link copiado ✓')
                   }}
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
                   🔗 {link} · copiar
                 </div>
@@ -116,10 +130,43 @@ export function Vitrine() {
             ) : (
               <div className="apoio">Complete seu perfil para abrir a vitrine</div>
             )}
+            <div className="apoio" style={{ marginTop: 10, fontWeight: 600, color: 'var(--framboesa)' }}>
+              ✏️ Toque para editar o perfil
+            </div>
           </div>
         </div>
 
-        {/* Toggle publicar/despublicar */}
+        {/* 2 · Compartilhar vitrine (só se publicada) */}
+        {publicada && temArroba && (
+          <button
+            onClick={compartilhar}
+            style={{
+              width: '100%', padding: '14px', borderRadius: 16,
+              border: '2px solid var(--framboesa)', background: 'transparent',
+              color: 'var(--framboesa)', fontWeight: 600, fontSize: 15,
+              cursor: 'pointer', marginTop: 16,
+            }}
+          >
+            📤 Compartilhar vitrine
+          </button>
+        )}
+
+        {/* 3 · Veja como a cliente vê (só se publicada) */}
+        {temArroba && publicada && (
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
+            👀 Veja como a cliente vê:{' '}
+            <a
+              href={`https://${link}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--framboesa)', fontWeight: 700 }}
+            >
+              abrir minha vitrine
+            </a>
+          </p>
+        )}
+
+        {/* 4 · Publicada / Oculta */}
         <div
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -151,38 +198,13 @@ export function Vitrine() {
           </button>
         </div>
 
-        {/* Compartilhar (só se publicada) */}
-        {publicada && temArroba && (
-          <button
-            onClick={compartilhar}
-            style={{
-              width: '100%', padding: '14px', borderRadius: 16,
-              border: '2px solid var(--framboesa)', background: 'transparent',
-              color: 'var(--framboesa)', fontWeight: 600, fontSize: 15,
-              cursor: 'pointer', marginBottom: 16,
-            }}
-          >
-            📤 Compartilhar vitrine
-          </button>
-        )}
-
         {!temArroba && (
           <p className="apoio" style={{ textAlign: 'center', marginBottom: 8 }}>
             Complete seu perfil para poder publicar a vitrine.
           </p>
         )}
 
-        {/* Editar perfil */}
-        <Link to="/perfil" className="bloco" style={{ marginTop: 8 }}>
-          <div className="emoji" aria-hidden>📝</div>
-          <div className="texto">
-            <div className="nome">{temArroba ? 'Editar perfil' : 'Completar perfil'}</div>
-            <div className="conta">nome, @, WhatsApp, bio e nicho</div>
-          </div>
-          <span aria-hidden>›</span>
-        </Link>
-
-        {/* Origem das fotos: o acervo. Caminho único. */}
+        {/* 5 · xx Fotos na vitrine — origem das fotos: Meus trabalhos. Caminho único. */}
         <div className="card" style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div className="emoji" aria-hidden style={{ width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'var(--framboesa-suave)' }}>
@@ -208,22 +230,24 @@ export function Vitrine() {
             Ir para Meus trabalhos
           </Link>
         </div>
-
-        {temArroba && publicada && (
-          <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
-            👀 Veja como a cliente vê:{' '}
-            <a
-              href={`https://${link}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--framboesa)', fontWeight: 700 }}
-            >
-              abrir minha vitrine
-            </a>
-          </p>
-        )}
       </div>
+
+      {/* Sheet de edição do perfil (reaproveita <PerfilForm>) */}
+      {editarPerfil && (
+        <div className="painel-overlay" onClick={() => setEditarPerfil(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <div className="form-acervo-titulo">Editar perfil</div>
+            <PerfilForm
+              onCancelar={() => setEditarPerfil(false)}
+              onSalvo={() => {
+                setEditarPerfil(false)
+                carregar()
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-

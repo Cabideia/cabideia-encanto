@@ -99,7 +99,7 @@ export function PedidoDetalhe() {
         avisar(erro)
         return
       }
-      avisar('Foto adicionada ao acervo ✓')
+      avisar('Foto adicionada a Meus Trabalhos ✓')
       setModalAcervo(false)
     } finally {
       setEnviandoAcervo(false)
@@ -118,7 +118,7 @@ export function PedidoDetalhe() {
         avisar(erro)
         return
       }
-      avisar('Foto adicionada ao acervo ✓')
+      avisar('Foto adicionada a Meus Trabalhos ✓')
       setModalAcervo(false)
     } catch (err: unknown) {
       avisar((err as Error)?.message ?? 'Não consegui processar a foto.')
@@ -160,7 +160,7 @@ export function PedidoDetalhe() {
 
           {pedido.trabalho_id && (
             <div className="apoio" style={{ marginTop: 10, color: 'var(--pistache)', fontWeight: 700 }}>
-              📸 No acervo
+              📸 Em Meus Trabalhos
             </div>
           )}
         </div>
@@ -216,14 +216,14 @@ export function PedidoDetalhe() {
           ))}
         </div>
 
-        {/* Mandar ao acervo (se entregue e ainda não está) */}
+        {/* Adicionar a Meus Trabalhos (se entregue e ainda não está) */}
         {pedido.status === 'entregue' && !pedido.trabalho_id && (
           <button
             className="btn-secundario"
             style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
             onClick={() => setModalAcervo(true)}
           >
-            📸 Adicionar este trabalho ao acervo
+            📸 Adicionar a Meus Trabalhos
           </button>
         )}
       </div>
@@ -233,9 +233,9 @@ export function PedidoDetalhe() {
         <div className="painel-overlay" onClick={() => !enviandoAcervo && setModalAcervo(false)}>
           <div className="painel" onClick={(e) => e.stopPropagation()}>
             <div className="painel-puxador" />
-            <div className="form-acervo-titulo">Adicionar este trabalho ao acervo?</div>
+            <div className="form-acervo-titulo">Adicionar a Meus Trabalhos?</div>
             <p className="apoio" style={{ marginBottom: 14 }}>
-              Guarde a foto do trabalho entregue no seu acervo na nuvem. Você decide
+              Guarde a foto do trabalho entregue em Meus Trabalhos, na nuvem. Você decide
               depois se ela vai para a vitrine.
             </p>
 

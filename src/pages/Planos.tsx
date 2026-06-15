@@ -39,7 +39,7 @@ export function Planos() {
             )}
           </div>
           <div style={{ textAlign: 'left', marginTop: 8 }}>
-            <div className="beneficio"><span className="ok">✓</span>Acervo completo na nuvem (5.000+ fotos)</div>
+            <div className="beneficio"><span className="ok">✓</span>Meus Trabalhos sem limite na nuvem (5.000+ fotos)</div>
             <div className="beneficio"><span className="ok">✓</span>Vitrine com a SUA logo e link personalizado</div>
             <div className="beneficio"><span className="ok">✓</span>Exportações com a sua marca</div>
           </div>

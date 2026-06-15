@@ -64,7 +64,7 @@ export function Home() {
           </Link>
           <Link to="/acervo" className="bloco">
             <div className="emoji" aria-hidden>📸</div>
-            <div><div className="nome">Meus trabalhos</div><div className="conta">acervo na nuvem</div></div>
+            <div><div className="nome">Meus trabalhos</div><div className="conta">suas fotos na nuvem</div></div>
           </Link>
           <Link to="/inspiracoes" className="bloco">
             <div className="emoji" aria-hidden>💡</div>
