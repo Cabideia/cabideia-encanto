@@ -5,7 +5,7 @@ import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp, type CamposCliente } from '../hooks/useClientes'
-import { usePedidos, STATUS_INFO } from '../hooks/usePedidos'
+import { usePedidos, STATUS_INFO, tituloPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
 
 /** M-003 · Detalhe da cliente — ver, editar, excluir + pedidos da cliente (M-002). */
@@ -177,7 +177,7 @@ export function ClienteDetalhe() {
                   >
                     <div className="card-linha" style={{ alignItems: 'flex-start' }}>
                       <div className="card-info">
-                        <div className="card-nome" style={{ whiteSpace: 'normal' }}>{p.tema}</div>
+                        <div className="card-nome" style={{ whiteSpace: 'normal' }}>{tituloPedido(p)}</div>
                         {p.data_entrega && (
                           <div className="apoio">{rotuloEntrega(p.data_entrega)}</div>
                         )}

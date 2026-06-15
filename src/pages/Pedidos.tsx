@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { useSessao } from '../hooks/useSessao'
-import { usePedidos, STATUS_INFO, type StatusPedido } from '../hooks/usePedidos'
+import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
 
 type Filtro = 'todos' | StatusPedido
@@ -67,7 +67,7 @@ export function Pedidos() {
                 >
                   <div className="card-linha" style={{ alignItems: 'flex-start' }}>
                     <div className="card-info">
-                      <div className="card-nome" style={{ whiteSpace: 'normal' }}>{p.tema}</div>
+                      <div className="card-nome" style={{ whiteSpace: 'normal' }}>{tituloPedido(p)}</div>
                       <div className="apoio">
                         {p.cliente_nome ?? 'sem cliente'}
                         {p.data_entrega ? ` · ${rotuloEntrega(p.data_entrega)}` : ''}

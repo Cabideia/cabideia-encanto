@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
@@ -11,6 +12,7 @@ const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'can
 
 type DadosForm = {
   cliente_id: string | null
+  nome: string
   tema: string
   data_entrega: string
   status: StatusPedido
@@ -31,16 +33,19 @@ export function PedidoForm() {
     buscarPorId,
     criar,
     atualizar,
+    excluir,
     subirReferencia,
     urlReferencia,
   } = usePedidos(sessao?.user.id)
 
   const [form, setForm] = useState<DadosForm>({
     cliente_id: null,
+    nome: '',
     tema: '',
     data_entrega: '',
     status: 'a_fazer',
   })
+  const [aExcluir, setAExcluir] = useState(false)
   const [fotoPath, setFotoPath] = useState<string | null>(null) // referência já salva
   const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // referência nova a subir
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -60,7 +65,8 @@ export function PedidoForm() {
     prefilled.current = true
     setForm({
       cliente_id: pedido.cliente_id,
-      tema: pedido.tema,
+      nome: pedido.nome ?? '',
+      tema: pedido.tema ?? '',
       data_entrega: pedido.data_entrega ?? '',
       status: pedido.status,
     })
@@ -119,8 +125,8 @@ export function PedidoForm() {
   }
 
   async function salvar() {
-    if (!form.tema.trim()) {
-      avisar('Descreva o pedido (tema).')
+    if (!form.nome.trim()) {
+      avisar('Dê um nome ao pedido.')
       return
     }
     // Sobe a foto nova, se houver.
@@ -136,6 +142,7 @@ export function PedidoForm() {
 
     const campos: CamposPedido = {
       cliente_id: form.cliente_id,
+      nome: form.nome,
       tema: form.tema,
       data_entrega: form.data_entrega || null,
       status: form.status,
@@ -159,6 +166,18 @@ export function PedidoForm() {
       avisar('Pedido salvo ✓')
       navegar(`/pedidos/${res.id}`, { replace: true })
     }
+  }
+
+  async function confirmarExcluir() {
+    if (!id) return
+    const erro = await excluir(id)
+    if (erro) {
+      avisar(erro)
+      setAExcluir(false)
+      return
+    }
+    avisar('Pedido excluído')
+    navegar('/pedidos', { replace: true })
   }
 
   // No modo edição, espera o pedido carregar.
@@ -237,13 +256,24 @@ export function PedidoForm() {
           )}
         </div>
 
-        {/* Tema / descrição */}
+        {/* Nome do pedido (obrigatório, curto) */}
         <div className="campo">
-          <label>O pedido</label>
+          <label>Nome do pedido</label>
+          <input
+            value={form.nome}
+            onChange={(e) => setForm({ ...form, nome: e.target.value })}
+            placeholder="Ex.: Bolo unicórnio da Sofia"
+            maxLength={80}
+          />
+        </div>
+
+        {/* Detalhes do pedido (opcional, longo) */}
+        <div className="campo">
+          <label>Detalhes do pedido (opcional)</label>
           <textarea
             value={form.tema}
             onChange={(e) => setForm({ ...form, tema: e.target.value })}
-            placeholder="Ex.: 100 doces tradicionais — tema unicórnio"
+            placeholder="Ex.: 100 doces tradicionais, tema unicórnio, entregar montado"
             maxLength={300}
           />
         </div>
@@ -312,6 +342,17 @@ export function PedidoForm() {
             </div>
           )}
         </div>
+
+        {/* Excluir (só na edição) */}
+        {edicao && (
+          <button
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+            onClick={() => setAExcluir(true)}
+          >
+            🗑️ Excluir pedido
+          </button>
+        )}
       </div>
 
       {/* CTA primário fixo */}
@@ -331,12 +372,22 @@ export function PedidoForm() {
             className="cta"
             style={{ flex: 2 }}
             onClick={salvar}
-            disabled={salvando || processando || !form.tema.trim()}
+            disabled={salvando || processando || !form.nome.trim()}
           >
             {salvando ? 'Salvando…' : edicao ? 'Salvar' : 'Criar pedido'}
           </button>
         </div>
       </div>
+
+      {aExcluir && (
+        <Confirmar
+          titulo="Excluir este pedido?"
+          descricao="Esta ação não pode ser desfeita. As fotos que já foram para o acervo continuam lá."
+          rotuloConfirmar="Excluir pedido"
+          onConfirmar={confirmarExcluir}
+          onCancelar={() => setAExcluir(false)}
+        />
+      )}
     </div>
   )
 }

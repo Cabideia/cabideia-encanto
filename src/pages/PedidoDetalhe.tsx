@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
-import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
-import { usePedidos, STATUS_INFO, type StatusPedido } from '../hooks/usePedidos'
+import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
 import { comprimirImagem } from '../lib/imagem'
 import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
 
@@ -19,7 +18,7 @@ export function PedidoDetalhe() {
   const { sessao } = useSessao()
   const avisar = useAviso()
 
-  const { carregando, buscarPorId, mudarStatus, atualizar, excluir, urlReferencia, baixarReferencia } =
+  const { carregando, buscarPorId, mudarStatus, atualizar, urlReferencia, baixarReferencia } =
     usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
   const { criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
@@ -28,7 +27,6 @@ export function PedidoDetalhe() {
   const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
 
   const [fotoUrl, setFotoUrl] = useState<string | null>(null)
-  const [aExcluir, setAExcluir] = useState(false)
   const [modalAcervo, setModalAcervo] = useState(false)
   const [enviandoAcervo, setEnviandoAcervo] = useState(false)
   const inputAcervo = useRef<HTMLInputElement>(null)
@@ -81,7 +79,8 @@ export function PedidoDetalhe() {
   }
 
   async function inserirNoAcervo(blob: Blob): Promise<string | null> {
-    const res = await criarTrabalhoDeBlob(blob, pedido!.tema, [])
+    // descrição do trabalho = nome curto do pedido (não os detalhes longos)
+    const res = await criarTrabalhoDeBlob(blob, tituloPedido(pedido!), [])
     if ('erro' in res) return res.erro
     return await atualizar(pedido!.id, { trabalho_id: res.id })
   }
@@ -128,17 +127,6 @@ export function PedidoDetalhe() {
     }
   }
 
-  async function confirmarExcluir() {
-    const erro = await excluir(pedido!.id)
-    if (erro) {
-      avisar(erro)
-      setAExcluir(false)
-      return
-    }
-    avisar('Pedido excluído')
-    navegar('/pedidos', { replace: true })
-  }
-
   return (
     <div className="tela">
       <BarraTopo
@@ -155,7 +143,7 @@ export function PedidoDetalhe() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <div className="card-info">
               <div className="card-nome" style={{ whiteSpace: 'normal', fontSize: 'var(--t-card)' }}>
-                {pedido.tema}
+                {tituloPedido(pedido)}
               </div>
               {pedido.data_entrega && (
                 <div className="apoio" style={{ marginTop: 4 }}>
@@ -165,6 +153,10 @@ export function PedidoDetalhe() {
             </div>
             <span className={`chip ${info.chip}`}>{info.rotulo}</span>
           </div>
+
+          {pedido.tema && (
+            <p style={{ marginTop: 10, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{pedido.tema}</p>
+          )}
 
           {pedido.trabalho_id && (
             <div className="apoio" style={{ marginTop: 10, color: 'var(--pistache)', fontWeight: 700 }}>
@@ -234,14 +226,6 @@ export function PedidoDetalhe() {
             📸 Adicionar este trabalho ao acervo
           </button>
         )}
-
-        <button
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-          onClick={() => setAExcluir(true)}
-        >
-          🗑️ Excluir pedido
-        </button>
       </div>
 
       {/* Modal: adicionar ao acervo */}
@@ -293,15 +277,6 @@ export function PedidoDetalhe() {
         </div>
       )}
 
-      {aExcluir && (
-        <Confirmar
-          titulo="Excluir este pedido?"
-          descricao="Esta ação não pode ser desfeita. As fotos que já foram para o acervo continuam lá."
-          rotuloConfirmar="Excluir pedido"
-          onConfirmar={confirmarExcluir}
-          onCancelar={() => setAExcluir(false)}
-        />
-      )}
     </div>
   )
 }

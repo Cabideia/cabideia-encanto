@@ -7,7 +7,8 @@ export type Pedido = {
   id: string
   cliente_id: string | null
   cliente_nome: string | null // via join com clientes
-  tema: string
+  nome: string | null // título curto (registros antigos podem só ter tema)
+  tema: string | null // "detalhes do pedido" (longo, opcional)
   data_entrega: string | null // 'YYYY-MM-DD'
   status: StatusPedido
   foto_referencia_path: string | null
@@ -15,9 +16,15 @@ export type Pedido = {
   criado_em: string
 }
 
+/** Título exibível do pedido: nome curto com fallback para o tema antigo. */
+export function tituloPedido(p: Pick<Pedido, 'nome' | 'tema'>): string {
+  return p.nome || p.tema || 'Pedido'
+}
+
 export type CamposPedido = {
   cliente_id: string | null
-  tema: string
+  nome: string // obrigatório no app
+  tema: string // detalhes, opcional
   data_entrega: string | null
   status: StatusPedido
   foto_referencia_path: string | null
@@ -54,7 +61,7 @@ export function usePedidos(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, cliente_id, tema, data_entrega, status, foto_referencia_path, trabalho_id, criado_em, clientes(nome)'
+        'id, cliente_id, nome, tema, data_entrega, status, foto_referencia_path, trabalho_id, criado_em, clientes(nome)'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -65,7 +72,8 @@ export function usePedidos(usuariaId: string | undefined) {
         id: p.id as string,
         cliente_id: p.cliente_id as string | null,
         cliente_nome: (p.clientes?.nome ?? null) as string | null,
-        tema: p.tema as string,
+        nome: p.nome as string | null,
+        tema: p.tema as string | null,
         data_entrega: p.data_entrega as string | null,
         status: p.status as StatusPedido,
         foto_referencia_path: p.foto_referencia_path as string | null,
@@ -139,8 +147,8 @@ export function usePedidos(usuariaId: string | undefined) {
   // ── criar() — devolve o id criado (ou erro) ──
   async function criar(campos: CamposPedido): Promise<{ id: string } | { erro: string }> {
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
-    const tema = campos.tema.trim()
-    if (!tema) return { erro: 'Descreva o pedido (tema).' }
+    const nome = campos.nome.trim()
+    if (!nome) return { erro: 'Dê um nome ao pedido.' }
     setSalvando(true)
     try {
       const { data, error } = await supabase
@@ -148,7 +156,8 @@ export function usePedidos(usuariaId: string | undefined) {
         .insert({
           usuaria_id: usuariaId,
           cliente_id: campos.cliente_id,
-          tema,
+          nome,
+          tema: campos.tema.trim() || null,
           data_entrega: campos.data_entrega,
           status: campos.status,
           foto_referencia_path: campos.foto_referencia_path,
@@ -168,9 +177,10 @@ export function usePedidos(usuariaId: string | undefined) {
     id: string,
     patch: Partial<CamposPedido & { trabalho_id: string | null }>
   ): Promise<string | null> {
-    if (patch.tema !== undefined && !patch.tema.trim()) return 'Descreva o pedido (tema).'
-    const corpo = { ...patch }
-    if (corpo.tema !== undefined) corpo.tema = corpo.tema.trim()
+    if (patch.nome !== undefined && !patch.nome.trim()) return 'Dê um nome ao pedido.'
+    const corpo: Record<string, unknown> = { ...patch }
+    if (typeof corpo.nome === 'string') corpo.nome = corpo.nome.trim()
+    if (typeof corpo.tema === 'string') corpo.tema = corpo.tema.trim() || null
     setSalvando(true)
     try {
       const { error } = await supabase.from('pedidos').update(corpo).eq('id', id)

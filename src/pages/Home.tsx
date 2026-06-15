@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSessao } from '../hooks/useSessao'
-import { usePedidos, type JanelaEntrega } from '../hooks/usePedidos'
+import { usePedidos, tituloPedido, type JanelaEntrega } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
 
 /** Home em blocos (UX-001): sem barra inferior, engrenagem no topo. */
@@ -46,7 +46,7 @@ export function Home() {
             {entregas.map((p) => (
               <Link key={p.id} to={`/pedidos/${p.id}`} className="entrega">
                 <div className="quando">{p.data_entrega ? rotuloEntrega(p.data_entrega) : ''}</div>
-                <div className="o-que">{p.tema}</div>
+                <div className="o-que">{tituloPedido(p)}</div>
                 <div className="apoio" style={{ marginTop: 2 }}>{p.cliente_nome ?? 'sem cliente'}</div>
               </Link>
             ))}
