@@ -12,6 +12,7 @@ export type Pedido = {
   data_entrega: string | null // 'YYYY-MM-DD'
   status: StatusPedido
   foto_referencia_path: string | null
+  inspiracao_id: string | null
   trabalho_id: string | null
   criado_em: string
 }
@@ -28,6 +29,7 @@ export type CamposPedido = {
   data_entrega: string | null
   status: StatusPedido
   foto_referencia_path: string | null
+  inspiracao_id: string | null
 }
 
 /** Rótulos e classes de chip por status (rótulos exatos do handoff). */
@@ -61,7 +63,7 @@ export function usePedidos(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, cliente_id, nome, tema, data_entrega, status, foto_referencia_path, trabalho_id, criado_em, clientes(nome)'
+        'id, cliente_id, nome, tema, data_entrega, status, foto_referencia_path, inspiracao_id, trabalho_id, criado_em, clientes(nome)'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -77,6 +79,7 @@ export function usePedidos(usuariaId: string | undefined) {
         data_entrega: p.data_entrega as string | null,
         status: p.status as StatusPedido,
         foto_referencia_path: p.foto_referencia_path as string | null,
+        inspiracao_id: p.inspiracao_id as string | null,
         trabalho_id: p.trabalho_id as string | null,
         criado_em: p.criado_em as string,
       }))
@@ -161,6 +164,7 @@ export function usePedidos(usuariaId: string | undefined) {
           data_entrega: campos.data_entrega,
           status: campos.status,
           foto_referencia_path: campos.foto_referencia_path,
+          inspiracao_id: campos.inspiracao_id,
         })
         .select('id')
         .single()

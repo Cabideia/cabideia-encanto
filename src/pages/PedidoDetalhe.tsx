@@ -5,6 +5,7 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
+import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
 import { comprimirImagem } from '../lib/imagem'
 import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
@@ -22,9 +23,11 @@ export function PedidoDetalhe() {
     usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
   const { criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
+  const { buscarPorId: buscarInspiracao } = useInspiracoes(sessao?.user.id)
 
   const pedido = id ? buscarPorId(id) : undefined
   const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
+  const inspiracao = pedido?.inspiracao_id ? buscarInspiracao(pedido.inspiracao_id) : undefined
 
   const [fotoUrl, setFotoUrl] = useState<string | null>(null)
   const [modalAcervo, setModalAcervo] = useState(false)
@@ -198,6 +201,52 @@ export function PedidoDetalhe() {
               alt="Foto de referência"
               style={{ width: '100%', borderRadius: 'var(--raio-card)', display: 'block', border: '1px solid var(--linha)' }}
             />
+          </>
+        )}
+
+        {/* Inspiração vinculada */}
+        {inspiracao && (
+          <>
+            <div className="secao"><span className="confeito" /><h2>Inspiração</h2></div>
+            {inspiracao.fotoUrl ? (
+              <button
+                type="button"
+                className="card card-toque card-linha"
+                style={{ width: '100%', textAlign: 'left', gap: 10 }}
+                onClick={() => navegar(`/inspiracoes/${inspiracao.id}`)}
+              >
+                <img
+                  src={inspiracao.fotoUrl}
+                  alt=""
+                  style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
+                />
+                <div className="card-info">
+                  <div className="card-nome">
+                    {inspiracao.tipo === 'link' && inspiracao.url
+                      ? dominioDe(inspiracao.url)
+                      : inspiracao.nota || 'Imagem'}
+                  </div>
+                  {inspiracao.nota && <div className="apoio">{inspiracao.nota}</div>}
+                </div>
+                <span aria-hidden>›</span>
+              </button>
+            ) : (
+              inspiracao.url && (
+                <button
+                  type="button"
+                  className="card card-toque card-linha"
+                  style={{ width: '100%', textAlign: 'left', gap: 10 }}
+                  onClick={() => window.open(inspiracao.url!, '_blank', 'noopener')}
+                >
+                  <div className="bola" aria-hidden>🔗</div>
+                  <div className="card-info">
+                    <div className="card-nome">{dominioDe(inspiracao.url)}</div>
+                    <div className="apoio">{inspiracao.nota || 'Toque para abrir no navegador'}</div>
+                  </div>
+                  <span aria-hidden>›</span>
+                </button>
+              )
+            )}
           </>
         )}
 
