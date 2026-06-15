@@ -55,11 +55,11 @@ export function useClientes(usuariaId: string | undefined) {
     [clientes]
   )
 
-  // ── criar() ──
-  async function criar(campos: CamposCliente): Promise<string | null> {
-    if (!usuariaId) return 'Sessão expirada. Entre de novo.'
+  // ── criar() — devolve o cliente criado (ou um erro) ──
+  async function criar(campos: CamposCliente): Promise<{ cliente: Cliente } | { erro: string }> {
+    if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const nome = campos.nome.trim()
-    if (!nome) return 'Dê um nome à cliente.'
+    if (!nome) return { erro: 'Dê um nome à cliente.' }
     setSalvando(true)
     try {
       const { data, error } = await supabase
@@ -72,11 +72,12 @@ export function useClientes(usuariaId: string | undefined) {
         })
         .select('id, nome, whatsapp, nota, criado_em')
         .single()
-      if (error || !data) return 'Falha ao salvar: ' + (error?.message ?? 'erro desconhecido')
+      if (error || !data) return { erro: 'Falha ao salvar: ' + (error?.message ?? 'erro desconhecido') }
+      const cliente = data as Cliente
       setClientes((prev) =>
-        [...prev, data as Cliente].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        [...prev, cliente].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
       )
-      return null
+      return { cliente }
     } finally {
       setSalvando(false)
     }

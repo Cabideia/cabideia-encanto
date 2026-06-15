@@ -26,9 +26,9 @@ export function Clientes() {
   }
 
   async function salvar() {
-    const erro = await criar(form)
-    if (erro) {
-      avisar(erro)
+    const res = await criar(form)
+    if ('erro' in res) {
+      avisar(res.erro)
       return
     }
     avisar('Cliente salva ✓')

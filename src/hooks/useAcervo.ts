@@ -71,13 +71,15 @@ export function useAcervo(usuariaId: string | undefined) {
     carregarTags()
   }, [carregar, carregarTags])
 
-  // ── Adiciona um trabalho a partir de um BLOB já tratado (recorte+compressão) ──
-  async function adicionarBlob(
+  // ── Cria um trabalho a partir de um BLOB já tratado e devolve o id criado ──
+  // (usado tanto pela tela de acervo quanto pelo "entregar → mandar ao acervo"
+  //  do M-002, que precisa do id para gravar em pedidos.trabalho_id)
+  async function criarTrabalhoDeBlob(
     blob: Blob,
     descricao: string,
     tagIds: string[]
-  ): Promise<string | null> {
-    if (!usuariaId) return 'Sessão expirada. Entre de novo.'
+  ): Promise<{ id: string } | { erro: string }> {
+    if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     setEnviando(true)
     try {
       const nome = `${usuariaId}/${crypto.randomUUID()}.jpg`
@@ -85,7 +87,7 @@ export function useAcervo(usuariaId: string | undefined) {
       const { error: upErro } = await supabase.storage
         .from('publico')
         .upload(nome, blob, { contentType: 'image/jpeg', upsert: false })
-      if (upErro) return 'Falha ao enviar a foto: ' + upErro.message
+      if (upErro) return { erro: 'Falha ao enviar a foto: ' + upErro.message }
 
       const { data: tData, error: dbErro } = await supabase
         .from('trabalhos')
@@ -101,7 +103,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
       if (dbErro || !tData) {
         await supabase.storage.from('publico').remove([nome])
-        return 'Falha ao salvar: ' + (dbErro?.message ?? 'erro desconhecido')
+        return { erro: 'Falha ao salvar: ' + (dbErro?.message ?? 'erro desconhecido') }
       }
 
       if (tagIds.length > 0) {
@@ -111,12 +113,22 @@ export function useAcervo(usuariaId: string | undefined) {
       }
 
       await carregar()
-      return null
+      return { id: (tData as { id: string }).id }
     } catch (e: unknown) {
-      return (e as Error)?.message ?? 'Erro inesperado ao processar a imagem.'
+      return { erro: (e as Error)?.message ?? 'Erro inesperado ao processar a imagem.' }
     } finally {
       setEnviando(false)
     }
+  }
+
+  // ── Adiciona um trabalho a partir de um BLOB já tratado (recorte+compressão) ──
+  async function adicionarBlob(
+    blob: Blob,
+    descricao: string,
+    tagIds: string[]
+  ): Promise<string | null> {
+    const res = await criarTrabalhoDeBlob(blob, descricao, tagIds)
+    return 'erro' in res ? res.erro : null
   }
 
   // ── Remove trabalho do banco e do storage ──
@@ -244,6 +256,7 @@ export function useAcervo(usuariaId: string | undefined) {
     carregando,
     enviando,
     adicionarBlob,
+    criarTrabalhoDeBlob,
     remover,
     alternarVitrine,
     criarTag,

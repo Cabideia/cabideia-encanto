@@ -1,9 +1,15 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSessao } from '../hooks/useSessao'
+import { usePedidos, type JanelaEntrega } from '../hooks/usePedidos'
+import { rotuloEntrega } from '../lib/datas'
 
 /** Home em blocos (UX-001): sem barra inferior, engrenagem no topo. */
 export function Home() {
   const { sessao } = useSessao()
+  const { proximasEntregas } = usePedidos(sessao?.user.id)
+  const [janela, setJanela] = useState<JanelaEntrega>('7d')
+  const entregas = proximasEntregas(janela)
   const nome = sessao?.user.user_metadata?.name?.split(' ')[0] ?? 'confeiteira'
   const hoje = new Intl.DateTimeFormat('pt-BR', {
     weekday: 'long', day: 'numeric', month: 'long'
@@ -23,7 +29,29 @@ export function Home() {
         </div>
 
         <div className="secao"><span className="confeito" /><h2>Próximas entregas</h2></div>
-        <p className="apoio">Os pedidos com data aparecem aqui. (M-002)</p>
+        <div className="troca-periodo" style={{ margin: '4px 0 12px' }}>
+          <button className={janela === '7d' ? 'ativo' : ''} onClick={() => setJanela('7d')}>
+            7 dias
+          </button>
+          <button className={janela === 'mes' ? 'ativo' : ''} onClick={() => setJanela('mes')}>
+            Mês
+          </button>
+        </div>
+        {entregas.length === 0 ? (
+          <p className="apoio">
+            Nenhuma entrega {janela === '7d' ? 'nos próximos 7 dias' : 'neste mês'}. Anote um pedido em Pedidos.
+          </p>
+        ) : (
+          <div className="entregas">
+            {entregas.map((p) => (
+              <Link key={p.id} to={`/pedidos/${p.id}`} className="entrega">
+                <div className="quando">{p.data_entrega ? rotuloEntrega(p.data_entrega) : ''}</div>
+                <div className="o-que">{p.tema}</div>
+                <div className="apoio" style={{ marginTop: 2 }}>{p.cliente_nome ?? 'sem cliente'}</div>
+              </Link>
+            ))}
+          </div>
+        )}
 
         <div className="blocos">
           <Link to="/vitrine" className="bloco destaque">

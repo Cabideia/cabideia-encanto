@@ -5,16 +5,20 @@ import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp, type CamposCliente } from '../hooks/useClientes'
+import { usePedidos, STATUS_INFO } from '../hooks/usePedidos'
+import { rotuloEntrega } from '../lib/datas'
 
-/** M-003 · Detalhe da cliente — ver, editar, excluir + pedidos (stub M-002). */
+/** M-003 · Detalhe da cliente — ver, editar, excluir + pedidos da cliente (M-002). */
 export function ClienteDetalhe() {
   const { id } = useParams()
   const navegar = useNavigate()
   const { sessao } = useSessao()
   const avisar = useAviso()
   const { carregando, salvando, buscarPorId, atualizar, excluir } = useClientes(sessao?.user.id)
+  const { porCliente } = usePedidos(sessao?.user.id)
 
   const cliente = id ? buscarPorId(id) : undefined
+  const pedidosCliente = id ? porCliente(id) : []
 
   const [editando, setEditando] = useState(false)
   const [form, setForm] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
@@ -151,13 +155,39 @@ export function ClienteDetalhe() {
               </>
             )}
 
-            {/* Pedidos — stub reservado (será preenchido em M-002). */}
+            {/* Pedidos desta cliente (M-002) */}
             <div className="secao"><span className="confeito" /><h2>Pedidos</h2></div>
-            <div className="card">
-              <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
-                🧁 Os pedidos desta cliente aparecerão aqui.
-              </p>
-            </div>
+            {pedidosCliente.length === 0 ? (
+              <div className="card">
+                <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
+                  🧁 Os pedidos desta cliente aparecerão aqui.
+                </p>
+              </div>
+            ) : (
+              pedidosCliente.map((p) => {
+                const info = STATUS_INFO[p.status]
+                return (
+                  <div
+                    key={p.id}
+                    className="card card-toque"
+                    onClick={() => navegar(`/pedidos/${p.id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && navegar(`/pedidos/${p.id}`)}
+                  >
+                    <div className="card-linha" style={{ alignItems: 'flex-start' }}>
+                      <div className="card-info">
+                        <div className="card-nome" style={{ whiteSpace: 'normal' }}>{p.tema}</div>
+                        {p.data_entrega && (
+                          <div className="apoio">{rotuloEntrega(p.data_entrega)}</div>
+                        )}
+                      </div>
+                      <span className={`chip ${info.chip}`}>{info.rotulo}</span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
 
             <button
               className="btn-secundario"
