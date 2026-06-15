@@ -108,7 +108,7 @@ export function MinhasSelecoes() {
       {aApagar && (
         <Confirmar
           titulo="Apagar esta seleção?"
-          descricao="O link enviado à cliente vai parar de funcionar imediatamente. Suas fotos continuam guardadas no acervo."
+          descricao="O link enviado à cliente vai parar de funcionar imediatamente. Suas fotos continuam guardadas em Meus Trabalhos."
           rotuloConfirmar="Apagar seleção"
           onConfirmar={confirmarApagar}
           onCancelar={() => setAApagar(null)}

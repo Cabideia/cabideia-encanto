@@ -4,7 +4,7 @@ import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
-import { useClientes } from '../hooks/useClientes'
+import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
 import { comprimirImagem } from '../lib/imagem'
 
@@ -51,9 +51,9 @@ export function PedidoForm() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [processando, setProcessando] = useState(false)
 
-  // Atalho "novo cliente"
+  // Atalho "novo cliente" — formulário completo num sheet por cima do pedido
   const [novoClienteAberto, setNovoClienteAberto] = useState(false)
-  const [novoNome, setNovoNome] = useState('')
+  const [novoCliente, setNovoCliente] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
 
   const inputFoto = useRef<HTMLInputElement>(null)
   const prefilled = useRef(false)
@@ -110,18 +110,29 @@ export function PedidoForm() {
     setFotoPath(null)
   }
 
+  function abrirNovoCliente() {
+    setNovoCliente({ nome: '', whatsapp: '', nota: '' })
+    setNovoClienteAberto(true)
+  }
+  function fecharNovoCliente() {
+    if (salvandoCliente) return
+    setNovoClienteAberto(false)
+    setNovoCliente({ nome: '', whatsapp: '', nota: '' })
+  }
+
   async function criarClienteRapido() {
-    const nome = novoNome.trim()
-    if (!nome) return
-    const res = await criarCliente({ nome, whatsapp: '', nota: '' })
+    if (!novoCliente.nome.trim()) return
+    const semZap = !novoCliente.whatsapp.trim()
+    const res = await criarCliente(novoCliente)
     if ('erro' in res) {
       avisar(res.erro)
       return
     }
+    // Seleciona a recém-criada no rascunho do pedido (que ficou preservado).
     setForm((f) => ({ ...f, cliente_id: res.cliente.id }))
-    setNovoNome('')
     setNovoClienteAberto(false)
-    avisar('Cliente criada ✓')
+    setNovoCliente({ nome: '', whatsapp: '', nota: '' })
+    avisar(semZap ? 'Cliente salvo · sem WhatsApp, o botão de conversa não aparece' : 'Cliente salvo ✓')
   }
 
   async function salvar() {
@@ -215,45 +226,14 @@ export function PedidoForm() {
               </option>
             ))}
           </select>
-          {!novoClienteAberto ? (
-            <button
-              type="button"
-              className="tag-criar"
-              style={{ marginTop: 8 }}
-              onClick={() => setNovoClienteAberto(true)}
-            >
-              ＋ Nova cliente
-            </button>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <input
-                autoFocus
-                value={novoNome}
-                onChange={(e) => setNovoNome(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    criarClienteRapido()
-                  }
-                  if (e.key === 'Escape') {
-                    setNovoClienteAberto(false)
-                    setNovoNome('')
-                  }
-                }}
-                placeholder="Nome da cliente"
-                maxLength={80}
-                style={{ flex: 1, minHeight: 44, padding: '10px 14px', border: '1px solid var(--linha)', borderRadius: 12, font: 'inherit', fontSize: 'var(--t-base)', outline: 'none', background: 'var(--acucar)', color: 'var(--cacau)' }}
-              />
-              <button
-                type="button"
-                className="zap"
-                onClick={criarClienteRapido}
-                disabled={salvandoCliente || !novoNome.trim()}
-              >
-                Salvar
-              </button>
-            </div>
-          )}
+          <button
+            type="button"
+            className="tag-criar"
+            style={{ marginTop: 8 }}
+            onClick={abrirNovoCliente}
+          >
+            ＋ Novo cliente
+          </button>
         </div>
 
         {/* Nome do pedido (obrigatório, curto) */}
@@ -379,10 +359,69 @@ export function PedidoForm() {
         </div>
       </div>
 
+      {/* Sheet: cadastro completo de cliente, por cima do rascunho do pedido */}
+      {novoClienteAberto && (
+        <div className="painel-overlay" onClick={fecharNovoCliente}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <div className="form-acervo-titulo">Novo cliente</div>
+            <div className="campo">
+              <label>Nome</label>
+              <input
+                autoFocus
+                value={novoCliente.nome}
+                onChange={(e) => setNovoCliente({ ...novoCliente, nome: e.target.value })}
+                placeholder="Ex.: Maria Silva"
+                maxLength={80}
+              />
+            </div>
+            <div className="campo">
+              <label>WhatsApp (opcional)</label>
+              <input
+                value={novoCliente.whatsapp}
+                onChange={(e) => setNovoCliente({ ...novoCliente, whatsapp: e.target.value })}
+                placeholder="Ex.: +55 11 99999-9999"
+                inputMode="tel"
+                maxLength={20}
+              />
+            </div>
+            <div className="campo">
+              <label>Nota (opcional)</label>
+              <textarea
+                value={novoCliente.nota}
+                onChange={(e) => setNovoCliente({ ...novoCliente, nota: e.target.value })}
+                placeholder="Ex.: prefere entregas pela manhã"
+                maxLength={300}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1 }}
+                onClick={fecharNovoCliente}
+                disabled={salvandoCliente}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cta"
+                style={{ flex: 2, height: 48 }}
+                onClick={criarClienteRapido}
+                disabled={salvandoCliente || !novoCliente.nome.trim()}
+              >
+                {salvandoCliente ? 'Salvando…' : 'Salvar cliente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {aExcluir && (
         <Confirmar
           titulo="Excluir este pedido?"
-          descricao="Esta ação não pode ser desfeita. As fotos que já foram para o acervo continuam lá."
+          descricao="Esta ação não pode ser desfeita. As fotos que já foram para Meus Trabalhos continuam lá."
           rotuloConfirmar="Excluir pedido"
           onConfirmar={confirmarExcluir}
           onCancelar={() => setAExcluir(false)}

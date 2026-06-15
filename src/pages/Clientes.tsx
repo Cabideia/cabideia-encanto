@@ -31,7 +31,7 @@ export function Clientes() {
       avisar(res.erro)
       return
     }
-    avisar('Cliente salva ✓')
+    avisar('Cliente salvo ✓')
     fecharForm()
   }
 
@@ -119,7 +119,7 @@ export function Clientes() {
 
         {formAberto && (
           <div className="form-acervo">
-            <div className="form-acervo-titulo">Nova cliente</div>
+            <div className="form-acervo-titulo">Novo cliente</div>
             <div className="campo">
               <label>Nome</label>
               <input
