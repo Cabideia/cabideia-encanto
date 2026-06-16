@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { LimiteModal } from '../components/LimiteModal'
@@ -26,6 +26,7 @@ type DadosForm = {
 export function PedidoForm() {
   const { id } = useParams()
   const edicao = !!id
+  const [searchParams] = useSearchParams()
   const navegar = useNavigate()
   const { sessao } = useSessao()
   const avisar = useAviso()
@@ -66,6 +67,7 @@ export function PedidoForm() {
 
   const inputFoto = useRef<HTMLInputElement>(null)
   const prefilled = useRef(false)
+  const prefilledNovo = useRef(false)
 
   // Pré-preenche no modo edição quando o pedido carrega (uma vez).
   const pedido = edicao && id ? buscarPorId(id) : undefined
@@ -87,6 +89,15 @@ export function PedidoForm() {
       })
     }
   }, [edicao, pedido, urlReferencia])
+
+  // Criação a partir do calendário: pré-preenche a data de entrega (?data=YYYY-MM-DD).
+  useEffect(() => {
+    if (edicao || prefilledNovo.current) return
+    const data = searchParams.get('data')
+    if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return
+    prefilledNovo.current = true
+    setForm((f) => ({ ...f, data_entrega: data }))
+  }, [edicao, searchParams])
 
   // Limpa o objectURL da foto nova ao desmontar/trocar.
   useEffect(() => {

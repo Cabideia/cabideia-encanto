@@ -217,7 +217,7 @@ export function VitrinePublica() {
         {cardapio.length > 0 && (
           <div style={{ marginTop: 28 }}>
             <div className="nome-negocio" style={{ textAlign: 'center', fontSize: 'var(--t-card)' }}>
-              Cardápio
+              Tabela de preços
             </div>
             <div style={{ marginTop: 12 }}>
               {cardapio.map((item) => (

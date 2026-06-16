@@ -99,7 +99,7 @@ export function Cardapio() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo="Cardápio" />
+      <BarraTopo titulo="Tabela de preços" />
       <div className="conteudo">
         {!formAberto && itens.length > 0 && (
           <div className="busca" style={{ marginTop: 4 }}>
@@ -186,7 +186,7 @@ export function Cardapio() {
               <div>
                 <div style={{ fontWeight: 600 }}>🛍️ Mostrar na vitrine</div>
                 <div className="apoio" style={{ marginTop: 2 }}>
-                  Aparece no cardápio público da sua vitrine.
+                  Aparece na tabela de preços pública da sua vitrine.
                 </div>
               </div>
               <label className="interruptor">
@@ -304,7 +304,7 @@ export function Cardapio() {
       {aExcluir && (
         <Confirmar
           titulo={`Excluir “${aExcluir.nome}”?`}
-          descricao="Este item será removido do seu cardápio. Esta ação não pode ser desfeita."
+          descricao="Este item será removido da sua tabela de preços. Esta ação não pode ser desfeita."
           rotuloConfirmar="Excluir item"
           onConfirmar={confirmarExcluir}
           onCancelar={() => setAExcluir(null)}

@@ -117,6 +117,25 @@ export function usePedidos(usuariaId: string | undefined) {
     [pedidos]
   )
 
+  // ── pedidosPorMes(ano, mes): entregas com data_entrega no mês (mes 1–12),
+  //    data asc — base do calendário (M-006) ──
+  const pedidosPorMes = useCallback(
+    (ano: number, mes: number): Pedido[] => {
+      const prefixo = `${ano}-${String(mes).padStart(2, '0')}-`
+      return pedidos
+        .filter((p) => p.data_entrega?.startsWith(prefixo))
+        .sort((a, b) => (a.data_entrega ?? '').localeCompare(b.data_entrega ?? ''))
+    },
+    [pedidos]
+  )
+
+  // ── pedidosPorDia(data): entregas de um dia exato ('YYYY-MM-DD') ──
+  const pedidosPorDia = useCallback(
+    (data: string): Pedido[] =>
+      pedidos.filter((p) => p.data_entrega === data),
+    [pedidos]
+  )
+
   // ── porCliente(clienteId): pedidos de uma cliente (para o ClienteDetalhe) ──
   const porCliente = useCallback(
     (clienteId: string): Pedido[] =>
@@ -219,6 +238,8 @@ export function usePedidos(usuariaId: string | undefined) {
     listar,
     buscarPorId,
     proximasEntregas,
+    pedidosPorMes,
+    pedidosPorDia,
     porCliente,
     subirReferencia,
     urlReferencia,
