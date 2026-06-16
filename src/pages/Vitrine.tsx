@@ -5,6 +5,7 @@ import { PerfilForm } from '../components/PerfilForm'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 /**
  * M-017 (herói) — gestão da vitrine.
@@ -55,6 +56,7 @@ export function Vitrine() {
 
   async function alternarPublicacao() {
     if (!sessao || !perfil || salvando) return
+    if (estaOffline()) return avisar(SEM_CONEXAO)
     const novoValor = !perfil.vitrine_publicada
     setSalvando(true)
     const { error } = await supabase

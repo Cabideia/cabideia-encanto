@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAviso } from './Toast'
 import { useSessao } from '../hooks/useSessao'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 /**
  * M-017 · Formulário de perfil reaproveitável.
@@ -73,6 +74,7 @@ export function PerfilForm({ onSalvo, onCancelar }: Props) {
 
   async function salvar() {
     if (!sessao) return
+    if (estaOffline()) return avisar(SEM_CONEXAO)
     if (!nomeNegocio.trim()) return avisar('Dê um nome ao seu negócio')
     if (!REGRA_ARROBA.test(arroba)) return avisar('Escolha um @ válido para o link')
     if (erroArroba) return
