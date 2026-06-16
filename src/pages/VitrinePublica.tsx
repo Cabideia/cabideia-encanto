@@ -54,24 +54,20 @@ export function VitrinePublica() {
       setPerfil(p)
 
       if (p) {
-        const { data: t } = await supabase
-          .from('trabalhos')
-          .select('id, foto_publica_path, descricao, trabalho_tags(tags(id, nome))')
-          .eq('usuaria_id', (p as any).id)
-          .eq('na_vitrine', true)
-          .order('criado_em', { ascending: false })
+        // O corte por plano (slots_vitrine_publica) é SERVER-SIDE: a cliente é
+        // anônima, então a RPC `vitrine_publica` devolve só os N trabalhos mais
+        // recentes na vitrine (N = NULL ⇒ sem limite para Fundadora/Vitrine).
+        const { data: t } = await supabase.rpc('vitrine_publica', { arroba: usuaria })
 
         setFotos(
-          (t ?? [])
-            .filter((x: any) => x.foto_publica_path)
-            .map((x: any) => ({
-              id: x.id,
-              descricao: x.descricao,
-              url: supabase.storage.from('publico').getPublicUrl(x.foto_publica_path).data.publicUrl,
-              tags: (x.trabalho_tags ?? [])
-                .filter((wt: any) => wt.tags)
-                .map((wt: any) => ({ id: wt.tags.id, nome: wt.tags.nome })),
-            }))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((t ?? []) as any[]).map((x) => ({
+            id: x.id,
+            descricao: x.descricao,
+            url: supabase.storage.from('publico').getPublicUrl(x.foto_publica_path).data.publicUrl,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            tags: ((x.tags ?? []) as any[]).map((tg) => ({ id: tg.id, nome: tg.nome })),
+          }))
         )
       }
       setCarregando(false)

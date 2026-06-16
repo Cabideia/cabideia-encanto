@@ -1,8 +1,19 @@
 import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { supabase } from '../lib/supabase'
+import { useSessao } from '../hooks/useSessao'
+import { useAssinatura } from '../hooks/useAssinatura'
 
 export function Config() {
+  const { sessao } = useSessao()
+  const { plano, fundadora, total, limite, ilimitado } = useAssinatura(sessao?.user.id)
+
+  const resumoPlano = fundadora
+    ? 'Fundadora · imagens sem limite ✨'
+    : plano === 'vitrine'
+      ? 'Plano Vitrine · imagens sem limite ✨'
+      : `Grátis · ${total}/${limite} imagens`
+
   return (
     <div className="tela">
       <BarraTopo titulo="Configurações" />
@@ -12,7 +23,7 @@ export function Config() {
             <div className="bola">🎀</div>
             <div className="card-info">
               <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Meu plano</div>
-              <div className="apoio">Grátis · teste do Plano Vitrine disponível</div>
+              <div className="apoio">{resumoPlano}</div>
             </div>
             <span aria-hidden>›</span>
           </Link>
@@ -24,6 +35,12 @@ export function Config() {
             </div>
           </div>
         </div>
+
+        {!ilimitado && (
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 14 }}>
+            Plano Grátis: até {limite} imagens (trabalhos, inspirações e referências).
+          </p>
+        )}
       </div>
     </div>
   )
