@@ -9,6 +9,7 @@ import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { useAssinatura } from '../hooks/useAssinatura'
+import { useCardapio, textoItemCardapio, formatarReal } from '../hooks/useCardapio'
 import { comprimirImagem } from '../lib/imagem'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -33,6 +34,7 @@ export function PedidoForm() {
 
   const { clientes, criar: criarCliente, salvando: salvandoCliente } = useClientes(sessao?.user.id)
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
+  const { itens: itensCardapio } = useCardapio(sessao?.user.id)
   const {
     carregando,
     salvando,
@@ -54,6 +56,7 @@ export function PedidoForm() {
     inspiracao_id: null,
   })
   const [pickerInsp, setPickerInsp] = useState(false)
+  const [pickerTabela, setPickerTabela] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
   const [fotoPath, setFotoPath] = useState<string | null>(null) // referência já salva
   const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // referência nova a subir
@@ -66,8 +69,39 @@ export function PedidoForm() {
   const [novoCliente, setNovoCliente] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
 
   const inputFoto = useRef<HTMLInputElement>(null)
+  const temaRef = useRef<HTMLTextAreaElement>(null)
+  const caretTema = useRef<number | null>(null) // ponto de inserção da Tabela de preços
   const prefilled = useRef(false)
   const prefilledNovo = useRef(false)
+
+  // UX-002 · Abre o atalho guardando onde está o cursor (ou o fim, se o campo
+  // não estiver em foco) — assim os itens entram no ponto certo.
+  function abrirTabela() {
+    const ta = temaRef.current
+    caretTema.current =
+      ta && document.activeElement === ta ? ta.selectionStart : form.tema.length
+    setPickerTabela(true)
+  }
+
+  // UX-002 · Insere o texto pronto de um item da Tabela de preços no ponto do
+  // cursor do campo Detalhes (texto livre — sem vínculo estrutural). Permite vários.
+  function inserirDaTabela(item: (typeof itensCardapio)[number]) {
+    const trecho = textoItemCardapio(item)
+    const atual = form.tema
+    const pos = Math.min(caretTema.current ?? atual.length, atual.length)
+    const antes = atual.slice(0, pos)
+    const depois = atual.slice(pos)
+    const precisaQuebra = antes.length > 0 && !antes.endsWith('\n')
+    const inserido = (precisaQuebra ? '\n' : '') + trecho
+    const novo = antes + inserido + depois
+    if (novo.length > 300) {
+      avisar('Não cabe mais texto nos detalhes.')
+      return
+    }
+    setForm((f) => ({ ...f, tema: novo }))
+    caretTema.current = antes.length + inserido.length // avança p/ o próximo item
+    avisar('Item inserido ✓')
+  }
 
   // Pré-preenche no modo edição quando o pedido carrega (uma vez).
   const pedido = edicao && id ? buscarPorId(id) : undefined
@@ -283,8 +317,19 @@ export function PedidoForm() {
 
         {/* Detalhes do pedido (opcional, longo) */}
         <div className="campo">
-          <label>Detalhes do pedido (opcional)</label>
+          <div className="campo-rotulo-linha">
+            <label>Detalhes do pedido (opcional)</label>
+            <button
+              type="button"
+              className="atalho-tabela"
+              onClick={abrirTabela}
+              aria-label="Inserir item da Tabela de preços"
+            >
+              📋 Tabela de preços
+            </button>
+          </div>
           <textarea
+            ref={temaRef}
             value={form.tema}
             onChange={(e) => setForm({ ...form, tema: e.target.value })}
             placeholder="Ex.: 100 doces tradicionais, tema unicórnio, entregar montado"
@@ -545,6 +590,53 @@ export function PedidoForm() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Sheet: inserir item da Tabela de preços (UX-002) — fica aberto p/ inserir vários */}
+      {pickerTabela && (
+        <div className="painel-overlay" onClick={() => setPickerTabela(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <button className="painel-fechar" onClick={() => setPickerTabela(false)} aria-label="Fechar">✕</button>
+            <div className="form-acervo-titulo">Inserir da Tabela de preços</div>
+            {itensCardapio.length === 0 ? (
+              <p className="apoio" style={{ marginTop: 8 }}>
+                Sua Tabela de preços está vazia. Cadastre seus itens em Tabela de preços, na home.
+              </p>
+            ) : (
+              <>
+                <p className="apoio" style={{ marginBottom: 12 }}>
+                  Toque para inserir no texto. Pode inserir vários.
+                </p>
+                {itensCardapio.map((i) => {
+                  const preco =
+                    i.preco_base != null
+                      ? formatarReal(i.preco_base)
+                      : i.preco_sob_consulta
+                      ? 'sob consulta'
+                      : null
+                  const apoio = [preco, i.unidade ? `por ${i.unidade}` : '']
+                    .filter(Boolean)
+                    .join(' · ')
+                  return (
+                    <button
+                      key={i.id}
+                      type="button"
+                      className="tabela-item"
+                      onClick={() => inserirDaTabela(i)}
+                    >
+                      <div className="card-info">
+                        <div className="card-nome">{i.nome}</div>
+                        {apoio && <div className="apoio">{apoio}</div>}
+                      </div>
+                      <span className="mais" aria-hidden>＋</span>
+                    </button>
+                  )
+                })}
+              </>
             )}
           </div>
         </div>

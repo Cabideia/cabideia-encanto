@@ -609,3 +609,41 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
   background: var(--acucar); display: flex; align-items: center; justify-content: center;
 }
+
+/* ============================================================
+   M-021 · PROPOSTA ENCANTADORA — prévia do cartão (canvas)
+   ============================================================ */
+.proposta-previa {
+  display: block; width: 100%; height: auto; margin-top: 8px;
+  border-radius: var(--raio-card); border: 1px solid var(--linha);
+  box-shadow: 0 4px 18px rgba(67,48,43,.14); background: var(--massa);
+}
+
+/* ============================================================
+   UX-002 · Atalho da Tabela de preços no campo Detalhes
+   ============================================================ */
+.campo-rotulo-linha {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
+.campo-rotulo-linha label { margin-bottom: 0; }
+.atalho-tabela {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px;
+  border: 1px dashed var(--framboesa); border-radius: var(--raio-pill);
+  background: transparent; color: var(--framboesa); font: inherit;
+  font-size: var(--t-apoio); font-weight: 700; cursor: pointer; white-space: nowrap;
+  text-transform: none; letter-spacing: 0;
+}
+.atalho-tabela:active { background: var(--framboesa-suave); }
+.tabela-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 13px 14px; margin-bottom: 8px; cursor: pointer;
+  background: var(--acucar); border: 1px solid var(--linha); border-radius: 14px;
+  font: inherit; color: var(--cacau);
+}
+.tabela-item:active { border-color: var(--framboesa); }
+.tabela-item .mais {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--framboesa-suave); color: var(--framboesa); font-weight: 800; font-size: 18px;
+}

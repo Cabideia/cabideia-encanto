@@ -17,6 +17,27 @@ export function precoParaNumero(texto: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
+/**
+ * UX-002 · Texto pronto de um item, para inserir nos detalhes do pedido.
+ * Ex.: "Bolo — R$ 120,00 por kg". Sem preço, devolve só o nome.
+ */
+export function textoItemCardapio(item: {
+  nome: string
+  preco_base: number | null
+  unidade: string | null
+  preco_sob_consulta: boolean
+}): string {
+  const preco =
+    item.preco_base != null
+      ? formatarReal(item.preco_base)
+      : item.preco_sob_consulta
+      ? 'sob consulta'
+      : null
+  if (!preco) return item.nome
+  const unidade = item.unidade ? ` por ${item.unidade}` : ''
+  return `${item.nome} — ${preco}${unidade}`
+}
+
 export type ItemCardapio = {
   id: string
   nome: string
