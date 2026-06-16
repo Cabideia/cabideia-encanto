@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 export type Anotacao = {
   id: string
@@ -34,6 +35,7 @@ export function useAnotacoes(usuariaId: string | undefined) {
 
   // ── criar() ──
   async function criar(texto: string): Promise<{ anotacao: Anotacao } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const limpo = texto.trim()
     if (!limpo) return { erro: 'Escreva algo na anotação.' }
@@ -55,6 +57,7 @@ export function useAnotacoes(usuariaId: string | undefined) {
 
   // ── atualizar() ──
   async function atualizar(id: string, texto: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const limpo = texto.trim()
     if (!limpo) return 'Escreva algo na anotação.'
     setSalvando(true)
@@ -78,6 +81,7 @@ export function useAnotacoes(usuariaId: string | undefined) {
 
   // ── excluir() (a confirmação fica na UI) ──
   async function excluir(id: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('anotacoes').delete().eq('id', id)
     if (error) return 'Falha ao excluir: ' + error.message
     setAnotacoes((prev) => prev.filter((a) => a.id !== id))

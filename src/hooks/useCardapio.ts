@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 /** Sugestões de unidade (chips). O campo aceita qualquer texto livre. */
 export const UNIDADES_SUGERIDAS = ['unidade', 'cento', 'dúzia', 'kg', 'fatia']
@@ -101,6 +102,7 @@ export function useCardapio(usuariaId: string | undefined) {
 
   // ── criar() ──
   async function criar(campos: CamposItem): Promise<{ item: ItemCardapio } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const dados = payload(campos)
     if (!dados.nome) return { erro: 'Dê um nome ao item.' }
@@ -122,6 +124,7 @@ export function useCardapio(usuariaId: string | undefined) {
 
   // ── atualizar() ──
   async function atualizar(id: string, campos: CamposItem): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const dados = payload(campos)
     if (!dados.nome) return 'Dê um nome ao item.'
     setSalvando(true)
@@ -146,6 +149,7 @@ export function useCardapio(usuariaId: string | undefined) {
 
   // ── excluir() (a confirmação fica na UI) ──
   async function excluir(id: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('cardapio_itens').delete().eq('id', id)
     if (error) return 'Falha ao excluir: ' + error.message
     setItens((prev) => prev.filter((i) => i.id !== id))

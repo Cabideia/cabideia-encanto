@@ -294,6 +294,18 @@ body{
 }
 #toast.mostra{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ---------- AVISO OFFLINE (M-023) ---------- */
+.aviso-offline{
+  position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:420px;z-index:80;
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;
+  background:var(--caramelo);color:#fff;
+  font-size:var(--t-apoio);font-weight:700;line-height:1.35;
+  box-shadow:0 2px 10px rgba(67,48,43,.18);
+}
+.aviso-offline span[aria-hidden]{font-size:16px;flex:none}
+
 /* ---------- INTERRUPTOR ---------- */
 .interruptor{position:relative;width:50px;height:30px;flex:none;cursor:pointer}
 .interruptor input{opacity:0;width:0;height:0}
