@@ -1,15 +1,15 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSessao } from '../hooks/useSessao'
-import { usePedidos, tituloPedido, type JanelaEntrega } from '../hooks/usePedidos'
+import { usePedidos, tituloPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
 
 /** Home em blocos (UX-001): sem barra inferior, engrenagem no topo. */
 export function Home() {
   const { sessao } = useSessao()
   const { proximasEntregas } = usePedidos(sessao?.user.id)
-  const [janela, setJanela] = useState<JanelaEntrega>('7d')
-  const entregas = proximasEntregas(janela)
+  // Resumo enxuto na home: as próximas entregas de 7 dias. A visão completa
+  // (mês a mês) vive no Calendário, alcançável pelo "Ver todas".
+  const entregas = proximasEntregas('7d')
   const nome = sessao?.user.user_metadata?.name?.split(' ')[0] ?? 'confeiteira'
   const hoje = new Intl.DateTimeFormat('pt-BR', {
     weekday: 'long', day: 'numeric', month: 'long'
@@ -28,18 +28,15 @@ export function Home() {
           <div className="apoio">Seus encantos, guardados com carinho.</div>
         </div>
 
-        <div className="secao"><span className="confeito" /><h2>Próximas entregas</h2></div>
-        <div className="troca-periodo" style={{ margin: '4px 0 12px' }}>
-          <button className={janela === '7d' ? 'ativo' : ''} onClick={() => setJanela('7d')}>
-            7 dias
-          </button>
-          <button className={janela === 'mes' ? 'ativo' : ''} onClick={() => setJanela('mes')}>
-            Mês
-          </button>
+        <div className="secao" style={{ justifyContent: 'space-between' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="confeito" /><h2>Próximas entregas</h2>
+          </span>
+          <Link to="/calendario" className="secao-link">Ver todas ›</Link>
         </div>
         {entregas.length === 0 ? (
           <p className="apoio">
-            Nenhuma entrega {janela === '7d' ? 'nos próximos 7 dias' : 'neste mês'}. Anote um pedido em Pedidos.
+            Nenhuma entrega nos próximos 7 dias. Veja o mês todo no <Link to="/calendario" style={{ color: 'var(--framboesa)', fontWeight: 700 }}>Calendário</Link>.
           </p>
         ) : (
           <div className="entregas">
@@ -84,7 +81,7 @@ export function Home() {
           </Link>
           <Link to="/cardapio" className="bloco">
             <div className="emoji" aria-hidden>📋</div>
-            <div><div className="nome">Cardápio</div><div className="conta">seus preços de referência</div></div>
+            <div><div className="nome">Tabela de preços</div><div className="conta">seus preços de referência</div></div>
           </Link>
           <Link to="/anotacoes" className="bloco">
             <div className="emoji" aria-hidden>📝</div>

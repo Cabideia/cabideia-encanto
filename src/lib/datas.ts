@@ -10,6 +10,14 @@ export function dataLocal(iso: string): Date {
   return new Date(ano, mes - 1, dia)
 }
 
+/** 'YYYY-MM-DD' de uma Date local — evita o salto de fuso do toISOString. */
+export function isoDeData(d: Date): string {
+  const ano = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
+}
+
 /** Ex.: "20 de jun." */
 export function formatarData(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' }).format(dataLocal(iso))
