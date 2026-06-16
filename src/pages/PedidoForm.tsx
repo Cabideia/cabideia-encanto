@@ -6,6 +6,7 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
+import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { comprimirImagem } from '../lib/imagem'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -16,6 +17,7 @@ type DadosForm = {
   tema: string
   data_entrega: string
   status: StatusPedido
+  inspiracao_id: string | null
 }
 
 /** M-002 · Formulário de pedido (cria em /pedidos/novo, edita em /pedidos/:id/editar). */
@@ -27,6 +29,7 @@ export function PedidoForm() {
   const avisar = useAviso()
 
   const { clientes, criar: criarCliente, salvando: salvandoCliente } = useClientes(sessao?.user.id)
+  const { inspiracoes } = useInspiracoes(sessao?.user.id)
   const {
     carregando,
     salvando,
@@ -44,7 +47,9 @@ export function PedidoForm() {
     tema: '',
     data_entrega: '',
     status: 'a_fazer',
+    inspiracao_id: null,
   })
+  const [pickerInsp, setPickerInsp] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
   const [fotoPath, setFotoPath] = useState<string | null>(null) // referência já salva
   const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // referência nova a subir
@@ -69,6 +74,7 @@ export function PedidoForm() {
       tema: pedido.tema ?? '',
       data_entrega: pedido.data_entrega ?? '',
       status: pedido.status,
+      inspiracao_id: pedido.inspiracao_id,
     })
     setFotoPath(pedido.foto_referencia_path)
     if (pedido.foto_referencia_path) {
@@ -158,6 +164,7 @@ export function PedidoForm() {
       data_entrega: form.data_entrega || null,
       status: form.status,
       foto_referencia_path: caminhoFoto,
+      inspiracao_id: form.inspiracao_id,
     }
 
     if (edicao && id) {
@@ -323,6 +330,56 @@ export function PedidoForm() {
           )}
         </div>
 
+        {/* Inspiração (opcional) — escolher uma da galeria */}
+        <div className="campo">
+          <label>Inspiração (opcional)</label>
+          {(() => {
+            const sel = form.inspiracao_id
+              ? inspiracoes.find((i) => i.id === form.inspiracao_id)
+              : undefined
+            if (sel) {
+              return (
+                <div className="card card-linha" style={{ gap: 10 }}>
+                  {sel.fotoUrl ? (
+                    <img
+                      src={sel.fotoUrl}
+                      alt=""
+                      style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
+                    />
+                  ) : (
+                    <div className="bola" aria-hidden>🔗</div>
+                  )}
+                  <div className="card-info">
+                    <div className="card-nome">
+                      {sel.tipo === 'link' && sel.url ? dominioDe(sel.url) : sel.nota || 'Imagem'}
+                    </div>
+                    {sel.nota && sel.tipo === 'link' && <div className="apoio">{sel.nota}</div>}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-icone"
+                    onClick={() => setForm({ ...form, inspiracao_id: null })}
+                    aria-label="Tirar inspiração"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            }
+            return (
+              <button
+                type="button"
+                className="origem-botao"
+                style={{ width: '100%' }}
+                onClick={() => setPickerInsp(true)}
+              >
+                <span className="origem-emoji">💡</span>
+                Anexar uma inspiração
+              </button>
+            )
+          })()}
+        </div>
+
         {/* Excluir (só na edição) */}
         {edicao && (
           <button
@@ -414,6 +471,54 @@ export function PedidoForm() {
                 {salvandoCliente ? 'Salvando…' : 'Salvar cliente'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet: escolher inspiração da galeria */}
+      {pickerInsp && (
+        <div className="painel-overlay" onClick={() => setPickerInsp(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <button className="painel-fechar" onClick={() => setPickerInsp(false)} aria-label="Fechar">✕</button>
+            <div className="form-acervo-titulo">Anexar inspiração</div>
+            {inspiracoes.length === 0 ? (
+              <p className="apoio" style={{ marginTop: 8 }}>
+                Você ainda não guardou inspirações. Crie uma em Inspirações, na home.
+              </p>
+            ) : (
+              <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
+                {inspiracoes.map((i) => (
+                  <div
+                    key={i.id}
+                    className="foto-item"
+                    role="button"
+                    tabIndex={0}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      setForm({ ...form, inspiracao_id: i.id })
+                      setPickerInsp(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setForm({ ...form, inspiracao_id: i.id })
+                        setPickerInsp(false)
+                      }
+                    }}
+                  >
+                    {i.fotoUrl ? (
+                      <img src={i.fotoUrl} alt={i.nota ?? ''} loading="lazy" />
+                    ) : (
+                      <div className="insp-link-capa">
+                        <span className="insp-link-emoji" aria-hidden>🔗</span>
+                        <span className="insp-link-dominio">{i.url ? dominioDe(i.url) : 'link'}</span>
+                      </div>
+                    )}
+                    {i.nota && <div className="foto-legenda">{i.nota}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

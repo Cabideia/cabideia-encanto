@@ -16,6 +16,8 @@ import { PedidoDetalhe } from './pages/PedidoDetalhe'
 import { Clientes } from './pages/Clientes'
 import { ClienteDetalhe } from './pages/ClienteDetalhe'
 import { Inspiracoes } from './pages/Inspiracoes'
+import { InspiracaoForm } from './pages/InspiracaoForm'
+import { InspiracaoDetalhe } from './pages/InspiracaoDetalhe'
 import { Calendario } from './pages/Calendario'
 import { Cardapio } from './pages/Cardapio'
 import { Anotacoes } from './pages/Anotacoes'
@@ -62,6 +64,9 @@ export function App() {
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
           <Route path="/clientes/:id" element={<Privada><ClienteDetalhe /></Privada>} />
           <Route path="/inspiracoes" element={<Privada><Inspiracoes /></Privada>} />
+          <Route path="/inspiracoes/nova" element={<Privada><InspiracaoForm /></Privada>} />
+          <Route path="/inspiracoes/:id" element={<Privada><InspiracaoDetalhe /></Privada>} />
+          <Route path="/inspiracoes/:id/editar" element={<Privada><InspiracaoForm /></Privada>} />
           <Route path="/calendario" element={<Privada><Calendario /></Privada>} />
           <Route path="/cardapio" element={<Privada><Cardapio /></Privada>} />
           <Route path="/anotacoes" element={<Privada><Anotacoes /></Privada>} />
