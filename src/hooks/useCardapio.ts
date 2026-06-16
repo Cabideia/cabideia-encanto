@@ -1,47 +1,56 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-/** Unidades de venda do enum `unidade_cardapio`. */
-export type Unidade = 'unidade' | 'cento' | 'duzia' | 'kg' | 'fatia'
+/** Sugestões de unidade (chips). O campo aceita qualquer texto livre. */
+export const UNIDADES_SUGERIDAS = ['unidade', 'cento', 'dúzia', 'kg', 'fatia']
 
-/** Rótulos amigáveis (ordem = ordem do select). */
-export const UNIDADES: { valor: Unidade; rotulo: string }[] = [
-  { valor: 'unidade', rotulo: 'unidade' },
-  { valor: 'cento', rotulo: 'cento' },
-  { valor: 'duzia', rotulo: 'dúzia' },
-  { valor: 'kg', rotulo: 'kg' },
-  { valor: 'fatia', rotulo: 'fatia' },
-]
-
-export function rotuloUnidade(u: Unidade): string {
-  return UNIDADES.find((x) => x.valor === u)?.rotulo ?? u
-}
-
-/** Formata um preço em reais (ex.: 12.5 → "R$ 12,50"). */
+/** Formata um preço em reais (ex.: 1234.56 → "R$ 1.234,56"). */
 export function formatarReal(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+/** Converte o texto do campo de preço em número (ou null se vazio/ inválido). */
+export function precoParaNumero(texto: string): number | null {
+  const limpo = texto.trim().replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
+  if (!limpo) return null
+  const n = Number(limpo)
+  return Number.isFinite(n) && n >= 0 ? n : null
 }
 
 export type ItemCardapio = {
   id: string
   nome: string
   preco_base: number | null
-  unidade: Unidade
+  unidade: string | null
+  detalhes: string | null
+  na_vitrine: boolean
+  preco_sob_consulta: boolean
   criado_em: string
 }
 
 export type CamposItem = {
   nome: string
   preco_base: string // texto do formulário ("12,50"); vazio = sem preço
-  unidade: Unidade
+  unidade: string // texto livre; vazio = sem unidade
+  detalhes: string
+  na_vitrine: boolean
+  preco_sob_consulta: boolean
 }
 
-/** Converte o texto do campo de preço em número (ou null se vazio/ inválido). */
-function precoParaNumero(texto: string): number | null {
-  const limpo = texto.trim().replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
-  if (!limpo) return null
-  const n = Number(limpo)
-  return Number.isFinite(n) && n >= 0 ? n : null
+const COLUNAS = 'id, nome, preco_base, unidade, detalhes, na_vitrine, preco_sob_consulta, criado_em'
+
+/** Monta o payload de insert/update a partir dos campos do formulário. */
+function payload(campos: CamposItem) {
+  const naVitrine = campos.na_vitrine
+  return {
+    nome: campos.nome.trim(),
+    preco_base: precoParaNumero(campos.preco_base),
+    unidade: campos.unidade.trim() || null,
+    detalhes: campos.detalhes.trim() || null,
+    na_vitrine: naVitrine,
+    // "Preço sob consulta" só faz sentido quando o item está na vitrine.
+    preco_sob_consulta: naVitrine && campos.preco_sob_consulta,
+  }
 }
 
 /**
@@ -58,7 +67,7 @@ export function useCardapio(usuariaId: string | undefined) {
     if (!usuariaId) return
     const { data } = await supabase
       .from('cardapio_itens')
-      .select('id, nome, preco_base, unidade, criado_em')
+      .select(COLUNAS)
       .eq('usuaria_id', usuariaId)
       .order('nome')
     setItens((data ?? []) as ItemCardapio[])
@@ -72,19 +81,14 @@ export function useCardapio(usuariaId: string | undefined) {
   // ── criar() ──
   async function criar(campos: CamposItem): Promise<{ item: ItemCardapio } | { erro: string }> {
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
-    const nome = campos.nome.trim()
-    if (!nome) return { erro: 'Dê um nome ao item.' }
+    const dados = payload(campos)
+    if (!dados.nome) return { erro: 'Dê um nome ao item.' }
     setSalvando(true)
     try {
       const { data, error } = await supabase
         .from('cardapio_itens')
-        .insert({
-          usuaria_id: usuariaId,
-          nome,
-          preco_base: precoParaNumero(campos.preco_base),
-          unidade: campos.unidade,
-        })
-        .select('id, nome, preco_base, unidade, criado_em')
+        .insert({ usuaria_id: usuariaId, ...dados })
+        .select(COLUNAS)
         .single()
       if (error || !data) return { erro: 'Falha ao salvar: ' + (error?.message ?? 'erro desconhecido') }
       const item = data as ItemCardapio
@@ -97,19 +101,15 @@ export function useCardapio(usuariaId: string | undefined) {
 
   // ── atualizar() ──
   async function atualizar(id: string, campos: CamposItem): Promise<string | null> {
-    const nome = campos.nome.trim()
-    if (!nome) return 'Dê um nome ao item.'
+    const dados = payload(campos)
+    if (!dados.nome) return 'Dê um nome ao item.'
     setSalvando(true)
     try {
       const { data, error } = await supabase
         .from('cardapio_itens')
-        .update({
-          nome,
-          preco_base: precoParaNumero(campos.preco_base),
-          unidade: campos.unidade,
-        })
+        .update(dados)
         .eq('id', id)
-        .select('id, nome, preco_base, unidade, criado_em')
+        .select(COLUNAS)
         .single()
       if (error || !data) return 'Falha ao atualizar: ' + (error?.message ?? 'erro desconhecido')
       setItens((prev) =>
