@@ -23,6 +23,11 @@ function Cartao({ insp, onAbrir }: { insp: Inspiracao; onAbrir: () => void }) {
             <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
           </div>
         )}
+        {insp.codigo_num != null && (
+          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>
+            I-{insp.codigo_num}
+          </span>
+        )}
         {insp.tipo === 'link' && (
           <span className="insp-selo-link" aria-hidden>🔗</span>
         )}

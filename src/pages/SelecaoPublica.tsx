@@ -3,18 +3,38 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 /**
- * M-020 · Etapa 1 — Página pública de uma seleção (cabideia.com.br/encanto/s/:token).
+ * M-020/M-022 — Página pública de uma seleção (cabideia.com.br/encanto/s/:token).
  *
- * Sem login. Mostra as fotos que a boleira escolheu para uma cliente específica.
- * A RLS garante que só seleções não expiradas retornam — e que apenas os
- * trabalhos dessa seleção ficam visíveis (mesmo os que não estão na vitrine).
+ * Sem login. Mostra os itens que a boleira escolheu — de Meus Trabalhos (A-{n})
+ * e de Inspirações (I-{n}) — para a cliente referenciar ("gostei da A-12").
+ * Lê via RPC `selecao_publica` (security definer), que devolve só o necessário a
+ * partir de um token válido e resolve o caminho público das imagens (inclusive a
+ * cópia pública das inspirações, que vivem em bucket privado).
  */
+type ItemPublico = {
+  id: string
+  origem: 'trabalho' | 'inspiracao'
+  codigo: string | null // "A-12" / "I-7"
+  descricao: string | null
+  url: string | null // imagem (público) já resolvida
+  link: string | null // inspiração-link sem imagem
+}
+
 type DadosSelecao = {
   titulo: string | null
   mensagem: string | null
   negocio: string | null
   whatsapp: string | null
-  fotos: { id: string; url: string; descricao: string | null }[]
+  logoUrl: string | null
+  itens: ItemPublico[]
+}
+
+function dominioDe(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }
 
 export function SelecaoPublica() {
@@ -28,50 +48,36 @@ export function SelecaoPublica() {
       return
     }
     async function carregar() {
-      // Seleção (RLS já filtra expiradas)
-      const { data: sel } = await supabase
-        .from('selecoes')
-        .select('id, titulo, mensagem, usuaria_id')
-        .eq('token', token)
-        .maybeSingle()
-
-      if (!sel) {
+      const { data, error } = await supabase.rpc('selecao_publica', { p_token: token })
+      const linha = Array.isArray(data) ? data[0] : data
+      if (error || !linha) {
         setEstado('invalida')
         return
       }
 
-      // Itens + fotos
-      const { data: itens } = await supabase
-        .from('selecao_itens')
-        .select('ordem, trabalhos(id, foto_publica_path, foto_path, descricao)')
-        .eq('selecao_id', (sel as any).id)
-        .order('ordem', { ascending: true })
+      const urlPublica = (path: string) =>
+        supabase.storage.from('publico').getPublicUrl(path).data.publicUrl
 
-      // Dados do negócio (nome + whatsapp) para o botão de contato
-      const { data: perfil } = await supabase
-        .from('perfis')
-        .select('nome_negocio, whatsapp')
-        .eq('id', (sel as any).usuaria_id)
-        .maybeSingle()
-
-      const fotos = (itens ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((it: any) => it.trabalhos)
-        .filter((t: any) => t && (t.foto_publica_path || t.foto_path))
-        .map((t: any) => ({
-          id: t.id,
-          descricao: t.descricao,
-          url: supabase.storage
-            .from('publico')
-            .getPublicUrl((t.foto_publica_path ?? t.foto_path) as string).data.publicUrl,
-        }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const itens: ItemPublico[] = ((linha.itens ?? []) as any[]).map((it) => {
+        const prefixo = it.origem === 'trabalho' ? 'A' : 'I'
+        return {
+          id: it.id,
+          origem: it.origem,
+          codigo: it.codigo_num != null ? `${prefixo}-${it.codigo_num}` : null,
+          descricao: it.descricao ?? null,
+          url: it.foto_publica_path ? urlPublica(it.foto_publica_path) : null,
+          link: !it.foto_publica_path && it.url ? it.url : null,
+        }
+      })
 
       setDados({
-        titulo: (sel as any).titulo,
-        mensagem: (sel as any).mensagem,
-        negocio: perfil?.nome_negocio ?? null,
-        whatsapp: perfil?.whatsapp ?? null,
-        fotos,
+        titulo: linha.titulo ?? null,
+        mensagem: linha.mensagem ?? null,
+        negocio: linha.negocio ?? null,
+        whatsapp: linha.whatsapp ?? null,
+        logoUrl: linha.logo_path ? urlPublica(linha.logo_path) : null,
+        itens,
       })
       setEstado('ok')
     }
@@ -119,7 +125,11 @@ export function SelecaoPublica() {
         <div className="vitrine-moldura">
           <div className="babado" />
           <div className="vitrine-corpo">
-            <div className="logo-redonda">✨</div>
+            {dados.logoUrl ? (
+              <img className="logo-redonda" src={dados.logoUrl} alt="" />
+            ) : (
+              <div className="logo-redonda">✨</div>
+            )}
             <div className="nome-negocio">{dados.titulo || 'Seleção especial pra você'}</div>
             {dados.negocio && <div className="apoio">por {dados.negocio}</div>}
             {dados.mensagem && (
@@ -130,18 +140,43 @@ export function SelecaoPublica() {
           </div>
         </div>
 
-        {dados.fotos.length > 0 ? (
-          <div className="grade-fotos" style={{ marginTop: 16 }}>
-            {dados.fotos.map((f) => (
-              <div key={f.id} className="foto-item">
-                <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
-                {f.descricao && <div className="foto-legenda">{f.descricao}</div>}
-              </div>
-            ))}
-          </div>
+        {dados.itens.length > 0 ? (
+          <>
+            <p className="apoio" style={{ textAlign: 'center', marginTop: 12 }}>
+              Cada item tem um código (ex.: <b>A-12</b>). É só me dizer qual você gostou 💕
+            </p>
+            <div className="grade-fotos" style={{ marginTop: 12, alignItems: 'start' }}>
+              {dados.itens.map((it) => (
+                <div key={it.id} className="foto-item">
+                  <div className="acervo-img-wrap">
+                    {it.url ? (
+                      <img src={it.url} alt={it.descricao ?? ''} loading="lazy" />
+                    ) : (
+                      <a
+                        className="insp-link-capa"
+                        href={it.link ?? '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <span className="insp-link-emoji" aria-hidden>🔗</span>
+                        <span className="insp-link-dominio">
+                          {it.link ? dominioDe(it.link) : 'link'}
+                        </span>
+                      </a>
+                    )}
+                    {it.codigo && (
+                      <span className="cod-selo" aria-label={`Código ${it.codigo}`}>{it.codigo}</span>
+                    )}
+                  </div>
+                  {it.descricao && <div className="foto-legenda">{it.descricao}</div>}
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
           <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
-            Esta seleção está sem fotos.
+            Esta seleção está sem itens.
           </p>
         )}
 

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
-import { usePedidos, tituloPedido } from '../hooks/usePedidos'
+import { usePropostas, type CamposProposta } from '../hooks/usePropostas'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
+import { formatarDataNumerica } from '../lib/datas'
 import { comprimirImagem } from '../lib/imagem'
 import { supabase } from '../lib/supabase'
 import { cartaoParaPng, desenharProposta } from '../lib/proposta'
@@ -21,38 +23,58 @@ async function bitmapDeBlob(blob: Blob | null): Promise<ImageBitmap | null> {
 }
 
 /**
- * M-021 · Proposta encantadora — monta, a partir de um pedido, um cartão (PNG)
- * com foto + descrição + valor + a logo do perfil. Tudo no cliente; nada é
- * salvo no acervo (não conta no limite de 150). Compartilha no WhatsApp / baixa.
+ * Proposta encantadora — agora NASCE da cliente e fica salva (tabela `propostas`).
+ *
+ * Cria/edita uma proposta (título, descrição, valor, validade, foto opcional) e
+ * monta o cartão (PNG) com foto + título + descrição + valor + validade + a logo
+ * do perfil, para compartilhar no WhatsApp da cliente. A foto é comprimida no
+ * cliente (M-009) e guardada no bucket público — não conta como trabalho.
  */
 export function PropostaForm() {
-  const { id } = useParams()
+  // /clientes/:clienteId/propostas/nova  (criação)  ·  /propostas/:id  (edição)
+  const { clienteId, id } = useParams()
+  const edicao = !!id
+  const navegar = useNavigate()
   const { sessao } = useSessao()
   const avisar = useAviso()
 
-  const { carregando, buscarPorId, baixarReferencia } = usePedidos(sessao?.user.id)
-  const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
+  const { carregando: carregandoClientes, buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
+  const {
+    carregando: carregandoPropostas,
+    salvando,
+    buscarPorId: buscarProposta,
+    subirFoto,
+    criar,
+    atualizar,
+    excluir,
+  } = usePropostas(sessao?.user.id)
 
-  const pedido = id ? buscarPorId(id) : undefined
-  const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
+  const proposta = edicao && id ? buscarProposta(id) : undefined
+  const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
+  const cliente = clienteIdAtivo ? buscarCliente(clienteIdAtivo) : undefined
 
-  // Campos editáveis pré-preenchidos
+  // Campos editáveis
+  const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [clienteNome, setClienteNome] = useState('')
   const [valor, setValor] = useState('')
+  const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
 
-  // Imagens (como bitmaps, p/ desenhar sem manchar o canvas / sem CORS)
+  // Foto: caminho já salvo + blob novo a subir (compressão no cliente).
+  const [fotoPath, setFotoPath] = useState<string | null>(null)
   const [fotoBitmap, setFotoBitmap] = useState<ImageBitmap | null>(null)
   const [logoBitmap, setLogoBitmap] = useState<ImageBitmap | null>(null)
   const [nomeNegocio, setNomeNegocio] = useState('')
+  const blobNovo = useRef<Blob | null>(null)
 
   const [fontesProntas, setFontesProntas] = useState(false)
   const [processandoFoto, setProcessandoFoto] = useState(false)
   const [compartilhando, setCompartilhando] = useState(false)
+  const [aExcluir, setAExcluir] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputFoto = useRef<HTMLInputElement>(null)
   const prefilled = useRef(false)
+  const perfilCarregado = useRef(false)
 
   // Garante as fontes (Fraunces / Nunito Sans) antes de desenhar texto no canvas.
   useEffect(() => {
@@ -63,24 +85,10 @@ export function PropostaForm() {
     }
   }, [])
 
-  // Pré-preenche a partir do pedido + carrega logo do perfil (uma vez).
+  // Perfil: nome do negócio + logo (bucket público) — uma vez.
   useEffect(() => {
-    if (prefilled.current || !pedido || !sessao) return
-    // Se o pedido tem cliente vinculada, espera ela carregar p/ pré-preencher o nome.
-    if (pedido.cliente_id && !cliente) return
-    prefilled.current = true
-
-    setDescricao([pedido.nome, pedido.tema].filter(Boolean).join('\n'))
-    setClienteNome(cliente?.nome ?? '')
-
-    // Foto de referência do pedido (bucket privado) → bitmap
-    if (pedido.foto_referencia_path) {
-      baixarReferencia(pedido.foto_referencia_path)
-        .then(bitmapDeBlob)
-        .then((bmp) => bmp && setFotoBitmap(bmp))
-    }
-
-    // Perfil: nome do negócio + logo (bucket público)
+    if (perfilCarregado.current || !sessao) return
+    perfilCarregado.current = true
     supabase
       .from('perfis')
       .select('nome_negocio, logo_path')
@@ -95,10 +103,29 @@ export function PropostaForm() {
           if (bmp) setLogoBitmap(bmp)
         }
       })
-  }, [pedido, cliente, sessao, baixarReferencia])
+  }, [sessao])
+
+  // Pré-preenche no modo edição (uma vez, quando a proposta carrega).
+  useEffect(() => {
+    if (!edicao || prefilled.current || !proposta) return
+    prefilled.current = true
+    setTitulo(proposta.titulo ?? '')
+    setDescricao(proposta.descricao ?? '')
+    setValor(proposta.valor != null ? String(proposta.valor).replace('.', ',') : '')
+    setValidade(proposta.validade ?? '')
+    setFotoPath(proposta.foto_path)
+    if (proposta.foto_path) {
+      supabase.storage
+        .from('publico')
+        .download(proposta.foto_path)
+        .then(({ data }) => bitmapDeBlob(data ?? null))
+        .then((bmp) => bmp && setFotoBitmap(bmp))
+    }
+  }, [edicao, proposta])
 
   const valorNum = precoParaNumero(valor)
   const valorTexto = valorNum != null ? formatarReal(valorNum) : 'A combinar'
+  const validadeTexto = validade ? `Válido até ${formatarDataNumerica(validade)}` : ''
 
   // Redesenha o cartão sempre que algo muda (e quando as fontes carregam).
   useEffect(() => {
@@ -107,11 +134,13 @@ export function PropostaForm() {
       fotoBitmap,
       logoBitmap,
       nomeNegocio,
+      titulo,
       descricao,
-      cliente: clienteNome,
+      cliente: cliente?.nome ?? '',
       valorTexto,
+      validadeTexto,
     })
-  }, [fontesProntas, fotoBitmap, logoBitmap, nomeNegocio, descricao, clienteNome, valorTexto])
+  }, [fontesProntas, fotoBitmap, logoBitmap, nomeNegocio, titulo, descricao, cliente, valorTexto, validadeTexto])
 
   const semFoto = !fotoBitmap
 
@@ -121,8 +150,8 @@ export function PropostaForm() {
     if (!f) return
     setProcessandoFoto(true)
     try {
-      // Reusa a compressão do M-009 (a foto NÃO é enviada a lugar nenhum).
       const { blob } = await comprimirImagem(f)
+      blobNovo.current = blob
       const bmp = await bitmapDeBlob(blob)
       if (bmp) {
         setFotoBitmap((antigo) => {
@@ -136,6 +165,48 @@ export function PropostaForm() {
       avisar((err as Error)?.message ?? 'Não consegui processar a foto.')
     } finally {
       setProcessandoFoto(false)
+    }
+  }
+
+  function campos(caminhoFoto: string | null): CamposProposta {
+    return { titulo, descricao, valor: valorNum, validade: validade || null, foto_path: caminhoFoto }
+  }
+
+  /** Garante que a foto nova (se houver) esteja no storage; devolve o caminho. */
+  async function garantirFoto(): Promise<{ path: string | null } | { erro: string }> {
+    if (!blobNovo.current) return { path: fotoPath }
+    const up = await subirFoto(blobNovo.current)
+    if ('erro' in up) return { erro: up.erro }
+    blobNovo.current = null
+    setFotoPath(up.path)
+    return { path: up.path }
+  }
+
+  async function salvar() {
+    if (!clienteIdAtivo) {
+      avisar('Proposta sem cliente.')
+      return
+    }
+    const foto = await garantirFoto()
+    if ('erro' in foto) {
+      avisar(foto.erro)
+      return
+    }
+    if (edicao && id) {
+      const erro = await atualizar(id, campos(foto.path), proposta?.foto_path ?? null)
+      if (erro) {
+        avisar(erro)
+        return
+      }
+      avisar('Proposta salva ✓')
+    } else {
+      const res = await criar(clienteIdAtivo, campos(foto.path))
+      if ('erro' in res) {
+        avisar(res.erro)
+        return
+      }
+      avisar('Proposta salva ✓')
+      navegar(`/propostas/${res.id}`, { replace: true })
     }
   }
 
@@ -153,13 +224,28 @@ export function PropostaForm() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `proposta-${(nomeNegocio || 'cabideia').toLowerCase().replace(/\s+/g, '-')}.png`
+    a.download = `proposta-${(titulo || nomeNegocio || 'cabideia').toLowerCase().replace(/\s+/g, '-')}.png`
     document.body.appendChild(a)
     a.click()
     a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 4000)
   }
 
+  function mensagemWhats(): string {
+    const nome = cliente?.nome?.split(' ')[0]
+    return [
+      nome ? `Oi, ${nome}! 💛` : 'Oi! 💛',
+      titulo.trim() ? `Preparei sua proposta: ${titulo.trim()}` : 'Preparei sua proposta:',
+      descricao.trim(),
+      `Valor: ${valorTexto}`,
+      validadeTexto,
+      'Já te envio a imagem ✨',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  /** CTA primário: gera o cartão e compartilha (imagem no WhatsApp pelo celular). */
   async function compartilhar() {
     if (semFoto) {
       avisar('Adicione uma foto à proposta.')
@@ -170,11 +256,9 @@ export function PropostaForm() {
       const blob = await gerarPng()
       if (!blob) return
       const arquivo = new File([blob], 'proposta.png', { type: 'image/png' })
-      const texto = `Proposta — ${valorTexto}`
-      // Web Share com arquivo: a forma de enviar a IMAGEM no WhatsApp pelo celular.
       if (navigator.canShare?.({ files: [arquivo] })) {
         try {
-          await navigator.share({ files: [arquivo], title: 'Proposta', text: texto })
+          await navigator.share({ files: [arquivo], title: 'Proposta', text: mensagemWhats() })
         } catch {
           /* usuária cancelou */
         }
@@ -201,28 +285,32 @@ export function PropostaForm() {
   function abrirWhatsAppCliente() {
     const numero = (cliente?.whatsapp ?? '').replace(/\D/g, '')
     if (!numero) return
-    const nome = clienteNome.trim() || cliente?.nome || ''
-    const linhas = [
-      nome ? `Oi, ${nome}! 💛` : 'Oi! 💛',
-      'Preparei sua proposta:',
-      descricao.trim(),
-      `Valor: ${valorTexto}`,
-      'Já te envio a imagem ✨',
-    ].filter(Boolean)
-    const texto = encodeURIComponent(linhas.join('\n'))
-    window.open(`https://wa.me/${numero}?text=${texto}`, '_blank', 'noopener')
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagemWhats())}`, '_blank', 'noopener')
   }
 
-  if (carregando) return null
+  async function confirmarExcluir() {
+    if (!proposta) return
+    const erro = await excluir(proposta)
+    if (erro) {
+      avisar(erro)
+      setAExcluir(false)
+      return
+    }
+    avisar('Proposta excluída')
+    navegar(clienteIdAtivo ? `/clientes/${clienteIdAtivo}` : '/clientes', { replace: true })
+  }
 
-  if (!pedido) {
+  // Espera carregar os dados necessários.
+  if (carregandoClientes || (edicao && carregandoPropostas)) return null
+
+  if (edicao && !carregandoPropostas && !proposta) {
     return (
       <div className="tela">
         <BarraTopo titulo="Proposta" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone">🔍</div>
-            <p>Este pedido não foi encontrado.</p>
+            <p>Esta proposta não foi encontrada.</p>
           </div>
         </div>
       </div>
@@ -231,7 +319,16 @@ export function PropostaForm() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo="Gerar proposta" />
+      <BarraTopo
+        titulo={edicao ? 'Proposta' : 'Nova proposta'}
+        acao={
+          edicao ? (
+            <button className="btn-icone" onClick={() => setAExcluir(true)} aria-label="Excluir proposta">
+              🗑️
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="conteudo">
         {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
@@ -244,13 +341,7 @@ export function PropostaForm() {
         )}
 
         {/* Foto */}
-        <input
-          ref={inputFoto}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={aoEscolherFoto}
-        />
+        <input ref={inputFoto} type="file" accept="image/*" style={{ display: 'none' }} onChange={aoEscolherFoto} />
         <button
           type="button"
           className="btn-secundario"
@@ -261,31 +352,31 @@ export function PropostaForm() {
           {processandoFoto ? 'Processando…' : semFoto ? '🖼️ Adicionar foto' : '🖼️ Trocar foto'}
         </button>
 
-        {/* Descrição */}
+        {/* Título */}
         <div className="campo" style={{ marginTop: 14 }}>
+          <label>Título</label>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Ex.: Bolo de casamento 3 andares"
+            maxLength={80}
+          />
+        </div>
+
+        {/* Descrição */}
+        <div className="campo">
           <label>Descrição</label>
           <textarea
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
-            placeholder={`Ex.: ${tituloPedido(pedido)}`}
+            placeholder="Ex.: massa de baunilha, recheio de brigadeiro, topo personalizado…"
             maxLength={200}
-          />
-        </div>
-
-        {/* Cliente */}
-        <div className="campo">
-          <label>Cliente (opcional)</label>
-          <input
-            value={clienteNome}
-            onChange={(e) => setClienteNome(e.target.value)}
-            placeholder="Ex.: Maria"
-            maxLength={60}
           />
         </div>
 
         {/* Valor */}
         <div className="campo">
-          <label>Valor</label>
+          <label>Valor (R$)</label>
           <input
             value={valor}
             onChange={(e) => setValor(e.target.value)}
@@ -297,18 +388,31 @@ export function PropostaForm() {
           </div>
         </div>
 
-        {/* Baixar imagem (secundário) */}
+        {/* Validade */}
+        <div className="campo">
+          <label>Validade (opcional)</label>
+          <input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} />
+        </div>
+
+        {/* Compartilhar / baixar (secundários) */}
         <button
           type="button"
           className="btn-secundario"
           style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+          onClick={compartilhar}
+          disabled={semFoto || compartilhando}
+        >
+          {compartilhando ? 'Gerando…' : '📤 Compartilhar no WhatsApp'}
+        </button>
+        <button
+          type="button"
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
           onClick={baixarImagem}
           disabled={semFoto}
         >
           ⬇️ Baixar imagem
         </button>
-
-        {/* WhatsApp da cliente (se houver número) */}
         {cliente?.whatsapp && (
           <button
             type="button"
@@ -321,16 +425,26 @@ export function PropostaForm() {
         )}
 
         <p className="apoio" style={{ textAlign: 'center', marginTop: 14 }}>
-          A proposta é gerada na hora e compartilhada — não fica salva no acervo.
+          A proposta fica salva na ficha da cliente. A foto não conta como trabalho.
         </p>
       </div>
 
-      {/* CTA primário: compartilhar (envia a imagem no WhatsApp pelo celular) */}
+      {/* CTA primário fixo: salvar */}
       <div className="cta-area">
-        <button type="button" className="cta" onClick={compartilhar} disabled={semFoto || compartilhando}>
-          {compartilhando ? 'Gerando…' : '📤 Compartilhar proposta'}
+        <button type="button" className="cta" onClick={salvar} disabled={salvando || processandoFoto}>
+          {salvando ? 'Salvando…' : edicao ? 'Salvar alterações' : 'Salvar proposta'}
         </button>
       </div>
+
+      {aExcluir && (
+        <Confirmar
+          titulo="Excluir esta proposta?"
+          descricao="Esta ação não pode ser desfeita."
+          rotuloConfirmar="Excluir proposta"
+          onConfirmar={confirmarExcluir}
+          onCancelar={() => setAExcluir(false)}
+        />
+      )}
     </div>
   )
 }

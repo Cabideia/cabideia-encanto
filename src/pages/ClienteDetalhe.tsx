@@ -6,7 +6,9 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, tituloPedido } from '../hooks/usePedidos'
-import { rotuloEntrega } from '../lib/datas'
+import { usePropostas } from '../hooks/usePropostas'
+import { formatarReal } from '../hooks/useCardapio'
+import { rotuloEntrega, formatarDataNumerica } from '../lib/datas'
 
 /** M-003 · Detalhe da cliente — ver, editar, excluir + pedidos da cliente (M-002). */
 export function ClienteDetalhe() {
@@ -16,9 +18,11 @@ export function ClienteDetalhe() {
   const avisar = useAviso()
   const { carregando, salvando, buscarPorId, atualizar, excluir } = useClientes(sessao?.user.id)
   const { porCliente } = usePedidos(sessao?.user.id)
+  const { porCliente: propostasPorCliente } = usePropostas(sessao?.user.id)
 
   const cliente = id ? buscarPorId(id) : undefined
   const pedidosCliente = id ? porCliente(id) : []
+  const propostasCliente = id ? propostasPorCliente(id) : []
 
   const [editando, setEditando] = useState(false)
   const [form, setForm] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
@@ -140,7 +144,11 @@ export function ClienteDetalhe() {
                 </div>
               </div>
               {cliente.whatsapp && (
-                <button className="cta" style={{ marginTop: 14, height: 48 }} onClick={abrirWhatsApp}>
+                <button
+                  className="btn-secundario"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
+                  onClick={abrirWhatsApp}
+                >
                   💬 Abrir conversa no WhatsApp
                 </button>
               )}
@@ -189,6 +197,40 @@ export function ClienteDetalhe() {
               })
             )}
 
+            {/* Propostas desta cliente (M-021 repensado) */}
+            <div className="secao"><span className="confeito" /><h2>Propostas</h2></div>
+            {propostasCliente.length === 0 ? (
+              <div className="card">
+                <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
+                  ✨ Crie uma proposta encantadora para enviar no WhatsApp.
+                </p>
+              </div>
+            ) : (
+              propostasCliente.map((p) => (
+                <div
+                  key={p.id}
+                  className="card card-toque"
+                  onClick={() => navegar(`/propostas/${p.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && navegar(`/propostas/${p.id}`)}
+                >
+                  <div className="card-linha" style={{ alignItems: 'flex-start' }}>
+                    <div className="card-info">
+                      <div className="card-nome" style={{ whiteSpace: 'normal' }}>
+                        {p.titulo || 'Proposta'}
+                      </div>
+                      <div className="apoio">
+                        {p.valor != null ? formatarReal(p.valor) : 'Valor a combinar'}
+                        {p.validade ? ` · vale até ${formatarDataNumerica(p.validade)}` : ''}
+                      </div>
+                    </div>
+                    <span aria-hidden>›</span>
+                  </div>
+                </div>
+              ))
+            )}
+
             <button
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
@@ -199,6 +241,15 @@ export function ClienteDetalhe() {
           </>
         )}
       </div>
+
+      {/* CTA primário (modo leitura): criar uma proposta para esta cliente */}
+      {!editando && (
+        <div className="cta-area">
+          <button className="cta" onClick={() => navegar(`/clientes/${cliente.id}/propostas/nova`)}>
+            ✨ Nova proposta
+          </button>
+        </div>
+      )}
 
       {/* CTA primário fixo só no modo edição (Salvar). */}
       {editando && (

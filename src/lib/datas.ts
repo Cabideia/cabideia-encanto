@@ -23,6 +23,15 @@ export function formatarData(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' }).format(dataLocal(iso))
 }
 
+/** Ex.: "20/06/2026" (numérica curta — usada na validade da proposta). */
+export function formatarDataNumerica(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(dataLocal(iso))
+}
+
 /** Ex.: "sex., 20 de junho" */
 export function formatarDataLonga(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', {

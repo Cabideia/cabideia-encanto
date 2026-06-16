@@ -647,3 +647,24 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   display: flex; align-items: center; justify-content: center;
   background: var(--framboesa-suave); color: var(--framboesa); font-weight: 800; font-size: 18px;
 }
+
+/* ---------- CÓDIGO CURTO (A-{n} trabalhos · I-{n} inspirações) ---------- */
+/* Selo discreto sobre a imagem, no card/seleção/link público. */
+.cod-selo {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(67, 48, 43, .78); color: #fff;
+  font-family: var(--fonte-texto); font-size: 11px; font-weight: 800;
+  letter-spacing: .3px; line-height: 1; padding: 4px 7px; border-radius: 999px;
+  pointer-events: none;
+}
+/* Linha de código nas telas de detalhe (painel/inspiração). */
+.cod-linha {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--framboesa-suave); color: var(--framboesa);
+  font-size: var(--t-apoio); font-weight: 700;
+  padding: 5px 12px; border-radius: 999px;
+}
+.cod-linha b { font-weight: 800; }
+
+/* Logo do perfil exibida como imagem (link público da seleção). */
+img.logo-redonda { object-fit: cover; }

@@ -80,6 +80,12 @@ export function InspiracaoDetalhe() {
       />
 
       <div className="conteudo">
+        {insp.codigo_num != null && (
+          <div className="cod-linha" style={{ marginBottom: 10 }}>
+            Código <b>I-{insp.codigo_num}</b>
+          </div>
+        )}
+
         {/* Imagem em tela cheia */}
         {insp.tipo === 'imagem' && insp.fotoUrl && (
           <img
