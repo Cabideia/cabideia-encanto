@@ -277,13 +277,6 @@ export function PedidoDetalhe() {
         )}
       </div>
 
-      {/* CTA primário: gerar uma proposta encantadora a partir deste pedido */}
-      <div className="cta-area">
-        <button className="cta" onClick={() => navegar(`/pedidos/${pedido.id}/proposta`)}>
-          ✨ Gerar proposta
-        </button>
-      </div>
-
       {/* Modal: adicionar ao acervo */}
       {modalAcervo && (
         <div className="painel-overlay" onClick={() => !enviandoAcervo && setModalAcervo(false)}>

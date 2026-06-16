@@ -11,9 +11,11 @@ export type DadosCartao = {
   fotoBitmap: ImageBitmap | null
   logoBitmap: ImageBitmap | null
   nomeNegocio: string
+  titulo: string
   descricao: string
   cliente: string
   valorTexto: string // já formatado p/ exibição (ex.: "R$ 120,00" ou "A combinar")
+  validadeTexto: string // já formatado (ex.: "Válido até 30/06/2026") ou '' p/ esconder
 }
 
 export const LARGURA_CARTAO = 1080
@@ -143,8 +145,8 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
 
   // Logo redonda
   const lcx = W / 2
-  const lcy = 168
-  const lr = 70
+  const lcy = 158
+  const lr = 62
   ctx.save()
   caminhoArredondado(ctx, lcx - lr, lcy - lr, lr * 2, lr * 2, lr)
   ctx.clip()
@@ -154,7 +156,7 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
     ctx.fillStyle = framboesaSuave
     ctx.fillRect(lcx - lr, lcy - lr, lr * 2, lr * 2)
     ctx.fillStyle = framboesa
-    ctx.font = `600 60px ${SERIF}`
+    ctx.font = `600 56px ${SERIF}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     const inicial = d.nomeNegocio.trim().charAt(0).toUpperCase()
@@ -168,24 +170,40 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
   ctx.strokeStyle = framboesa
   ctx.stroke()
 
-  // Nome do negócio
-  ctx.fillStyle = cacau
-  ctx.font = `600 44px ${SERIF}`
+  // Cabeçalho (cursor descendo): nome do negócio → "Proposta para X" → título
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillText(truncar(ctx, d.nomeNegocio || 'Minha confeitaria', larguraConteudo), W / 2, 302)
 
-  // "Proposta para {cliente}"
+  // Nome do negócio
+  ctx.fillStyle = cacau
+  ctx.font = `600 40px ${SERIF}`
+  let cursor = 282
+  ctx.fillText(truncar(ctx, d.nomeNegocio || 'Minha confeitaria', larguraConteudo), W / 2, cursor)
+
+  // "Proposta para {cliente}" (ou só "Proposta")
   const temCliente = !!d.cliente.trim()
-  if (temCliente) {
-    ctx.fillStyle = framboesa
-    ctx.font = `700 26px ${SANS}`
-    ctx.fillText(truncar(ctx, `Proposta para ${d.cliente.trim()}`, larguraConteudo), W / 2, 344)
+  ctx.fillStyle = framboesa
+  ctx.font = `700 24px ${SANS}`
+  cursor += 34
+  ctx.fillText(
+    truncar(ctx, temCliente ? `Proposta para ${d.cliente.trim()}` : 'Proposta', larguraConteudo),
+    W / 2,
+    cursor
+  )
+
+  // Título da proposta (opcional)
+  const titulo = d.titulo.trim()
+  if (titulo) {
+    ctx.fillStyle = cacau
+    ctx.font = `600 33px ${SERIF}`
+    cursor += 44
+    ctx.fillText(truncar(ctx, titulo, larguraConteudo), W / 2, cursor)
   }
 
-  // Foto
-  const fy = temCliente ? 384 : 356
-  const fh = 568
+  // Foto — topo logo abaixo do cabeçalho, base fixa para o rodapé respirar.
+  const fy = cursor + 28
+  const FOTO_BASE = 1040
+  const fh = FOTO_BASE - fy
   ctx.save()
   caminhoArredondado(ctx, M, fy, larguraConteudo, fh, 28)
   ctx.clip()
@@ -206,25 +224,25 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
   ctx.strokeStyle = linha
   ctx.stroke()
 
-  // Descrição (até 3 linhas)
-  let dy = fy + fh + 58
+  // Descrição (até 2 linhas)
+  let dy = FOTO_BASE + 54
   ctx.fillStyle = cacau
-  ctx.font = `400 31px ${SANS}`
+  ctx.font = `400 30px ${SANS}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
-  const linhasDesc = quebrarLinhas(ctx, d.descricao.trim(), larguraConteudo, 3)
+  const linhasDesc = quebrarLinhas(ctx, d.descricao.trim(), larguraConteudo, 2)
   for (const l of linhasDesc) {
     ctx.fillText(l, W / 2, dy)
-    dy += 44
+    dy += 42
   }
 
   // Valor (pílula)
-  ctx.font = `600 60px ${SERIF}`
+  ctx.font = `600 58px ${SERIF}`
   const tw = ctx.measureText(d.valorTexto).width
-  const pilulaH = 112
+  const pilulaH = 108
   const pilulaW = Math.min(larguraConteudo, tw + 96)
   const pilulaX = (W - pilulaW) / 2
-  const pilulaY = dy + 22
+  const pilulaY = Math.max(dy + 12, 1166)
   caminhoArredondado(ctx, pilulaX, pilulaY, pilulaW, pilulaH, pilulaH / 2)
   ctx.fillStyle = framboesaSuave
   ctx.fill()
@@ -232,6 +250,15 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(truncar(ctx, d.valorTexto, larguraConteudo - 64), W / 2, pilulaY + pilulaH / 2 + 2)
+
+  // Validade (opcional), logo abaixo da pílula
+  const validade = d.validadeTexto.trim()
+  if (validade) {
+    ctx.fillStyle = cacauClaro
+    ctx.font = `700 25px ${SANS}`
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(truncar(ctx, validade, larguraConteudo), W / 2, pilulaY + pilulaH + 46)
+  }
 
   // Rodapé
   ctx.fillStyle = cacauClaro

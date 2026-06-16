@@ -5,7 +5,8 @@ import { Confirmar } from '../components/Confirmar'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
-import { useSelecoes } from '../hooks/useSelecoes'
+import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
+import { useSelecoes, type ItemSelecao } from '../hooks/useSelecoes'
 import { usePedidos } from '../hooks/usePedidos'
 import { useAssinatura } from '../hooks/useAssinatura'
 
@@ -65,6 +66,9 @@ function PainelTrabalho({
         <button className="painel-fechar" onClick={onFechar} aria-label="Fechar">✕</button>
 
         <img className="painel-foto" src={trabalho.url} alt={trabalho.descricao ?? ''} />
+        {trabalho.codigo_num != null && (
+          <div className="cod-linha">Código <b>A-{trabalho.codigo_num}</b></div>
+        )}
         {trabalho.descricao && <div className="painel-legenda">{trabalho.descricao}</div>}
 
         {pedidoVinculadoId && (
@@ -168,6 +172,12 @@ function CartaoTrabalho({
       >
         <img src={trabalho.url} alt={trabalho.descricao ?? ''} loading="lazy" />
 
+        {trabalho.codigo_num != null && (
+          <span className="cod-selo" aria-label={`Código A-${trabalho.codigo_num}`}>
+            A-{trabalho.codigo_num}
+          </span>
+        )}
+
         {modoSelecao ? (
           <span className={`sel-check${marcado ? ' on' : ''}`} aria-hidden>
             {marcado ? '✓' : ''}
@@ -218,6 +228,49 @@ function CartaoTrabalho({
 }
 
 // ─────────────────────────────────────────────────────────
+// Cartão de inspiração no modo seleção (M-022 estendido).
+// ─────────────────────────────────────────────────────────
+function CartaoInspSelecao({
+  insp,
+  marcado,
+  onAlternarMarca,
+}: {
+  insp: Inspiracao
+  marcado: boolean
+  onAlternarMarca: () => void
+}) {
+  return (
+    <div className={`foto-item${marcado ? ' marcado' : ''}`}>
+      <div
+        className="acervo-img-wrap"
+        onClick={onAlternarMarca}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onAlternarMarca()}
+      >
+        {insp.fotoUrl ? (
+          <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
+        ) : (
+          <div className="insp-link-capa">
+            <span className="insp-link-emoji" aria-hidden>🔗</span>
+            <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
+          </div>
+        )}
+        {insp.codigo_num != null && (
+          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>
+            I-{insp.codigo_num}
+          </span>
+        )}
+        <span className={`sel-check${marcado ? ' on' : ''}`} aria-hidden>
+          {marcado ? '✓' : ''}
+        </span>
+      </div>
+      {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────
 // Página principal do Acervo
 // ─────────────────────────────────────────────────────────
 export function Acervo() {
@@ -234,6 +287,7 @@ export function Acervo() {
     atribuirTag,
     removerTag,
   } = useAcervo(sessao?.user.id)
+  const { inspiracoes } = useInspiracoes(sessao?.user.id)
   const { criar: criarSelecao } = useSelecoes(sessao?.user.id)
   const { pedidos } = usePedidos(sessao?.user.id)
   const { total, limite, ilimitado, emExcedente } = useAssinatura(sessao?.user.id)
@@ -244,8 +298,10 @@ export function Acervo() {
 
   const [aApagar, setAApagar] = useState<Trabalho | null>(null)
 
-  // Modo seleção (M-020)
+  // Modo seleção (M-020 · M-022 estendido: duas origens)
   const [modoSelecao, setModoSelecao] = useState(false)
+  const [abaSelecao, setAbaSelecao] = useState<'trabalhos' | 'inspiracoes'>('trabalhos')
+  // Chaves prefixadas: 't:<id>' (trabalho) · 'i:<id>' (inspiração).
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
   const [formSelecao, setFormSelecao] = useState(false)
   const [tituloSel, setTituloSel] = useState('')
@@ -256,6 +312,12 @@ export function Acervo() {
   const filtrados = trabalhos.filter((t) => {
     const okTexto = !busca || t.descricao?.toLowerCase().includes(busca.toLowerCase())
     const okTag = !tagFiltro || t.tags.some((tg) => tg.id === tagFiltro)
+    return okTexto && okTag
+  })
+
+  const inspFiltradas = inspiracoes.filter((i) => {
+    const okTexto = !busca || i.nota?.toLowerCase().includes(busca.toLowerCase())
+    const okTag = !tagFiltro || i.tags.some((tg) => tg.id === tagFiltro)
     return okTexto && okTag
   })
 
@@ -273,6 +335,7 @@ export function Acervo() {
   // ── Modo seleção ──
   function entrarSelecao() {
     setModoSelecao(true)
+    setAbaSelecao('trabalhos')
     setMarcados(new Set())
   }
   function sairSelecao() {
@@ -283,18 +346,27 @@ export function Acervo() {
     setMsgSel('')
     setLinkPronto(null)
   }
-  function alternarMarca(id: string) {
+  function alternarMarca(chave: string) {
     setMarcados((prev) => {
       const n = new Set(prev)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
+      if (n.has(chave)) n.delete(chave)
+      else n.add(chave)
       return n
     })
   }
 
   async function gerarLink() {
+    // Monta os itens das duas origens, na ordem em que foram marcados.
+    const itens: ItemSelecao[] = Array.from(marcados).map((chave) => {
+      const id = chave.slice(2)
+      if (chave.startsWith('i:')) {
+        const insp = inspiracoes.find((i) => i.id === id)
+        return { origem: 'inspiracao', id, fotoPathPrivado: insp?.foto_path ?? null }
+      }
+      return { origem: 'trabalho', id }
+    })
     setCriandoLink(true)
-    const res = await criarSelecao(Array.from(marcados), tituloSel, msgSel)
+    const res = await criarSelecao(itens, tituloSel, msgSel)
     setCriandoLink(false)
     if ('erro' in res) {
       avisar(res.erro)
@@ -399,9 +471,28 @@ export function Acervo() {
         )}
 
         {modoSelecao && (
-          <p className="apoio" style={{ marginTop: 4, marginBottom: 4 }}>
-            Toque nas fotos que quer mandar para a cliente. Depois, crie o link.
-          </p>
+          <>
+            <p className="apoio" style={{ marginTop: 4, marginBottom: 8 }}>
+              Toque nos itens que quer mandar para a cliente — de Meus Trabalhos e de
+              Inspirações. Depois, crie o link.
+            </p>
+            <div className="escolha" style={{ marginBottom: 4 }}>
+              <button
+                type="button"
+                className={`filtro${abaSelecao === 'trabalhos' ? ' ativo' : ''}`}
+                onClick={() => setAbaSelecao('trabalhos')}
+              >
+                📸 Meus Trabalhos
+              </button>
+              <button
+                type="button"
+                className={`filtro${abaSelecao === 'inspiracoes' ? ' ativo' : ''}`}
+                onClick={() => setAbaSelecao('inspiracoes')}
+              >
+                💡 Inspirações
+              </button>
+            </div>
+          </>
         )}
 
         {/* Busca */}
@@ -442,8 +533,30 @@ export function Acervo() {
           </div>
         )}
 
-        {/* Grade */}
-        {filtrados.length === 0 ? (
+        {/* Grade — inspirações (só no modo seleção, aba Inspirações) */}
+        {modoSelecao && abaSelecao === 'inspiracoes' ? (
+          inspFiltradas.length === 0 ? (
+            <div className="vazio" style={{ marginTop: 16 }}>
+              <div className="icone">💡</div>
+              <p>
+                {busca || tagFiltro
+                  ? 'Nenhuma inspiração encontrada com esse filtro.'
+                  : 'Você ainda não guardou inspirações. Crie em Inspirações.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grade-fotos" style={{ marginTop: 12, alignItems: 'start' }}>
+              {inspFiltradas.map((i) => (
+                <CartaoInspSelecao
+                  key={i.id}
+                  insp={i}
+                  marcado={marcados.has(`i:${i.id}`)}
+                  onAlternarMarca={() => alternarMarca(`i:${i.id}`)}
+                />
+              ))}
+            </div>
+          )
+        ) : filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone">📸</div>
             <p>
@@ -459,10 +572,10 @@ export function Acervo() {
                 key={t.id}
                 trabalho={t}
                 modoSelecao={modoSelecao}
-                marcado={marcados.has(t.id)}
+                marcado={marcados.has(`t:${t.id}`)}
                 vitrineBloqueada={emExcedente}
                 onAbrir={() => setAbertoId(t.id)}
-                onAlternarMarca={() => alternarMarca(t.id)}
+                onAlternarMarca={() => alternarMarca(`t:${t.id}`)}
                 onPedirRemover={() => setAApagar(t)}
                 onAlternarVitrine={() => aoAlternarVitrine(t)}
               />
@@ -485,7 +598,7 @@ export function Acervo() {
       {modoSelecao && (
         <div className="barra-selecao">
           <span className="barra-selecao-conta">
-            {qtdMarcados} selecionada{qtdMarcados !== 1 ? 's' : ''}
+            {qtdMarcados} selecionado{qtdMarcados !== 1 ? 's' : ''}
           </span>
           <button
             className="cta"
@@ -509,7 +622,7 @@ export function Acervo() {
                   Link pronto! 🎀
                 </div>
                 <p className="apoio" style={{ textAlign: 'center', marginBottom: 12 }}>
-                  {qtdMarcados} foto{qtdMarcados !== 1 ? 's' : ''} · vale por 30 dias
+                  {qtdMarcados} {qtdMarcados !== 1 ? 'itens' : 'item'} · vale por 30 dias
                 </p>
                 <div className="link-vitrine" style={{ wordBreak: 'break-all' }}>
                   🔗 {linkPronto}
@@ -529,7 +642,7 @@ export function Acervo() {
               <>
                 <div className="form-acervo-titulo">Montar a seleção</div>
                 <p className="apoio" style={{ marginBottom: 12 }}>
-                  {qtdMarcados} foto{qtdMarcados !== 1 ? 's' : ''} escolhida{qtdMarcados !== 1 ? 's' : ''}.
+                  {qtdMarcados} {qtdMarcados !== 1 ? 'itens escolhidos' : 'item escolhido'}.
                 </p>
                 <div className="campo">
                   <label>Título (a cliente vê)</label>

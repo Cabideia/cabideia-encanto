@@ -11,6 +11,7 @@ export type Inspiracao = {
   fotoUrl: string | null // URL assinada já resolvida para exibição
   url: string | null // se tipo = link
   nota: string | null
+  codigo_num: number | null // código curto exibido como I-{n}
   criado_em: string
   tags: Tag[]
 }
@@ -50,7 +51,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('inspiracoes')
       .select(
-        'id, tipo, foto_path, url, nota, criado_em, inspiracao_tags(tag_id, tags(id, nome))'
+        'id, tipo, foto_path, url, nota, codigo_num, criado_em, inspiracao_tags(tag_id, tags(id, nome))'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -64,6 +65,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
         fotoUrl: null,
         url: i.url as string | null,
         nota: i.nota as string | null,
+        codigo_num: (i.codigo_num ?? null) as number | null,
         criado_em: i.criado_em as string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tags: ((i.inspiracao_tags ?? []) as any[])

@@ -76,7 +76,7 @@ export function MinhasSelecoes() {
                   <div className="card-info">
                     <div className="card-nome">{s.titulo || 'Seleção sem título'}</div>
                     <div className="apoio">
-                      {s.qtd} foto{s.qtd !== 1 ? 's' : ''} ·{' '}
+                      {s.qtd} {s.qtd !== 1 ? 'itens' : 'item'} ·{' '}
                       {expirada ? 'expirada' : `expira em ${dias} dia${dias !== 1 ? 's' : ''}`}
                     </div>
                   </div>

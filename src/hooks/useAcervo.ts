@@ -10,6 +10,7 @@ export type Trabalho = {
   foto_publica_path: string | null
   descricao: string | null
   na_vitrine: boolean
+  codigo_num: number | null // código curto exibido como A-{n}
   criado_em: string
   url: string
   tags: Tag[]
@@ -32,7 +33,7 @@ export function useAcervo(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('trabalhos')
       .select(
-        'id, foto_path, foto_publica_path, descricao, na_vitrine, criado_em, trabalho_tags(tag_id, tags(id, nome))'
+        'id, foto_path, foto_publica_path, descricao, na_vitrine, codigo_num, criado_em, trabalho_tags(tag_id, tags(id, nome))'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -45,6 +46,7 @@ export function useAcervo(usuariaId: string | undefined) {
         foto_publica_path: t.foto_publica_path as string | null,
         descricao: t.descricao as string | null,
         na_vitrine: t.na_vitrine as boolean,
+        codigo_num: (t.codigo_num ?? null) as number | null,
         criado_em: t.criado_em as string,
         url: urlDe((t.foto_publica_path ?? t.foto_path) as string),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

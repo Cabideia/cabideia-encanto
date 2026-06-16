@@ -62,9 +62,10 @@ export function App() {
           <Route path="/pedidos/novo" element={<Privada><PedidoForm /></Privada>} />
           <Route path="/pedidos/:id" element={<Privada><PedidoDetalhe /></Privada>} />
           <Route path="/pedidos/:id/editar" element={<Privada><PedidoForm /></Privada>} />
-          <Route path="/pedidos/:id/proposta" element={<Privada><PropostaForm /></Privada>} />
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
           <Route path="/clientes/:id" element={<Privada><ClienteDetalhe /></Privada>} />
+          <Route path="/clientes/:clienteId/propostas/nova" element={<Privada><PropostaForm /></Privada>} />
+          <Route path="/propostas/:id" element={<Privada><PropostaForm /></Privada>} />
           <Route path="/inspiracoes" element={<Privada><Inspiracoes /></Privada>} />
           <Route path="/inspiracoes/nova" element={<Privada><InspiracaoForm /></Privada>} />
           <Route path="/inspiracoes/:id" element={<Privada><InspiracaoDetalhe /></Privada>} />
