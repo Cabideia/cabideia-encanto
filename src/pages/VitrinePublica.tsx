@@ -27,6 +27,24 @@ type FotoPublica = {
   tags: { id: string; nome: string }[]
 }
 
+type ItemCardapioPublico = {
+  id: string
+  nome: string
+  detalhes: string | null
+  unidade: string | null
+  preco_base: number | null
+  preco_sob_consulta: boolean
+}
+
+/** Preço exibido na vitrine: R$ valor (se houver e não for sob consulta) ou texto. */
+function precoVitrine(item: ItemCardapioPublico): string {
+  if (item.preco_base != null && !item.preco_sob_consulta) {
+    const valor = item.preco_base.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    return item.unidade ? `${valor} · ${item.unidade}` : valor
+  }
+  return 'Preço sob consulta'
+}
+
 const MSG_WHATSAPP = 'Olá! Vi seus trabalhos e gostaria de um orçamento'
 
 export function VitrinePublica() {
@@ -35,6 +53,7 @@ export function VitrinePublica() {
 
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null)
   const [fotos, setFotos] = useState<FotoPublica[]>([])
+  const [cardapio, setCardapio] = useState<ItemCardapioPublico[]>([])
   const [carregando, setCarregando] = useState(true)
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
 
@@ -69,6 +88,10 @@ export function VitrinePublica() {
             tags: ((x.tags ?? []) as any[]).map((tg) => ({ id: tg.id, nome: tg.nome })),
           }))
         )
+
+        // Cardápio público (server-side, anônimo): só itens marcados na vitrine.
+        const { data: c } = await supabase.rpc('cardapio_publico', { arroba: usuaria })
+        setCardapio((c ?? []) as ItemCardapioPublico[])
       }
       setCarregando(false)
     }
@@ -188,6 +211,30 @@ export function VitrinePublica() {
           <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
             {tagFiltro ? 'Nenhuma foto nesta categoria.' : 'Vitrine ainda sem fotos.'}
           </p>
+        )}
+
+        {/* Cardápio público — só aparece se houver ao menos 1 item na vitrine */}
+        {cardapio.length > 0 && (
+          <div style={{ marginTop: 28 }}>
+            <div className="nome-negocio" style={{ textAlign: 'center', fontSize: 'var(--t-card)' }}>
+              Cardápio
+            </div>
+            <div style={{ marginTop: 12 }}>
+              {cardapio.map((item) => (
+                <div key={item.id} className="card">
+                  <div className="card-linha">
+                    <div className="card-info">
+                      <div className="card-nome">{item.nome}</div>
+                      {item.detalhes && (
+                        <div className="apoio" style={{ marginTop: 2 }}>{item.detalhes}</div>
+                      )}
+                    </div>
+                    <div className="cardapio-preco">{precoVitrine(item)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>

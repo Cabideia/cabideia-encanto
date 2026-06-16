@@ -134,12 +134,18 @@ create table anotacoes (
 );
 
 -- ---------- CARDÁPIO (M-015 · prateleira de referência, SEM vínculo com pedido) ----------
+-- Cardápio v2: `unidade` virou texto livre (chips são só sugestões), e o item
+-- pode ser publicado no cardápio público da vitrine (`na_vitrine`), com preço
+-- escondido atrás de "Preço sob consulta" (`preco_sob_consulta`).
 create table cardapio_itens (
   id uuid primary key default gen_random_uuid(),
   usuaria_id uuid not null references perfis (id) on delete cascade,
   nome text not null,
   preco_base numeric(10,2),
-  unidade unidade_cardapio not null default 'unidade',
+  unidade text,                                      -- texto livre, opcional
+  detalhes text,                                     -- descrição opcional do item
+  na_vitrine boolean not null default false,         -- aparece no cardápio público
+  preco_sob_consulta boolean not null default false, -- na vitrine, esconde o valor
   criado_em timestamptz not null default now()
 );
 
@@ -271,6 +277,21 @@ begin
   limit case when n is null then null else n end;
 end $$;
 grant execute on function vitrine_publica(text) to anon, authenticated;
+
+-- Cardápio público (anônimo): só itens marcados na vitrine de um perfil publicado,
+-- ordenados por nome. A formatação do preço ("R$ x" vs "Preço sob consulta") fica no app.
+create function cardapio_publico(arroba text)
+returns table (id uuid, nome text, detalhes text, unidade text, preco_base numeric, preco_sob_consulta boolean)
+language sql security definer set search_path = public as $$
+  select c.id, c.nome, c.detalhes, c.unidade, c.preco_base, c.preco_sob_consulta
+  from cardapio_itens c
+  join perfis p on p.id = c.usuaria_id
+  where p.arroba = arroba
+    and p.vitrine_publicada = true
+    and c.na_vitrine = true
+  order by c.nome;
+$$;
+grant execute on function cardapio_publico(text) to anon, authenticated;
 
 -- ============================================================
 -- STORAGE — buckets

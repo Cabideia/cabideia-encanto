@@ -63,9 +63,11 @@ export function Config() {
                 ? `Você tem ${resumo.total} imagens`
                 : `Você tem ${resumo.total} de ${limite} imagens`}
             </div>
-            <p className="apoio" style={{ marginTop: 8, lineHeight: 1.6 }}>
-              🛍️ Meus Trabalhos: {resumo.trabalhos} · 💡 Inspirações: {resumo.inspiracoes} · 📋 Referências de pedidos: {resumo.referencias} · 🌐 Na vitrine: {resumo.na_vitrine}
-            </p>
+            <div className="apoio" style={{ marginTop: 8, lineHeight: 1.7 }}>
+              <div>🛍️ Meus Trabalhos: {resumo.trabalhos} — destas, {resumo.na_vitrine} publicadas na vitrine</div>
+              <div>💡 Inspirações: {resumo.inspiracoes}</div>
+              <div>📋 Referências de pedidos: {resumo.referencias}</div>
+            </div>
           </div>
         )}
 

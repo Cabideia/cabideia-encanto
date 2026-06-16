@@ -5,14 +5,28 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import {
   useCardapio,
-  UNIDADES,
-  rotuloUnidade,
+  UNIDADES_SUGERIDAS,
   formatarReal,
+  precoParaNumero,
   type CamposItem,
   type ItemCardapio,
 } from '../hooks/useCardapio'
 
-const FORM_VAZIO: CamposItem = { nome: '', preco_base: '', unidade: 'unidade' }
+const FORM_VAZIO: CamposItem = {
+  nome: '',
+  preco_base: '',
+  unidade: '',
+  detalhes: '',
+  na_vitrine: false,
+  preco_sob_consulta: false,
+}
+
+/** Linha de apoio da lista: preço (R$ ou vazio) + unidade. */
+function precoEUnidade(item: ItemCardapio): string {
+  const preco = item.preco_base != null ? formatarReal(item.preco_base) : ''
+  const unidade = item.unidade ? `por ${item.unidade}` : ''
+  return [preco, unidade].filter(Boolean).join(' · ')
+}
 
 /** M-015 · Cardápio — prateleira de referência (produto + preço base), sem vínculo com pedido. */
 export function Cardapio() {
@@ -39,7 +53,10 @@ export function Cardapio() {
     setForm({
       nome: item.nome,
       preco_base: item.preco_base != null ? String(item.preco_base).replace('.', ',') : '',
-      unidade: item.unidade,
+      unidade: item.unidade ?? '',
+      detalhes: item.detalhes ?? '',
+      na_vitrine: item.na_vitrine,
+      preco_sob_consulta: item.preco_sob_consulta,
     })
     setEditandoId(item.id)
   }
@@ -78,6 +95,7 @@ export function Cardapio() {
   if (carregando) return null
 
   const formAberto = editandoId !== null
+  const precoPreview = precoParaNumero(form.preco_base)
 
   return (
     <div className="tela">
@@ -127,20 +145,86 @@ export function Cardapio() {
                 placeholder="Ex.: 3,50"
                 inputMode="decimal"
               />
+              {precoPreview != null && (
+                <div className="apoio" style={{ marginTop: 6 }}>
+                  {formatarReal(precoPreview)}
+                </div>
+              )}
             </div>
             <div className="campo">
-              <label>Unidade</label>
-              <select
+              <label>Unidade (opcional)</label>
+              <input
                 value={form.unidade}
-                onChange={(e) => setForm({ ...form, unidade: e.target.value as CamposItem['unidade'] })}
-              >
-                {UNIDADES.map((u) => (
-                  <option key={u.valor} value={u.valor}>
-                    {u.rotulo}
-                  </option>
+                onChange={(e) => setForm({ ...form, unidade: e.target.value })}
+                placeholder="Ex.: cento, dúzia, kg…"
+                maxLength={40}
+              />
+              <div className="escolha" style={{ marginTop: 8 }}>
+                {UNIDADES_SUGERIDAS.map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    className={`filtro${form.unidade.trim().toLowerCase() === u ? ' ativo' : ''}`}
+                    onClick={() => setForm({ ...form, unidade: u })}
+                  >
+                    {u}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
+            <div className="campo">
+              <label>Detalhes (opcional)</label>
+              <textarea
+                value={form.detalhes}
+                onChange={(e) => setForm({ ...form, detalhes: e.target.value })}
+                placeholder="Ex.: recheio de ninho com nutella, mínimo 50 unidades"
+                maxLength={300}
+              />
+            </div>
+
+            <div className="cardapio-toggle">
+              <div>
+                <div style={{ fontWeight: 600 }}>🛍️ Mostrar na vitrine</div>
+                <div className="apoio" style={{ marginTop: 2 }}>
+                  Aparece no cardápio público da sua vitrine.
+                </div>
+              </div>
+              <label className="interruptor">
+                <input
+                  type="checkbox"
+                  checked={form.na_vitrine}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      na_vitrine: e.target.checked,
+                      // Ao tirar da vitrine, zera o "sob consulta" (irrelevante fora dela).
+                      preco_sob_consulta: e.target.checked && form.preco_sob_consulta,
+                    })
+                  }
+                />
+                <span className="pista" />
+              </label>
+            </div>
+
+            {form.na_vitrine && (
+              <div className="cardapio-toggle">
+                <div>
+                  <div style={{ fontWeight: 600 }}>Preço sob consulta</div>
+                  <div className="apoio" style={{ marginTop: 2 }}>
+                    Na vitrine aparece “Preço sob consulta” em vez do valor.
+                  </div>
+                </div>
+                <label className="interruptor">
+                  <input
+                    type="checkbox"
+                    checked={form.preco_sob_consulta}
+                    onChange={(e) => setForm({ ...form, preco_sob_consulta: e.target.checked })}
+                  />
+                  <span className="pista" />
+                </label>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" onClick={fecharForm} className="btn-secundario" style={{ flex: 1 }}>
                 Cancelar
@@ -190,12 +274,16 @@ export function Cardapio() {
               >
                 <div className="card-linha">
                   <div className="card-info">
-                    <div className="card-nome">{i.nome}</div>
-                    <div className="apoio">
-                      {i.preco_base != null
-                        ? `${formatarReal(i.preco_base)} / ${rotuloUnidade(i.unidade)}`
-                        : `por ${rotuloUnidade(i.unidade)}`}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <div className="card-nome">{i.nome}</div>
+                      {i.na_vitrine && (
+                        <span className="chip-vitrine" title="Na vitrine">🛍️ vitrine</span>
+                      )}
                     </div>
+                    {precoEUnidade(i) && <div className="apoio">{precoEUnidade(i)}</div>}
+                    {i.detalhes && (
+                      <div className="apoio" style={{ marginTop: 2 }}>{i.detalhes}</div>
+                    )}
                   </div>
                   <span aria-hidden>›</span>
                 </div>
