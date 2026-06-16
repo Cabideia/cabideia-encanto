@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 export type Tag = { id: string; nome: string }
 export type TagComUso = Tag & { uso: number }
@@ -79,6 +80,7 @@ export function useAcervo(usuariaId: string | undefined) {
     descricao: string,
     tagIds: string[]
   ): Promise<{ id: string } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     setEnviando(true)
     try {
@@ -133,6 +135,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
   // ── Remove trabalho do banco e do storage ──
   async function remover(trabalho: Trabalho): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('trabalhos').delete().eq('id', trabalho.id)
     if (error) return 'Falha ao remover: ' + error.message
     const paths = [trabalho.foto_path]
@@ -145,6 +148,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
   // ── Alterna presença na vitrine pública ──
   async function alternarVitrine(trabalho: Trabalho): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const novo = !trabalho.na_vitrine
     const { error } = await supabase
       .from('trabalhos')
@@ -164,6 +168,7 @@ export function useAcervo(usuariaId: string | undefined) {
     if (!nomeLimpo) return null
     const existente = todasTags.find((t) => t.nome === nomeLimpo)
     if (existente) return existente
+    if (estaOffline()) return null
     const { data, error } = await supabase
       .from('tags')
       .insert({ usuaria_id: usuariaId, nome: nomeLimpo })
@@ -177,6 +182,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
   // ── Atribui tag a um trabalho (atualização otimista) ──
   async function atribuirTag(trabalhoId: string, tagId: string): Promise<void> {
+    if (estaOffline()) return
     await supabase.from('trabalho_tags').insert({ trabalho_id: trabalhoId, tag_id: tagId })
     setTrabalhos((prev) =>
       prev.map((t) => {
@@ -189,6 +195,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
   // ── Remove tag de um trabalho (atualização otimista) ──
   async function removerTag(trabalhoId: string, tagId: string): Promise<void> {
+    if (estaOffline()) return
     await supabase
       .from('trabalho_tags')
       .delete()
@@ -203,6 +210,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
   // ── Renomeia uma tag (vale em todas as fotos onde ela aparece) ──
   async function renomearTag(tagId: string, novoNome: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     if (!usuariaId) return 'Sessão expirada.'
     const limpo = novoNome.trim().toLowerCase()
     if (!limpo) return 'Dê um nome à tag.'
@@ -228,6 +236,7 @@ export function useAcervo(usuariaId: string | undefined) {
 
   // ── Apaga uma tag de vez (on delete cascade tira de todas as fotos) ──
   async function apagarTag(tagId: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     if (!usuariaId) return 'Sessão expirada.'
     const { error } = await supabase
       .from('tags')

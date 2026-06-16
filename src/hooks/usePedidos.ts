@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 export type StatusPedido = 'a_fazer' | 'em_producao' | 'entregue' | 'cancelado'
 
@@ -126,6 +127,7 @@ export function usePedidos(usuariaId: string | undefined) {
 
   // ── Sobe a foto de referência no bucket privado 'acervo' sob {uid}/referencias/ ──
   async function subirReferencia(blob: Blob): Promise<{ path: string } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const path = `${usuariaId}/referencias/${crypto.randomUUID()}.jpg`
     const { error } = await supabase.storage
@@ -149,6 +151,7 @@ export function usePedidos(usuariaId: string | undefined) {
 
   // ── criar() — devolve o id criado (ou erro) ──
   async function criar(campos: CamposPedido): Promise<{ id: string } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const nome = campos.nome.trim()
     if (!nome) return { erro: 'Dê um nome ao pedido.' }
@@ -181,6 +184,7 @@ export function usePedidos(usuariaId: string | undefined) {
     id: string,
     patch: Partial<CamposPedido & { trabalho_id: string | null }>
   ): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     if (patch.nome !== undefined && !patch.nome.trim()) return 'Dê um nome ao pedido.'
     const corpo: Record<string, unknown> = { ...patch }
     if (typeof corpo.nome === 'string') corpo.nome = corpo.nome.trim()
@@ -198,6 +202,7 @@ export function usePedidos(usuariaId: string | undefined) {
 
   // ── mudarStatus() — atalho otimista usado nos chips/detalhe ──
   async function mudarStatus(id: string, status: StatusPedido): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('pedidos').update({ status }).eq('id', id)
     if (error) return 'Falha ao mudar o status: ' + error.message
     setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)))
@@ -206,6 +211,7 @@ export function usePedidos(usuariaId: string | undefined) {
 
   // ── excluir() (a confirmação fica na UI) ──
   async function excluir(id: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('pedidos').delete().eq('id', id)
     if (error) return 'Falha ao excluir: ' + error.message
     setPedidos((prev) => prev.filter((p) => p.id !== id))

@@ -76,6 +76,18 @@ export function Config() {
             Plano Grátis: até {limite} imagens (trabalhos, inspirações e referências).
           </p>
         )}
+
+        {/* M-023 · Nota sobre o comportamento offline — evita a impressão de "perdi meus dados". */}
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+            📴 Funciona sem internet?
+          </div>
+          <div className="apoio" style={{ marginTop: 8, lineHeight: 1.7 }}>
+            Seus dados ficam guardados na nuvem, em segurança. Sem internet, o app
+            abre e mostra a <b>última versão que você viu</b> — você não perde nada.
+            Para criar, editar ou excluir, é só conectar de novo.
+          </div>
+        </div>
       </div>
     </div>
   )

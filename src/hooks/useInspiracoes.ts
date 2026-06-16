@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 import type { Tag } from './useAcervo'
 
 export type TipoInspiracao = 'imagem' | 'link'
@@ -110,6 +111,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
 
   // ── Sobe uma imagem (já comprimida) no bucket privado 'inspiracoes' ──
   async function subirImagem(blob: Blob): Promise<{ path: string } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const path = `${usuariaId}/${crypto.randomUUID()}.jpg`
     const { error } = await supabase.storage
@@ -130,6 +132,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
 
   // ── criar() ──
   async function criar(campos: CamposInspiracao): Promise<{ id: string } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     setEnviando(true)
     try {
@@ -165,6 +168,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
     campos: CamposInspiracao,
     fotoAntiga: string | null
   ): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     setEnviando(true)
     try {
       const { error } = await supabase
@@ -190,6 +194,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
 
   // ── excluir(): apaga a linha e, se houver, a foto do storage ──
   async function excluir(inspiracao: Inspiracao): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('inspiracoes').delete().eq('id', inspiracao.id)
     if (error) return 'Falha ao excluir: ' + error.message
     if (inspiracao.foto_path)
@@ -207,6 +212,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
     if (!nomeLimpo) return null
     const existente = todasTags.find((t) => t.nome === nomeLimpo)
     if (existente) return existente
+    if (estaOffline()) return null
     const { data, error } = await supabase
       .from('tags')
       .insert({ usuaria_id: usuariaId, nome: nomeLimpo })
@@ -220,6 +226,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
 
   // Atribui/remove tag direto numa inspiração existente (atualização otimista).
   async function atribuirTag(inspiracaoId: string, tagId: string): Promise<void> {
+    if (estaOffline()) return
     await supabase.from('inspiracao_tags').insert({ inspiracao_id: inspiracaoId, tag_id: tagId })
     setInspiracoes((prev) =>
       prev.map((i) => {
@@ -231,6 +238,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
   }
 
   async function removerTag(inspiracaoId: string, tagId: string): Promise<void> {
+    if (estaOffline()) return
     await supabase
       .from('inspiracao_tags')
       .delete()
