@@ -182,8 +182,8 @@ export function PedidoDetalhe() {
             </div>
             {linkZap && (
               <button
-                className="cta"
-                style={{ marginTop: 14, height: 48 }}
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
                 onClick={() => window.open(linkZap, '_blank', 'noopener')}
               >
                 💬 Abrir conversa no WhatsApp
@@ -275,6 +275,13 @@ export function PedidoDetalhe() {
             📸 Adicionar a Meus Trabalhos
           </button>
         )}
+      </div>
+
+      {/* CTA primário: gerar uma proposta encantadora a partir deste pedido */}
+      <div className="cta-area">
+        <button className="cta" onClick={() => navegar(`/pedidos/${pedido.id}/proposta`)}>
+          ✨ Gerar proposta
+        </button>
       </div>
 
       {/* Modal: adicionar ao acervo */}
