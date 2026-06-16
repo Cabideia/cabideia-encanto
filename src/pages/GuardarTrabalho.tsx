@@ -2,9 +2,11 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Recorte } from '../components/Recorte'
+import { LimiteModal } from '../components/LimiteModal'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo } from '../hooks/useAcervo'
+import { useAssinatura } from '../hooks/useAssinatura'
 import { recortarEComprimir, type AreaRecorte } from '../lib/imagem'
 
 /**
@@ -20,10 +22,12 @@ export function GuardarTrabalho() {
   const avisar = useAviso()
   const navegar = useNavigate()
   const { todasTags, enviando, adicionarBlob, criarTag } = useAcervo(sessao?.user.id)
+  const { podeAdicionar } = useAssinatura(sessao?.user.id)
 
   const [descricao, setDescricao] = useState('')
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([])
   const [novaTagTexto, setNovaTagTexto] = useState('')
+  const [limiteAberto, setLimiteAberto] = useState(false)
 
   // Fluxo de adição (recorte → compressão no cliente → blob pronto p/ subir)
   const [arquivoBruto, setArquivoBruto] = useState<File | null>(null)
@@ -33,6 +37,13 @@ export function GuardarTrabalho() {
   const inputCamera = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
 
+  function abrirSeletor(ref: React.RefObject<HTMLInputElement>) {
+    if (!podeAdicionar) {
+      setLimiteAberto(true)
+      return
+    }
+    ref.current?.click()
+  }
   function aoEscolher(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     e.target.value = ''
@@ -66,6 +77,10 @@ export function GuardarTrabalho() {
   }
   async function aoEnviar() {
     if (!blobPronto) return avisar('Escolha uma foto primeiro')
+    if (!podeAdicionar) {
+      setLimiteAberto(true)
+      return
+    }
     const erro = await adicionarBlob(blobPronto, descricao, tagsSelecionadas)
     if (erro) {
       avisar(erro)
@@ -90,11 +105,11 @@ export function GuardarTrabalho() {
           </div>
         ) : (
           <div className="seletor-origem">
-            <button type="button" className="origem-botao" onClick={() => inputCamera.current?.click()}>
+            <button type="button" className="origem-botao" onClick={() => abrirSeletor(inputCamera)}>
               <span className="origem-emoji">📷</span>
               Tirar foto
             </button>
-            <button type="button" className="origem-botao" onClick={() => inputGaleria.current?.click()}>
+            <button type="button" className="origem-botao" onClick={() => abrirSeletor(inputGaleria)}>
               <span className="origem-emoji">🖼️</span>
               Da galeria
             </button>
@@ -102,7 +117,7 @@ export function GuardarTrabalho() {
         )}
 
         {previewUrl && (
-          <button type="button" className="btn-secundario" style={{ width: '100%', marginTop: 10 }} onClick={() => inputGaleria.current?.click()}>
+          <button type="button" className="btn-secundario" style={{ width: '100%', marginTop: 10 }} onClick={() => abrirSeletor(inputGaleria)}>
             Trocar foto
           </button>
         )}
@@ -180,6 +195,8 @@ export function GuardarTrabalho() {
       {arquivoBruto && (
         <Recorte arquivo={arquivoBruto} onConfirmar={aoConfirmarRecorte} onCancelar={() => setArquivoBruto(null)} />
       )}
+
+      {limiteAberto && <LimiteModal onFechar={() => setLimiteAberto(false)} />}
     </div>
   )
 }

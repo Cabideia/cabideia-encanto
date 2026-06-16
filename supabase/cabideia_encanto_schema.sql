@@ -30,14 +30,18 @@ create table perfis (
   atualizado_em timestamptz not null default now()
 );
 
--- Perfil criado automaticamente no primeiro login Google
+-- Perfil criado automaticamente no primeiro login Google.
+-- M-011: SEM trial — a conta nasce no plano Grátis (150 imagens). Fundadora e
+-- Vitrine-ativa = ilimitado. A troca de plano vem do Play Billing (M-018).
 create function criar_perfil_no_cadastro()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into perfis (id, nome)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''));
-  insert into assinaturas (usuaria_id, plano, status, trial_fim)
-  values (new.id, 'vitrine', 'trial', now() + interval '30 days'); -- trial 30d (Decisão #3)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''))
+  on conflict (id) do nothing;
+  insert into assinaturas (usuaria_id, plano, status)
+  values (new.id, 'gratis', 'ativa')
+  on conflict (usuaria_id) do nothing;
   return new;
 end $$;
 
@@ -206,6 +210,67 @@ create policy vitrine_trabalhos_publicos on trabalhos
     na_vitrine = true
     and exists (select 1 from perfis p where p.id = usuaria_id and p.vitrine_publicada = true)
   );
+
+-- ============================================================
+-- M-011 — PAYWALL (enforcement + planos)
+-- Modelo: Grátis = 150 imagens totais (trabalhos + inspirações-imagem +
+-- referências de pedido). Fundadora e Vitrine-ativa = ilimitado. Sem trial.
+-- ============================================================
+
+-- Total de imagens da usuária (base do limite de 150 do plano Grátis).
+create function total_imagens_usuaria(uid uuid)
+returns integer language sql security definer set search_path = public as $$
+  select (select count(*) from trabalhos where usuaria_id = uid)
+       + (select count(*) from inspiracoes where usuaria_id = uid and foto_path is not null)
+       + (select count(*) from pedidos where usuaria_id = uid and foto_referencia_path is not null);
+$$;
+
+-- Quantos trabalhos a vitrine pública pode mostrar.
+-- NULL => sem limite (Fundadora ou Vitrine ativa). Caso contrário, o orçamento
+-- de 150 imagens menos o que já é ocupado por inspirações-imagem e referências.
+create function slots_vitrine_publica(uid uuid)
+returns integer language plpgsql security definer set search_path = public as $$
+declare a record; insp int; ref int;
+begin
+  select plano, status, fundadora into a from assinaturas where usuaria_id = uid;
+  if a.fundadora or (a.plano = 'vitrine' and a.status = 'ativa') then
+    return null;
+  end if;
+  select count(*) into insp from inspiracoes where usuaria_id = uid and foto_path is not null;
+  select count(*) into ref  from pedidos     where usuaria_id = uid and foto_referencia_path is not null;
+  return greatest(0, 150 - insp - ref);
+end $$;
+
+-- Vitrine pública com o corte server-side (a cliente é anônima): devolve os
+-- trabalhos na vitrine já cortados por slots_vitrine_publica e ordenados por
+-- criado_em desc. Preserva o shape (foto_publica_path, descricao) e as tags.
+create function vitrine_publica(arroba text)
+returns table (id uuid, foto_publica_path text, descricao text, tags jsonb)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+declare dona uuid; n int;
+begin
+  select p.id into dona
+  from perfis p
+  where p.arroba = vitrine_publica.arroba and p.vitrine_publicada = true;
+  if dona is null then
+    return; -- vitrine inexistente ou não publicada
+  end if;
+  n := slots_vitrine_publica(dona);
+  return query
+  select t.id, t.foto_publica_path, t.descricao,
+         coalesce(
+           (select jsonb_agg(jsonb_build_object('id', tg.id, 'nome', tg.nome) order by tg.nome)
+            from trabalho_tags wt join tags tg on tg.id = wt.tag_id
+            where wt.trabalho_id = t.id),
+           '[]'::jsonb
+         ) as tags
+  from trabalhos t
+  where t.usuaria_id = dona and t.na_vitrine = true and t.foto_publica_path is not null
+  order by t.criado_em desc
+  limit case when n is null then null else n end;
+end $$;
+grant execute on function vitrine_publica(text) to anon, authenticated;
 
 -- ============================================================
 -- STORAGE — buckets

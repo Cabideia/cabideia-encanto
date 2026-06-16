@@ -7,8 +7,10 @@ import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
 import { useSelecoes } from '../hooks/useSelecoes'
 import { usePedidos } from '../hooks/usePedidos'
+import { useAssinatura } from '../hooks/useAssinatura'
 
-const LIMITE_GRATIS = 150
+const AVISO_CURADORIA_TRAVADA =
+  'Para escolher quais fotos aparecem na vitrine, fique com até 150 imagens ou assine o Vitrine.'
 
 // ─────────────────────────────────────────────────────────
 // Painel de detalhe (bottom sheet) — abre ao tocar numa foto.
@@ -138,6 +140,7 @@ type CartaoProps = {
   trabalho: Trabalho
   modoSelecao: boolean
   marcado: boolean
+  vitrineBloqueada: boolean
   onAbrir: () => void
   onAlternarMarca: () => void
   onPedirRemover: () => void
@@ -148,6 +151,7 @@ function CartaoTrabalho({
   trabalho,
   modoSelecao,
   marcado,
+  vitrineBloqueada,
   onAbrir,
   onAlternarMarca,
   onPedirRemover,
@@ -174,7 +178,14 @@ function CartaoTrabalho({
               className={`foto-vitrine-btn${trabalho.na_vitrine ? ' ativa' : ''}`}
               onClick={(e) => { e.stopPropagation(); onAlternarVitrine() }}
               aria-label={trabalho.na_vitrine ? 'Remover da vitrine' : 'Adicionar à vitrine'}
-              title={trabalho.na_vitrine ? 'Na vitrine — toque para retirar' : 'Toque para mostrar na vitrine'}
+              title={
+                vitrineBloqueada
+                  ? 'Curadoria da vitrine travada no excedente'
+                  : trabalho.na_vitrine
+                    ? 'Na vitrine — toque para retirar'
+                    : 'Toque para mostrar na vitrine'
+              }
+              style={vitrineBloqueada ? { opacity: 0.45 } : undefined}
             >
               🛍️
             </button>
@@ -225,6 +236,7 @@ export function Acervo() {
   } = useAcervo(sessao?.user.id)
   const { criar: criarSelecao } = useSelecoes(sessao?.user.id)
   const { pedidos } = usePedidos(sessao?.user.id)
+  const { total, limite, ilimitado, emExcedente } = useAssinatura(sessao?.user.id)
 
   const [busca, setBusca] = useState('')
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
@@ -253,9 +265,10 @@ export function Acervo() {
     ? pedidos.find((p) => p.trabalho_id === trabalhoAberto.id)?.id ?? null
     : null
 
-  const total = trabalhos.length
-  const pct = Math.min(100, Math.round((total / LIMITE_GRATIS) * 100))
-  const corBarra = pct >= 90 ? 'var(--caramelo)' : 'var(--framboesa)'
+  // Uso do plano: total de IMAGENS (trabalhos + inspirações-imagem + referências),
+  // não só os trabalhos desta tela. Fundadora/Vitrine = ilimitado.
+  const pct = Math.min(100, Math.round((total / limite) * 100))
+  const corBarra = emExcedente ? 'var(--caramelo)' : pct >= 90 ? 'var(--caramelo)' : 'var(--framboesa)'
 
   // ── Modo seleção ──
   function entrarSelecao() {
@@ -312,6 +325,12 @@ export function Acervo() {
     setAApagar(null)
   }
   async function aoAlternarVitrine(t: Trabalho) {
+    // Curadoria travada no excedente: marcar/desmarcar fica bloqueado, mas
+    // excluir continua (caminho de regularização).
+    if (emExcedente) {
+      avisar(AVISO_CURADORIA_TRAVADA)
+      return
+    }
     const erro = await alternarVitrine(t)
     if (erro) avisar(erro)
     else avisar(t.na_vitrine ? 'Removido da vitrine' : 'Adicionado à vitrine ✓')
@@ -339,19 +358,34 @@ export function Acervo() {
         {!modoSelecao && (
           <>
             <div className="contador-acervo">
-              <div className="contador-texto">
-                <span className="contador-num">{total}</span>
-                <span className="contador-desc">
-                  {' '}foto{total !== 1 ? 's' : ''} · limite do plano Grátis: {LIMITE_GRATIS}
-                </span>
-              </div>
-              <div className="contador-barra">
-                <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
-              </div>
+              {ilimitado ? (
+                <div className="contador-texto">
+                  <span className="contador-num">{total}</span>
+                  <span className="contador-desc"> imagens · plano sem limite ✨</span>
+                </div>
+              ) : (
+                <>
+                  <div className="contador-texto">
+                    <span className="contador-num">{total}</span>
+                    <span className="contador-desc">
+                      {' '}de {limite} imagens do plano Grátis
+                    </span>
+                  </div>
+                  <div className="contador-barra">
+                    <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
+                  </div>
+                  {emExcedente && (
+                    <p className="apoio" style={{ marginTop: 6 }}>
+                      Você passou das {limite} imagens. A curadoria da vitrine fica travada
+                      até regularizar — apagar imagens é sempre permitido.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Ações: compartilhar seleção + minhas seleções */}
-            {total > 0 && (
+            {trabalhos.length > 0 && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button className="btn-secundario" style={{ flex: 1 }} onClick={entrarSelecao}>
                   📤 Compartilhar com cliente
@@ -426,6 +460,7 @@ export function Acervo() {
                 trabalho={t}
                 modoSelecao={modoSelecao}
                 marcado={marcados.has(t.id)}
+                vitrineBloqueada={emExcedente}
                 onAbrir={() => setAbertoId(t.id)}
                 onAlternarMarca={() => alternarMarca(t.id)}
                 onPedirRemover={() => setAApagar(t)}

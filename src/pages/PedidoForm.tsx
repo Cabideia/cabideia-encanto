@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { LimiteModal } from '../components/LimiteModal'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
+import { useAssinatura } from '../hooks/useAssinatura'
 import { comprimirImagem } from '../lib/imagem'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -40,6 +42,7 @@ export function PedidoForm() {
     subirReferencia,
     urlReferencia,
   } = usePedidos(sessao?.user.id)
+  const { podeAdicionar } = useAssinatura(sessao?.user.id)
 
   const [form, setForm] = useState<DadosForm>({
     cliente_id: null,
@@ -55,6 +58,7 @@ export function PedidoForm() {
   const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // referência nova a subir
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [processando, setProcessando] = useState(false)
+  const [limiteAberto, setLimiteAberto] = useState(false)
 
   // Atalho "novo cliente" — formulário completo num sheet por cima do pedido
   const [novoClienteAberto, setNovoClienteAberto] = useState(false)
@@ -92,6 +96,14 @@ export function PedidoForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewUrl])
 
+  // A foto de referência conta para o limite de 150 imagens do plano Grátis.
+  function abrirFoto() {
+    if (!podeAdicionar) {
+      setLimiteAberto(true)
+      return
+    }
+    inputFoto.current?.click()
+  }
   async function aoEscolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     e.target.value = ''
@@ -149,6 +161,10 @@ export function PedidoForm() {
     // Sobe a foto nova, se houver.
     let caminhoFoto = fotoPath
     if (blobNovo) {
+      if (!podeAdicionar) {
+        setLimiteAberto(true)
+        return
+      }
       const up = await subirReferencia(blobNovo)
       if ('erro' in up) {
         avisar(up.erro)
@@ -311,7 +327,7 @@ export function PedidoForm() {
               type="button"
               className="origem-botao"
               style={{ width: '100%' }}
-              onClick={() => inputFoto.current?.click()}
+              onClick={abrirFoto}
               disabled={processando}
             >
               <span className="origem-emoji">🖼️</span>
@@ -320,7 +336,7 @@ export function PedidoForm() {
           )}
           {previewUrl && (
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button type="button" className="btn-secundario" style={{ flex: 1 }} onClick={() => inputFoto.current?.click()}>
+              <button type="button" className="btn-secundario" style={{ flex: 1 }} onClick={abrirFoto}>
                 Trocar
               </button>
               <button type="button" className="btn-secundario" style={{ flex: 1 }} onClick={removerFoto}>
@@ -532,6 +548,8 @@ export function PedidoForm() {
           onCancelar={() => setAExcluir(false)}
         />
       )}
+
+      {limiteAberto && <LimiteModal onFechar={() => setLimiteAberto(false)} />}
     </div>
   )
 }

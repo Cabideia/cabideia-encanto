@@ -93,7 +93,7 @@ export function Home() {
         </div>
 
         <Link to="/planos" className="aviso-teste">
-          🎀 Teste grátis do Plano Vitrine <span className="seta">Ver planos ›</span>
+          🎀 Conheça o Plano Vitrine <span className="seta">Ver planos ›</span>
         </Link>
       </div>
     </div>

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { LimiteModal } from '../components/LimiteModal'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes, type TipoInspiracao } from '../hooks/useInspiracoes'
+import { useAssinatura } from '../hooks/useAssinatura'
 import { comprimirImagem } from '../lib/imagem'
 
 /**
@@ -30,6 +32,7 @@ export function InspiracaoForm() {
     atualizar,
     criarTag,
   } = useInspiracoes(sessao?.user.id)
+  const { podeAdicionar } = useAssinatura(sessao?.user.id)
 
   const [tipo, setTipo] = useState<TipoInspiracao>('imagem')
   const [url, setUrl] = useState('')
@@ -42,6 +45,7 @@ export function InspiracaoForm() {
   const [blobNovo, setBlobNovo] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [processando, setProcessando] = useState(false)
+  const [limiteAberto, setLimiteAberto] = useState(false)
 
   const inputFoto = useRef<HTMLInputElement>(null)
   const prefilled = useRef(false)
@@ -68,6 +72,14 @@ export function InspiracaoForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewUrl])
 
+  // Imagens contam para o limite de 150; links puros não. Bloqueia ao subir foto.
+  function abrirFoto() {
+    if (!podeAdicionar) {
+      setLimiteAberto(true)
+      return
+    }
+    inputFoto.current?.click()
+  }
   async function aoEscolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     e.target.value = ''
@@ -118,6 +130,10 @@ export function InspiracaoForm() {
     // Sobe a foto nova (imagem ou capa), se houver.
     let caminhoFoto = fotoPath
     if (blobNovo) {
+      if (!podeAdicionar) {
+        setLimiteAberto(true)
+        return
+      }
       const up = await subirImagem(blobNovo)
       if ('erro' in up) {
         avisar(up.erro)
@@ -237,7 +253,7 @@ export function InspiracaoForm() {
               type="button"
               className="origem-botao"
               style={{ width: '100%' }}
-              onClick={() => inputFoto.current?.click()}
+              onClick={abrirFoto}
               disabled={processando}
             >
               <span className="origem-emoji">🖼️</span>
@@ -254,7 +270,7 @@ export function InspiracaoForm() {
                 type="button"
                 className="btn-secundario"
                 style={{ flex: 1 }}
-                onClick={() => inputFoto.current?.click()}
+                onClick={abrirFoto}
               >
                 Trocar
               </button>
@@ -352,6 +368,8 @@ export function InspiracaoForm() {
           </button>
         </div>
       </div>
+
+      {limiteAberto && <LimiteModal onFechar={() => setLimiteAberto(false)} />}
     </div>
   )
 }
