@@ -25,6 +25,8 @@ import { Anotacoes } from './pages/Anotacoes'
 import { Planos } from './pages/Planos'
 import { Config } from './pages/Config'
 import { Perfil } from './pages/Perfil'
+import { Privacidade } from './pages/Privacidade'
+import { Termos } from './pages/Termos'
 
 /** Rotas privadas exigem sessão; sem sessão, vão para /entrar. */
 function Privada({ children }: { children: React.ReactNode }) {
@@ -75,6 +77,9 @@ export function App() {
           <Route path="/anotacoes" element={<Privada><Anotacoes /></Privada>} />
           <Route path="/planos" element={<Privada><Planos /></Privada>} />
           <Route path="/config" element={<Privada><Config /></Privada>} />
+          {/* Páginas legais públicas (sem login) — URLs exigidas pelo Google Play */}
+          <Route path="/privacidade" element={<Privacidade />} />
+          <Route path="/termos" element={<Termos />} />
           {/* Página pública de uma seleção (sem login) */}
           <Route path="/s/:token" element={<SelecaoPublica />} />
           <Route path="/:arroba" element={<Coringa />} />
