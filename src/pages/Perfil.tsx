@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { PerfilForm } from '../components/PerfilForm'
 
@@ -16,6 +16,11 @@ export function Perfil() {
       <BarraTopo titulo="Meu perfil" />
       <div className="conteudo">
         <PerfilForm onSalvo={() => navegar('/vitrine')} />
+        <nav className="legal-links" aria-label="Documentos legais">
+          <Link to="/privacidade">Política de Privacidade</Link>
+          <span className="legal-links-sep" aria-hidden>·</span>
+          <Link to="/termos">Termos de Uso</Link>
+        </nav>
       </div>
     </div>
   )

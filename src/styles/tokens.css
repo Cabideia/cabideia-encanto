@@ -668,3 +668,54 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 
 /* Logo do perfil exibida como imagem (link público da seleção). */
 img.logo-redonda { object-fit: cover; }
+
+/* ============================================================
+   PÁGINAS LEGAIS — /privacidade e /termos (públicas, sem login)
+   Texto estático legível. Sem barra inferior: rolagem até o fim.
+   ============================================================ */
+.legal-conteudo { flex: 1; overflow-y: auto; padding: 8px var(--espaco) 40px; }
+.legal { max-width: 100%; }
+.legal h1 {
+  font-family: var(--fonte-titulo); font-size: var(--t-titulo); font-weight: 600;
+  line-height: 1.25; margin: 6px 0 4px; color: var(--cacau);
+}
+.legal h2 {
+  font-family: var(--fonte-titulo); font-size: var(--t-card); font-weight: 600;
+  line-height: 1.3; margin: 22px 0 8px; color: var(--cacau);
+}
+.legal p { font-size: var(--t-base); line-height: 1.6; margin-bottom: 10px; color: var(--cacau); }
+.legal .legal-meta { font-size: var(--t-apoio); color: var(--cacau-claro); margin-bottom: 16px; }
+.legal .legal-intro { font-size: var(--t-base); line-height: 1.6; margin-bottom: 14px; }
+.legal ul { list-style: none; margin: 0 0 12px; padding: 0; }
+.legal ul li {
+  position: relative; padding-left: 18px; margin-bottom: 7px;
+  font-size: var(--t-base); line-height: 1.55; color: var(--cacau);
+}
+.legal ul li::before {
+  content: ""; position: absolute; left: 3px; top: 9px;
+  width: 6px; height: 6px; border-radius: 2px; background: var(--framboesa);
+}
+.legal .legal-sep { border: none; border-top: 1px solid var(--linha); margin: 20px 0; }
+.legal-sumario {
+  background: var(--acucar); border: 1px solid var(--linha); border-radius: var(--raio-card);
+  box-shadow: var(--sombra); padding: 14px 18px; margin: 4px 0 8px;
+}
+.legal-sumario ol { margin: 0; padding-left: 20px; }
+.legal-sumario li {
+  font-size: var(--t-apoio); color: var(--cacau-claro); line-height: 1.5; margin-bottom: 4px;
+}
+.legal .legal-rodape {
+  margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--linha);
+}
+
+/* Links discretos para as páginas legais (rodapé do login e do perfil). */
+.legal-links {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  flex-wrap: wrap; margin-top: 18px;
+}
+.legal-links a {
+  font-size: var(--t-apoio); font-weight: 700; color: var(--cacau-claro);
+  text-decoration: none;
+}
+.legal-links a:active { color: var(--framboesa); }
+.legal-links .legal-links-sep { color: var(--linha); font-weight: 700; }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
 
@@ -80,6 +80,11 @@ export function Entrar() {
             {erro}
           </p>
         )}
+        <nav className="legal-links" aria-label="Documentos legais">
+          <Link to="/privacidade">Política de Privacidade</Link>
+          <span className="legal-links-sep" aria-hidden>·</span>
+          <Link to="/termos">Termos de Uso</Link>
+        </nav>
       </div>
     </div>
   )
