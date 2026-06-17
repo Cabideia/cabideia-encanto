@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.cabideia.encanto",
+      "sha256_cert_fingerprints": [
+        "SUBSTITUA__SHA256_DA_CHAVE_DE_ASSINATURA_DO_APP_NO_GOOGLE_PLAY",
+        "SUBSTITUA__SHA256_DA_SUA_CHAVE_DE_UPLOAD_OPCIONAL"
+      ]
+    }
+  }
+]
