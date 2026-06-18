@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp, type CamposCliente } from '../hooks/useClientes'
@@ -53,7 +54,7 @@ export function Clientes() {
       <div className="conteudo">
         {clientes.length > 0 && (
           <div className="busca" style={{ marginTop: 4 }}>
-            🔎
+            <Icone nome="busca" size={18} />
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
@@ -63,10 +64,10 @@ export function Clientes() {
               <button
                 type="button"
                 onClick={() => setBusca('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', fontSize: 16, lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', lineHeight: 1, display: 'flex' }}
                 aria-label="Limpar busca"
               >
-                ✕
+                <Icone nome="fechar" size={18} />
               </button>
             )}
           </div>
@@ -74,7 +75,7 @@ export function Clientes() {
 
         {filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🩷</div>
+            <div className="icone"><Icone nome="clientes" size={44} /></div>
             <p>
               {busca
                 ? 'Nenhuma cliente encontrada com esse nome.'
@@ -94,7 +95,7 @@ export function Clientes() {
               >
                 <div className="card-linha">
                   <div className="bola" aria-hidden>
-                    {c.nome.trim().charAt(0).toUpperCase() || '🩷'}
+                    {c.nome.trim().charAt(0).toUpperCase() || <Icone nome="clientes" size={18} />}
                   </div>
                   <div className="card-info">
                     <div className="card-nome">{c.nome}</div>
@@ -108,7 +109,7 @@ export function Clientes() {
                       onClick={(e) => abrirWhatsApp(e, c)}
                       aria-label={`Abrir WhatsApp de ${c.nome}`}
                     >
-                      💬 WhatsApp
+                      <Icone nome="whatsapp" size={16} /> WhatsApp
                     </button>
                   )}
                 </div>
@@ -169,7 +170,7 @@ export function Clientes() {
       {!formAberto && (
         <div className="cta-area">
           <button className="cta" onClick={() => setFormAberto(true)}>
-            ＋ Novo cliente
+            <Icone nome="mais" /> Novo cliente
           </button>
         </div>
       )}

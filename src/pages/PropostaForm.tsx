@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
@@ -239,7 +240,7 @@ export function PropostaForm() {
       descricao.trim(),
       `Valor: ${valorTexto}`,
       validadeTexto,
-      'Já te envio a imagem ✨',
+      'Já te envio a imagem!',
     ]
       .filter(Boolean)
       .join('\n')
@@ -309,7 +310,7 @@ export function PropostaForm() {
         <BarraTopo titulo="Proposta" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔍</div>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Esta proposta não foi encontrada.</p>
           </div>
         </div>
@@ -324,7 +325,7 @@ export function PropostaForm() {
         acao={
           edicao ? (
             <button className="btn-icone" onClick={() => setAExcluir(true)} aria-label="Excluir proposta">
-              🗑️
+              <Icone nome="lixo" />
             </button>
           ) : undefined
         }
@@ -349,7 +350,7 @@ export function PropostaForm() {
           onClick={() => inputFoto.current?.click()}
           disabled={processandoFoto}
         >
-          {processandoFoto ? 'Processando…' : semFoto ? '🖼️ Adicionar foto' : '🖼️ Trocar foto'}
+          {processandoFoto ? 'Processando…' : <><Icone nome="imagem" size={16} /> {semFoto ? 'Adicionar foto' : 'Trocar foto'}</>}
         </button>
 
         {/* Título */}
@@ -402,7 +403,7 @@ export function PropostaForm() {
           onClick={compartilhar}
           disabled={semFoto || compartilhando}
         >
-          {compartilhando ? 'Gerando…' : '📤 Compartilhar no WhatsApp'}
+          {compartilhando ? 'Gerando…' : <><Icone nome="compartilhar" size={16} /> Compartilhar no WhatsApp</>}
         </button>
         <button
           type="button"
@@ -411,7 +412,7 @@ export function PropostaForm() {
           onClick={baixarImagem}
           disabled={semFoto}
         >
-          ⬇️ Baixar imagem
+          <Icone nome="baixar" size={16} /> Baixar imagem
         </button>
         {cliente?.whatsapp && (
           <button
@@ -420,7 +421,7 @@ export function PropostaForm() {
             style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
             onClick={abrirWhatsAppCliente}
           >
-            💬 Abrir conversa de {cliente.nome.split(' ')[0]}
+            <Icone nome="whatsapp" size={16} /> Abrir conversa de {cliente.nome.split(' ')[0]}
           </button>
         )}
 

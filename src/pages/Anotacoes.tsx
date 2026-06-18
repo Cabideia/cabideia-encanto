@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAnotacoes, type Anotacao } from '../hooks/useAnotacoes'
@@ -113,13 +114,13 @@ export function Anotacoes() {
                   if (a) setAExcluir(a)
                 }}
               >
-                🗑️ Excluir anotação
+                <Icone nome="lixo" size={16} /> Excluir anotação
               </button>
             )}
           </div>
         ) : anotacoes.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">📝</div>
+            <div className="icone"><Icone nome="anotacoes" size={44} /></div>
             <p>Um lugar simples para suas ideias e lembretes.</p>
           </div>
         ) : (
@@ -144,7 +145,7 @@ export function Anotacoes() {
       {!formAberto && (
         <div className="cta-area">
           <button className="cta" onClick={abrirNova}>
-            ＋ Nova anotação
+            <Icone nome="mais" /> Nova anotação
           </button>
         </div>
       )}

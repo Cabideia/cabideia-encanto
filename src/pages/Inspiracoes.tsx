@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
 
@@ -19,7 +20,7 @@ function Cartao({ insp, onAbrir }: { insp: Inspiracao; onAbrir: () => void }) {
           <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
         ) : (
           <div className="insp-link-capa">
-            <span className="insp-link-emoji" aria-hidden>🔗</span>
+            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
             <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
           </div>
         )}
@@ -29,13 +30,13 @@ function Cartao({ insp, onAbrir }: { insp: Inspiracao; onAbrir: () => void }) {
           </span>
         )}
         {insp.tipo === 'link' && (
-          <span className="insp-selo-link" aria-hidden>🔗</span>
+          <span className="insp-selo-link" aria-hidden><Icone nome="link" size={14} /></span>
         )}
       </div>
       {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
       {insp.tags.length > 0 && (
         <button className="acervo-selo-tags" onClick={onAbrir} type="button">
-          🏷️ {insp.tags.length} tag{insp.tags.length !== 1 ? 's' : ''}
+          <Icone nome="tags" size={13} /> {insp.tags.length} tag{insp.tags.length !== 1 ? 's' : ''}
         </button>
       )}
     </div>
@@ -67,14 +68,14 @@ export function Inspiracoes() {
       <div className="conteudo">
         {vazioTotal ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone" aria-hidden>💡</div>
+            <div className="icone" aria-hidden><Icone nome="inspiracoes" size={44} /></div>
             <p>Guarde imagens e links que te inspiram — e ache em segundos quando precisar.</p>
           </div>
         ) : (
           <>
             {/* Busca por nota */}
             <div className="busca" style={{ marginTop: 8 }}>
-              🔎
+              <Icone nome="busca" size={18} />
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
@@ -84,10 +85,10 @@ export function Inspiracoes() {
                 <button
                   type="button"
                   onClick={() => setBusca('')}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', fontSize: 16, lineHeight: 1 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', lineHeight: 1, display: 'flex' }}
                   aria-label="Limpar busca"
                 >
-                  ✕
+                  <Icone nome="fechar" size={18} />
                 </button>
               )}
             </div>
@@ -113,7 +114,7 @@ export function Inspiracoes() {
             {/* Grade */}
             {filtradas.length === 0 ? (
               <div className="vazio" style={{ marginTop: 16 }}>
-                <div className="icone">🔍</div>
+                <div className="icone"><Icone nome="busca" size={44} /></div>
                 <p>Nenhuma inspiração encontrada com esse filtro.</p>
               </div>
             ) : (
@@ -130,7 +131,7 @@ export function Inspiracoes() {
       {/* CTA primário fixo */}
       <div className="cta-area">
         <button className="cta" onClick={() => navegar('/inspiracoes/nova')}>
-          ＋ Nova inspiração
+          <Icone nome="mais" /> Nova inspiração
         </button>
       </div>
     </div>

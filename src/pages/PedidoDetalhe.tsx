@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp } from '../hooks/useClientes'
@@ -58,7 +59,7 @@ export function PedidoDetalhe() {
         <BarraTopo titulo="Pedido" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔍</div>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Este pedido não foi encontrado.</p>
           </div>
         </div>
@@ -136,7 +137,7 @@ export function PedidoDetalhe() {
         titulo="Pedido"
         acao={
           <button className="btn-icone" onClick={() => navegar(`/pedidos/${pedido.id}/editar`)} aria-label="Editar pedido">
-            ✏️
+            <Icone nome="editar" />
           </button>
         }
       />
@@ -149,8 +150,8 @@ export function PedidoDetalhe() {
                 {tituloPedido(pedido)}
               </div>
               {pedido.data_entrega && (
-                <div className="apoio" style={{ marginTop: 4 }}>
-                  📅 {formatarDataLonga(pedido.data_entrega)} · {rotuloEntrega(pedido.data_entrega)}
+                <div className="apoio" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icone nome="calendario" size={14} /> {formatarDataLonga(pedido.data_entrega)} · {rotuloEntrega(pedido.data_entrega)}
                 </div>
               )}
             </div>
@@ -162,8 +163,8 @@ export function PedidoDetalhe() {
           )}
 
           {pedido.trabalho_id && (
-            <div className="apoio" style={{ marginTop: 10, color: 'var(--pistache)', fontWeight: 700 }}>
-              📸 Em Meus Trabalhos
+            <div className="apoio" style={{ marginTop: 10, color: 'var(--pistache)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icone nome="trabalhos" size={15} /> Em Meus Trabalhos
             </div>
           )}
         </div>
@@ -173,7 +174,7 @@ export function PedidoDetalhe() {
           <div className="card">
             <div className="card-linha">
               <div className="bola" aria-hidden>
-                {cliente.nome.trim().charAt(0).toUpperCase() || '🩷'}
+                {cliente.nome.trim().charAt(0).toUpperCase() || <Icone nome="clientes" size={18} />}
               </div>
               <div className="card-info">
                 <div className="card-nome">{cliente.nome}</div>
@@ -186,7 +187,7 @@ export function PedidoDetalhe() {
                 style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
                 onClick={() => window.open(linkZap, '_blank', 'noopener')}
               >
-                💬 Abrir conversa no WhatsApp
+                <Icone nome="whatsapp" size={16} /> Abrir conversa no WhatsApp
               </button>
             )}
           </div>
@@ -238,7 +239,7 @@ export function PedidoDetalhe() {
                   style={{ width: '100%', textAlign: 'left', gap: 10 }}
                   onClick={() => window.open(inspiracao.url!, '_blank', 'noopener')}
                 >
-                  <div className="bola" aria-hidden>🔗</div>
+                  <div className="bola" aria-hidden><Icone nome="link" size={18} /></div>
                   <div className="card-info">
                     <div className="card-nome">{dominioDe(inspiracao.url)}</div>
                     <div className="apoio">{inspiracao.nota || 'Toque para abrir no navegador'}</div>
@@ -272,7 +273,7 @@ export function PedidoDetalhe() {
             style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
             onClick={() => setModalAcervo(true)}
           >
-            📸 Adicionar a Meus Trabalhos
+            <Icone nome="trabalhos" size={16} /> Adicionar a Meus Trabalhos
           </button>
         )}
       </div>
@@ -303,7 +304,7 @@ export function PedidoDetalhe() {
                 onClick={usarReferencia}
                 disabled={enviandoAcervo}
               >
-                {enviandoAcervo ? 'Enviando…' : '✅ Usar a foto de referência'}
+                {enviandoAcervo ? 'Enviando…' : <><Icone nome="ok" size={16} strokeWidth={3} /> Usar a foto de referência</>}
               </button>
             )}
             <button
@@ -312,7 +313,7 @@ export function PedidoDetalhe() {
               onClick={() => inputAcervo.current?.click()}
               disabled={enviandoAcervo}
             >
-              🖼️ Escolher outra foto
+              <Icone nome="imagem" size={16} /> Escolher outra foto
             </button>
             <button
               className="btn-secundario"

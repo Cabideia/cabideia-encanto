@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Icone } from '../components/Icone'
+import { SeletorTema } from '../components/SeletorTema'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
 import { useAssinatura } from '../hooks/useAssinatura'
@@ -29,9 +31,9 @@ export function Config() {
   }, [sessao?.user.id])
 
   const resumoPlano = fundadora
-    ? 'Fundadora · imagens sem limite ✨'
+    ? 'Fundadora · imagens sem limite'
     : plano === 'vitrine'
-      ? 'Plano Vitrine · imagens sem limite ✨'
+      ? 'Plano Vitrine · imagens sem limite'
       : `Grátis · ${total}/${limite} imagens`
 
   return (
@@ -40,7 +42,7 @@ export function Config() {
       <div className="conteudo">
         <div className="lista card" style={{ padding: '4px 16px' }}>
           <Link to="/planos" className="item" style={{ color: 'inherit', textDecoration: 'none' }}>
-            <div className="bola">🎀</div>
+            <div className="bola"><Icone nome="plano" /></div>
             <div className="card-info">
               <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Meu plano</div>
               <div className="apoio">{resumoPlano}</div>
@@ -48,13 +50,16 @@ export function Config() {
             <span aria-hidden>›</span>
           </Link>
           <div className="item" onClick={() => supabase.auth.signOut()} role="button" tabIndex={0}>
-            <div className="bola">👋</div>
+            <div className="bola"><Icone nome="sair" /></div>
             <div className="card-info">
               <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Sair</div>
               <div className="apoio">Suas fotos continuam guardadas na nuvem</div>
             </div>
           </div>
         </div>
+
+        {/* Identidade visual (Decisão #9) — 3 temas, só a cor muda. */}
+        <SeletorTema />
 
         {resumo && (
           <div className="card" style={{ marginTop: 14 }}>
@@ -63,10 +68,16 @@ export function Config() {
                 ? `Você tem ${resumo.total} imagens`
                 : `Você tem ${resumo.total} de ${limite} imagens`}
             </div>
-            <div className="apoio" style={{ marginTop: 8, lineHeight: 1.7 }}>
-              <div>🛍️ Meus Trabalhos: {resumo.trabalhos} — destas, {resumo.na_vitrine} publicadas na vitrine</div>
-              <div>💡 Inspirações: {resumo.inspiracoes}</div>
-              <div>📋 Referências de pedidos: {resumo.referencias}</div>
+            <div className="apoio" style={{ marginTop: 8, lineHeight: 1.9 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icone nome="trabalhos" size={16} /> Meus Trabalhos: {resumo.trabalhos} — destas, {resumo.na_vitrine} publicadas na vitrine
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icone nome="inspiracoes" size={16} /> Inspirações: {resumo.inspiracoes}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icone nome="precos" size={16} /> Referências de pedidos: {resumo.referencias}
+              </div>
             </div>
           </div>
         )}

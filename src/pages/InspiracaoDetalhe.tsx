@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
@@ -41,7 +42,7 @@ export function InspiracaoDetalhe() {
         <BarraTopo titulo="Inspiração" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔍</div>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Esta inspiração não foi encontrada.</p>
           </div>
         </div>
@@ -74,7 +75,7 @@ export function InspiracaoDetalhe() {
             onClick={() => navegar(`/inspiracoes/${insp.id}/editar`)}
             aria-label="Editar inspiração"
           >
-            ✏️
+            <Icone nome="editar" />
           </button>
         }
       />
@@ -113,7 +114,7 @@ export function InspiracaoDetalhe() {
               style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
             >
               <div className="card-linha">
-                <div className="bola" aria-hidden>🔗</div>
+                <div className="bola" aria-hidden><Icone nome="link" size={18} /></div>
                 <div className="card-info">
                   <div className="card-nome">{dominioDe(insp.url)}</div>
                   <div className="apoio">Toque para abrir no navegador</div>
@@ -146,7 +147,7 @@ export function InspiracaoDetalhe() {
           style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
           onClick={() => setTagsAbertas(true)}
         >
-          🏷️ Editar tags
+          <Icone nome="tags" size={16} /> Editar tags
         </button>
 
         {/* Excluir */}
@@ -155,7 +156,7 @@ export function InspiracaoDetalhe() {
           style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
           onClick={() => setAExcluir(true)}
         >
-          🗑️ Excluir inspiração
+          <Icone nome="lixo" size={16} /> Excluir inspiração
         </button>
       </div>
 
@@ -226,7 +227,7 @@ function PainelTags({
     <div className="painel-overlay" onClick={onFechar}>
       <div className="painel" onClick={(e) => e.stopPropagation()}>
         <div className="painel-puxador" />
-        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar">✕</button>
+        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
 
         <div className="painel-secao" style={{ marginTop: 0 }}>Tags desta inspiração</div>
         {tagsAplicadas.length > 0 ? (
@@ -239,7 +240,7 @@ function PainelTags({
                 onClick={() => onRemover(tag.id)}
                 title="Toque para tirar esta tag"
               >
-                {tag.nome} ✕
+                {tag.nome} <Icone nome="fechar" size={13} />
               </button>
             ))}
           </div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { aplicarTema } from '../lib/tema'
+import { Icone } from '../components/Icone'
 
 /**
  * M-020/M-022 — Página pública de uma seleção (cabideia.com.br/encanto/s/:token).
@@ -55,6 +57,9 @@ export function SelecaoPublica() {
         return
       }
 
+      // Página pública: pinta com o tema da dona (default oficina se vier vazio).
+      aplicarTema(linha.tema, false)
+
       const urlPublica = (path: string) =>
         supabase.storage.from('publico').getPublicUrl(path).data.publicUrl
 
@@ -88,7 +93,7 @@ export function SelecaoPublica() {
     if (!dados?.whatsapp) return
     let num = dados.whatsapp.replace(/\D/g, '')
     if (num.length <= 11) num = '55' + num
-    const texto = encodeURIComponent('Olá! Vi a seleção que você me enviou e gostaria de conversar 💕')
+    const texto = encodeURIComponent('Olá! Vi a seleção que você me enviou e gostaria de conversar')
     window.open(`https://wa.me/${num}?text=${texto}`, '_blank')
   }
 
@@ -106,13 +111,15 @@ export function SelecaoPublica() {
     return (
       <div className="tela">
         <div className="conteudo" style={{ paddingTop: 40, textAlign: 'center' }}>
-          <div className="logo-redonda" style={{ margin: '0 auto 16px' }}>✨</div>
+          <div className="logo-redonda" style={{ margin: '0 auto 16px' }}>
+            <Icone nome="brilho" size={26} />
+          </div>
           <div className="nome-negocio">Seleção indisponível</div>
           <p className="apoio" style={{ marginTop: 8 }}>
             Este link expirou ou não existe mais. Peça um novo à pessoa que te enviou.
           </p>
           <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
-            feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b> ✨
+            feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b>
           </p>
         </div>
       </div>
@@ -128,7 +135,9 @@ export function SelecaoPublica() {
             {dados.logoUrl ? (
               <img className="logo-redonda" src={dados.logoUrl} alt="" />
             ) : (
-              <div className="logo-redonda">✨</div>
+              <div className="logo-redonda">
+                {dados.negocio ? dados.negocio.trim().charAt(0).toUpperCase() : <Icone nome="brilho" size={24} />}
+              </div>
             )}
             <div className="nome-negocio">{dados.titulo || 'Seleção especial pra você'}</div>
             {dados.negocio && <div className="apoio">por {dados.negocio}</div>}
@@ -143,7 +152,7 @@ export function SelecaoPublica() {
         {dados.itens.length > 0 ? (
           <>
             <p className="apoio" style={{ textAlign: 'center', marginTop: 12 }}>
-              Cada item tem um código (ex.: <b>A-12</b>). É só me dizer qual você gostou 💕
+              Cada item tem um código (ex.: <b>A-12</b>). É só me dizer qual você gostou.
             </p>
             <div className="grade-fotos" style={{ marginTop: 12, alignItems: 'start' }}>
               {dados.itens.map((it) => (
@@ -159,7 +168,7 @@ export function SelecaoPublica() {
                         rel="noopener noreferrer"
                         style={{ textDecoration: 'none' }}
                       >
-                        <span className="insp-link-emoji" aria-hidden>🔗</span>
+                        <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
                         <span className="insp-link-dominio">
                           {it.link ? dominioDe(it.link) : 'link'}
                         </span>
@@ -181,14 +190,14 @@ export function SelecaoPublica() {
         )}
 
         <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
-          feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b> ✨
+          feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b>
         </p>
       </div>
 
       {dados.whatsapp && (
         <div className="cta-area">
           <button className="cta" onClick={abrirWhatsApp}>
-            💬 Falar no WhatsApp
+            <Icone nome="whatsapp" /> Falar no WhatsApp
           </button>
         </div>
       )}

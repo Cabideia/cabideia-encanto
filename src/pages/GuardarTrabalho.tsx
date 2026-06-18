@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Recorte } from '../components/Recorte'
 import { LimiteModal } from '../components/LimiteModal'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo } from '../hooks/useAcervo'
@@ -106,11 +107,11 @@ export function GuardarTrabalho() {
         ) : (
           <div className="seletor-origem">
             <button type="button" className="origem-botao" onClick={() => abrirSeletor(inputCamera)}>
-              <span className="origem-emoji">📷</span>
+              <span className="origem-emoji"><Icone nome="camera" size={30} /></span>
               Tirar foto
             </button>
             <button type="button" className="origem-botao" onClick={() => abrirSeletor(inputGaleria)}>
-              <span className="origem-emoji">🖼️</span>
+              <span className="origem-emoji"><Icone nome="imagem" size={30} /></span>
               Da galeria
             </button>
           </div>
@@ -138,7 +139,7 @@ export function GuardarTrabalho() {
                   className={`tag-chip${tagsSelecionadas.includes(tag.id) ? ' selecionada' : ''}`}
                   onClick={() => toggleTagForm(tag.id)}
                 >
-                  {tagsSelecionadas.includes(tag.id) ? '✓ ' : ''}{tag.nome}
+                  {tagsSelecionadas.includes(tag.id) && <Icone nome="ok" size={13} strokeWidth={3} style={{ marginRight: 4 }} />}{tag.nome}
                 </button>
               ))}
             </div>

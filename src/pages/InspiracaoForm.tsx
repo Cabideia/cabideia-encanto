@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { LimiteModal } from '../components/LimiteModal'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes, type TipoInspiracao } from '../hooks/useInspiracoes'
@@ -179,7 +180,7 @@ export function InspiracaoForm() {
         <BarraTopo titulo="Inspiração" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔍</div>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Esta inspiração não foi encontrada.</p>
           </div>
         </div>
@@ -210,14 +211,14 @@ export function InspiracaoForm() {
                 className={`filtro${tipo === 'imagem' ? ' ativo' : ''}`}
                 onClick={() => setTipo('imagem')}
               >
-                🖼️ Imagem
+                <Icone nome="imagem" size={15} /> Imagem
               </button>
               <button
                 type="button"
                 className={`filtro${tipo === 'link' ? ' ativo' : ''}`}
                 onClick={() => setTipo('link')}
               >
-                🔗 Link
+                <Icone nome="link" size={15} /> Link
               </button>
             </div>
           </div>
@@ -256,7 +257,7 @@ export function InspiracaoForm() {
               onClick={abrirFoto}
               disabled={processando}
             >
-              <span className="origem-emoji">🖼️</span>
+              <span className="origem-emoji"><Icone nome="imagem" size={30} /></span>
               {processando
                 ? 'Processando…'
                 : tipo === 'imagem'
@@ -314,7 +315,7 @@ export function InspiracaoForm() {
                   className={`tag-chip${tagsSelecionadas.includes(tag.id) ? ' selecionada' : ''}`}
                   onClick={() => toggleTag(tag.id)}
                 >
-                  {tagsSelecionadas.includes(tag.id) ? '✓ ' : ''}
+                  {tagsSelecionadas.includes(tag.id) && <Icone nome="ok" size={13} strokeWidth={3} style={{ marginRight: 4 }} />}
                   {tag.nome}
                 </button>
               ))}

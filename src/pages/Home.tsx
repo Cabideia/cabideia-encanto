@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, tituloPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
+import { Icone } from '../components/Icone'
 
 /** Home em blocos (UX-001): sem barra inferior, engrenagem no topo. */
 export function Home() {
@@ -20,7 +21,7 @@ export function Home() {
       <div className="barra">
         <span className="vaga" />
         <div className="titulo" style={{ fontSize: 17, color: 'var(--cacau-claro)' }}>{hoje}</div>
-        <Link to="/config" className="btn-icone" aria-label="Configurações">⚙️</Link>
+        <Link to="/config" className="btn-icone" aria-label="Configurações"><Icone nome="config" /></Link>
       </div>
       <div className="conteudo">
         <div className="ola">
@@ -52,7 +53,7 @@ export function Home() {
 
         <div className="blocos">
           <Link to="/vitrine" className="bloco destaque">
-            <div className="emoji" aria-hidden>🛍️</div>
+            <div className="emoji"><Icone nome="vitrine" /></div>
             <div className="texto">
               <div className="nome">Minha vitrine</div>
               <div className="conta">monte e compartilhe seu link</div>
@@ -60,37 +61,37 @@ export function Home() {
             <span aria-hidden>›</span>
           </Link>
           <Link to="/acervo" className="bloco">
-            <div className="emoji" aria-hidden>📸</div>
+            <div className="emoji"><Icone nome="trabalhos" /></div>
             <div><div className="nome">Meus trabalhos</div><div className="conta">suas fotos na nuvem</div></div>
           </Link>
           <Link to="/inspiracoes" className="bloco">
-            <div className="emoji" aria-hidden>💡</div>
+            <div className="emoji"><Icone nome="inspiracoes" /></div>
             <div><div className="nome">Inspirações</div><div className="conta">guarde referências</div></div>
           </Link>
           <Link to="/pedidos" className="bloco">
-            <div className="emoji" aria-hidden>🧁</div>
+            <div className="emoji"><Icone nome="pedidos" /></div>
             <div><div className="nome">Pedidos</div><div className="conta">leves e rápidos</div></div>
           </Link>
           <Link to="/clientes" className="bloco">
-            <div className="emoji" aria-hidden>🩷</div>
+            <div className="emoji"><Icone nome="clientes" /></div>
             <div><div className="nome">Clientes</div><div className="conta">com botão WhatsApp</div></div>
           </Link>
           <Link to="/calendario" className="bloco">
-            <div className="emoji" aria-hidden>📅</div>
+            <div className="emoji"><Icone nome="calendario" /></div>
             <div><div className="nome">Calendário</div><div className="conta">entregas do mês</div></div>
           </Link>
           <Link to="/cardapio" className="bloco">
-            <div className="emoji" aria-hidden>📋</div>
+            <div className="emoji"><Icone nome="precos" /></div>
             <div><div className="nome">Tabela de preços</div><div className="conta">seus preços de referência</div></div>
           </Link>
           <Link to="/anotacoes" className="bloco">
-            <div className="emoji" aria-hidden>📝</div>
+            <div className="emoji"><Icone nome="anotacoes" /></div>
             <div><div className="nome">Anotações</div><div className="conta">texto livre</div></div>
           </Link>
         </div>
 
         <Link to="/planos" className="aviso-teste">
-          🎀 Conheça o Plano Vitrine <span className="seta">Ver planos ›</span>
+          <Icone nome="loja" size={18} /> Conheça o Plano Vitrine <span className="seta">Ver planos ›</span>
         </Link>
       </div>
     </div>

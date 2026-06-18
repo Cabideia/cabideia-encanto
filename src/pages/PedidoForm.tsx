@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { LimiteModal } from '../components/LimiteModal'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, type CamposCliente } from '../hooks/useClientes'
@@ -267,7 +268,7 @@ export function PedidoForm() {
         <BarraTopo titulo="Pedido" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔍</div>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Este pedido não foi encontrado.</p>
           </div>
         </div>
@@ -325,7 +326,7 @@ export function PedidoForm() {
               onClick={abrirTabela}
               aria-label="Inserir item da Tabela de preços"
             >
-              📋 Tabela de preços
+              <Icone nome="precos" size={14} /> Tabela de preços
             </button>
           </div>
           <textarea
@@ -386,7 +387,7 @@ export function PedidoForm() {
               onClick={abrirFoto}
               disabled={processando}
             >
-              <span className="origem-emoji">🖼️</span>
+              <span className="origem-emoji"><Icone nome="imagem" size={30} /></span>
               {processando ? 'Processando…' : 'Adicionar foto'}
             </button>
           )}
@@ -419,7 +420,7 @@ export function PedidoForm() {
                       style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
                     />
                   ) : (
-                    <div className="bola" aria-hidden>🔗</div>
+                    <div className="bola" aria-hidden><Icone nome="link" size={18} /></div>
                   )}
                   <div className="card-info">
                     <div className="card-nome">
@@ -433,7 +434,7 @@ export function PedidoForm() {
                     onClick={() => setForm({ ...form, inspiracao_id: null })}
                     aria-label="Tirar inspiração"
                   >
-                    ✕
+                    <Icone nome="fechar" />
                   </button>
                 </div>
               )
@@ -445,7 +446,7 @@ export function PedidoForm() {
                 style={{ width: '100%' }}
                 onClick={() => setPickerInsp(true)}
               >
-                <span className="origem-emoji">💡</span>
+                <span className="origem-emoji"><Icone nome="inspiracoes" size={30} /></span>
                 Anexar uma inspiração
               </button>
             )
@@ -459,7 +460,7 @@ export function PedidoForm() {
             style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
             onClick={() => setAExcluir(true)}
           >
-            🗑️ Excluir pedido
+            <Icone nome="lixo" size={16} /> Excluir pedido
           </button>
         )}
       </div>
@@ -552,7 +553,7 @@ export function PedidoForm() {
         <div className="painel-overlay" onClick={() => setPickerInsp(false)}>
           <div className="painel" onClick={(e) => e.stopPropagation()}>
             <div className="painel-puxador" />
-            <button className="painel-fechar" onClick={() => setPickerInsp(false)} aria-label="Fechar">✕</button>
+            <button className="painel-fechar" onClick={() => setPickerInsp(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
             <div className="form-acervo-titulo">Anexar inspiração</div>
             {inspiracoes.length === 0 ? (
               <p className="apoio" style={{ marginTop: 8 }}>
@@ -582,7 +583,7 @@ export function PedidoForm() {
                       <img src={i.fotoUrl} alt={i.nota ?? ''} loading="lazy" />
                     ) : (
                       <div className="insp-link-capa">
-                        <span className="insp-link-emoji" aria-hidden>🔗</span>
+                        <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
                         <span className="insp-link-dominio">{i.url ? dominioDe(i.url) : 'link'}</span>
                       </div>
                     )}
@@ -600,7 +601,7 @@ export function PedidoForm() {
         <div className="painel-overlay" onClick={() => setPickerTabela(false)}>
           <div className="painel" onClick={(e) => e.stopPropagation()}>
             <div className="painel-puxador" />
-            <button className="painel-fechar" onClick={() => setPickerTabela(false)} aria-label="Fechar">✕</button>
+            <button className="painel-fechar" onClick={() => setPickerTabela(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
             <div className="form-acervo-titulo">Inserir da Tabela de preços</div>
             {itensCardapio.length === 0 ? (
               <p className="apoio" style={{ marginTop: 8 }}>
@@ -632,7 +633,7 @@ export function PedidoForm() {
                         <div className="card-nome">{i.nome}</div>
                         {apoio && <div className="apoio">{apoio}</div>}
                       </div>
-                      <span className="mais" aria-hidden>＋</span>
+                      <span className="mais" aria-hidden><Icone nome="mais" size={18} /></span>
                     </button>
                   )
                 })}

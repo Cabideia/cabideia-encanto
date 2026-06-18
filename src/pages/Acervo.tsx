@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
@@ -63,7 +64,7 @@ function PainelTrabalho({
     <div className="painel-overlay" onClick={onFechar}>
       <div className="painel" onClick={(e) => e.stopPropagation()}>
         <div className="painel-puxador" />
-        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar">✕</button>
+        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
 
         <img className="painel-foto" src={trabalho.url} alt={trabalho.descricao ?? ''} />
         {trabalho.codigo_num != null && (
@@ -78,7 +79,7 @@ function PainelTrabalho({
             style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
             onClick={() => onVerPedido(pedidoVinculadoId)}
           >
-            🧁 Ver pedido
+            <Icone nome="pedidos" size={16} /> Ver pedido
           </button>
         )}
 
@@ -93,7 +94,7 @@ function PainelTrabalho({
                 onClick={() => onRemoverTag(trabalho.id, tag.id)}
                 title="Toque para tirar esta tag da foto"
               >
-                {tag.nome} ✕
+                {tag.nome} <Icone nome="fechar" size={13} />
               </button>
             ))}
           </div>
@@ -122,7 +123,7 @@ function PainelTrabalho({
           <div className="tags-area" style={{ paddingTop: 8 }}>
             {sugestoes.map((t) => (
               <button key={t.id} type="button" className="tag-chip" onClick={() => adicionar(t.id)}>
-                + {t.nome}
+                <Icone nome="mais" size={13} /> {t.nome}
               </button>
             ))}
             {podeCriar && (
@@ -180,7 +181,7 @@ function CartaoTrabalho({
 
         {modoSelecao ? (
           <span className={`sel-check${marcado ? ' on' : ''}`} aria-hidden>
-            {marcado ? '✓' : ''}
+            {marcado ? <Icone nome="ok" size={15} strokeWidth={3} /> : null}
           </span>
         ) : (
           <>
@@ -197,21 +198,21 @@ function CartaoTrabalho({
               }
               style={vitrineBloqueada ? { opacity: 0.45 } : undefined}
             >
-              🛍️
+              <Icone nome="vitrine" size={16} />
             </button>
             <button
               className="foto-remover"
               onClick={(e) => { e.stopPropagation(); onPedirRemover() }}
               aria-label="Apagar foto"
             >
-              ✕
+              <Icone nome="fechar" size={15} />
             </button>
           </>
         )}
       </div>
 
       {!modoSelecao && trabalho.na_vitrine && (
-        <div className="rotulo-vitrine">🛍️ na vitrine</div>
+        <div className="rotulo-vitrine"><Icone nome="vitrine" size={13} /> na vitrine</div>
       )}
 
       {!modoSelecao && trabalho.descricao && (
@@ -220,7 +221,7 @@ function CartaoTrabalho({
 
       {!modoSelecao && trabalho.tags.length > 0 && (
         <button className="acervo-selo-tags" onClick={onAbrir} type="button">
-          🏷️ {trabalho.tags.length} tag{trabalho.tags.length !== 1 ? 's' : ''}
+          <Icone nome="tags" size={13} /> {trabalho.tags.length} tag{trabalho.tags.length !== 1 ? 's' : ''}
         </button>
       )}
     </div>
@@ -252,7 +253,7 @@ function CartaoInspSelecao({
           <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
         ) : (
           <div className="insp-link-capa">
-            <span className="insp-link-emoji" aria-hidden>🔗</span>
+            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
             <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
           </div>
         )}
@@ -262,7 +263,7 @@ function CartaoInspSelecao({
           </span>
         )}
         <span className={`sel-check${marcado ? ' on' : ''}`} aria-hidden>
-          {marcado ? '✓' : ''}
+          {marcado ? <Icone nome="ok" size={15} strokeWidth={3} /> : null}
         </span>
       </div>
       {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
@@ -419,9 +420,9 @@ export function Acervo() {
         voltar={!modoSelecao}
         acao={
           modoSelecao ? (
-            <button className="btn-icone" onClick={sairSelecao} aria-label="Sair da seleção">✕</button>
+            <button className="btn-icone" onClick={sairSelecao} aria-label="Sair da seleção"><Icone nome="fechar" /></button>
           ) : (
-            <Link to="/tags" className="btn-icone" aria-label="Minhas tags">🏷️</Link>
+            <Link to="/tags" className="btn-icone" aria-label="Minhas tags"><Icone nome="tags" /></Link>
           )
         }
       />
@@ -433,7 +434,7 @@ export function Acervo() {
               {ilimitado ? (
                 <div className="contador-texto">
                   <span className="contador-num">{total}</span>
-                  <span className="contador-desc"> imagens · plano sem limite ✨</span>
+                  <span className="contador-desc"> imagens · plano sem limite</span>
                 </div>
               ) : (
                 <>
@@ -460,10 +461,10 @@ export function Acervo() {
             {trabalhos.length > 0 && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button className="btn-secundario" style={{ flex: 1 }} onClick={entrarSelecao}>
-                  📤 Compartilhar com cliente
+                  <Icone nome="compartilhar" size={16} /> Compartilhar com cliente
                 </button>
                 <Link to="/selecoes" className="btn-icone" aria-label="Minhas seleções" style={{ background: 'var(--neutro-suave)' }}>
-                  🔗
+                  <Icone nome="link" />
                 </Link>
               </div>
             )}
@@ -482,14 +483,14 @@ export function Acervo() {
                 className={`filtro${abaSelecao === 'trabalhos' ? ' ativo' : ''}`}
                 onClick={() => setAbaSelecao('trabalhos')}
               >
-                📸 Meus Trabalhos
+                <Icone nome="trabalhos" size={15} /> Meus Trabalhos
               </button>
               <button
                 type="button"
                 className={`filtro${abaSelecao === 'inspiracoes' ? ' ativo' : ''}`}
                 onClick={() => setAbaSelecao('inspiracoes')}
               >
-                💡 Inspirações
+                <Icone nome="inspiracoes" size={15} /> Inspirações
               </button>
             </div>
           </>
@@ -497,7 +498,7 @@ export function Acervo() {
 
         {/* Busca */}
         <div className="busca" style={{ marginTop: 12 }}>
-          🔎
+          <Icone nome="busca" size={18} />
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
@@ -507,10 +508,10 @@ export function Acervo() {
             <button
               type="button"
               onClick={() => setBusca('')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', fontSize: 16, lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', lineHeight: 1, display: 'flex' }}
               aria-label="Limpar busca"
             >
-              ✕
+              <Icone nome="fechar" size={18} />
             </button>
           )}
         </div>
@@ -537,7 +538,7 @@ export function Acervo() {
         {modoSelecao && abaSelecao === 'inspiracoes' ? (
           inspFiltradas.length === 0 ? (
             <div className="vazio" style={{ marginTop: 16 }}>
-              <div className="icone">💡</div>
+              <div className="icone"><Icone nome="inspiracoes" size={44} /></div>
               <p>
                 {busca || tagFiltro
                   ? 'Nenhuma inspiração encontrada com esse filtro.'
@@ -558,7 +559,7 @@ export function Acervo() {
           )
         ) : filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">📸</div>
+            <div className="icone"><Icone nome="trabalhos" size={44} /></div>
             <p>
               {busca || tagFiltro
                 ? 'Nenhum trabalho encontrado com esse filtro.'
@@ -589,7 +590,7 @@ export function Acervo() {
       {!modoSelecao && (
         <div className="cta-area">
           <button className="cta" onClick={() => navegar('/acervo/novo')}>
-            ＋ Guardar um trabalho
+            <Icone nome="mais" /> Guardar um trabalho
           </button>
         </div>
       )}
@@ -619,16 +620,16 @@ export function Acervo() {
             {linkPronto ? (
               <>
                 <div className="form-acervo-titulo" style={{ textAlign: 'center' }}>
-                  Link pronto! 🎀
+                  Link pronto!
                 </div>
                 <p className="apoio" style={{ textAlign: 'center', marginBottom: 12 }}>
                   {qtdMarcados} {qtdMarcados !== 1 ? 'itens' : 'item'} · vale por 30 dias
                 </p>
                 <div className="link-vitrine" style={{ wordBreak: 'break-all' }}>
-                  🔗 {linkPronto}
+                  <Icone nome="link" size={16} /> {linkPronto}
                 </div>
                 <button className="cta" style={{ marginTop: 14 }} onClick={enviarLink}>
-                  📤 Enviar pra cliente
+                  <Icone nome="enviar" size={18} /> Enviar pra cliente
                 </button>
                 <button
                   className="btn-secundario"

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
@@ -45,7 +46,7 @@ export function Pedidos() {
 
         {filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🧁</div>
+            <div className="icone"><Icone nome="pedidos" size={44} /></div>
             <p>
               {filtro === 'todos'
                 ? 'Anote um pedido em segundos: cliente, tema e data. Sem burocracia.'
@@ -84,7 +85,7 @@ export function Pedidos() {
 
       <div className="cta-area">
         <button className="cta" onClick={() => navegar('/pedidos/novo')}>
-          ＋ Novo pedido
+          <Icone nome="mais" /> Novo pedido
         </button>
       </div>
     </div>

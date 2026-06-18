@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import {
@@ -103,7 +104,7 @@ export function Cardapio() {
       <div className="conteudo">
         {!formAberto && itens.length > 0 && (
           <div className="busca" style={{ marginTop: 4 }}>
-            🔎
+            <Icone nome="busca" size={18} />
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
@@ -113,10 +114,10 @@ export function Cardapio() {
               <button
                 type="button"
                 onClick={() => setBusca('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', fontSize: 16, lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cacau-claro)', lineHeight: 1, display: 'flex' }}
                 aria-label="Limpar busca"
               >
-                ✕
+                <Icone nome="fechar" size={18} />
               </button>
             )}
           </div>
@@ -184,7 +185,7 @@ export function Cardapio() {
 
             <div className="cardapio-toggle">
               <div>
-                <div style={{ fontWeight: 600 }}>🛍️ Mostrar na vitrine</div>
+                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Icone nome="vitrine" size={16} /> Mostrar na vitrine</div>
                 <div className="apoio" style={{ marginTop: 2 }}>
                   Aparece na tabela de preços pública da sua vitrine.
                 </div>
@@ -248,13 +249,13 @@ export function Cardapio() {
                   if (item) setAExcluir(item)
                 }}
               >
-                🗑️ Excluir item
+                <Icone nome="lixo" size={16} /> Excluir item
               </button>
             )}
           </div>
         ) : filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">📋</div>
+            <div className="icone"><Icone nome="precos" size={44} /></div>
             <p>
               {busca
                 ? 'Nenhum item encontrado com esse nome.'
@@ -277,7 +278,7 @@ export function Cardapio() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <div className="card-nome">{i.nome}</div>
                       {i.na_vitrine && (
-                        <span className="chip-vitrine" title="Na vitrine">🛍️ vitrine</span>
+                        <span className="chip-vitrine" title="Na vitrine"><Icone nome="vitrine" size={13} /> vitrine</span>
                       )}
                     </div>
                     {precoEUnidade(i) && <div className="apoio">{precoEUnidade(i)}</div>}
@@ -296,7 +297,7 @@ export function Cardapio() {
       {!formAberto && (
         <div className="cta-area">
           <button className="cta" onClick={abrirNovo}>
-            ＋ Novo item
+            <Icone nome="mais" /> Novo item
           </button>
         </div>
       )}
