@@ -128,17 +128,9 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
   ctx.fillStyle = massa
   ctx.fillRect(0, 0, W, H)
 
-  // Babado (faixa rendada no topo) — semicírculos da cor do fundo recortando a faixa
-  const bandaH = 78
+  // Divisória limpa no topo (antes era o babado/renda) — faixa fina na primária.
   ctx.fillStyle = framboesa
-  ctx.fillRect(0, 0, W, bandaH)
-  const r = 26
-  ctx.fillStyle = massa
-  for (let cx = r; cx < W + r; cx += r * 2) {
-    ctx.beginPath()
-    ctx.arc(cx, bandaH, r, 0, Math.PI * 2)
-    ctx.fill()
-  }
+  ctx.fillRect(0, 0, W, 12)
 
   const M = 64
   const larguraConteudo = W - M * 2
@@ -160,7 +152,7 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     const inicial = d.nomeNegocio.trim().charAt(0).toUpperCase()
-    ctx.fillText(inicial || '✨', lcx, lcy + 4)
+    ctx.fillText(inicial || 'C', lcx, lcy + 4)
   }
   ctx.restore()
   // Anel da logo
@@ -265,7 +257,7 @@ export function desenharProposta(canvas: HTMLCanvasElement, d: DadosCartao) {
   ctx.font = `700 25px ${SANS}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillText('feito com Cabideia Encanto ✨', W / 2, H - 46)
+  ctx.fillText('feito com Cabideia Encanto', W / 2, H - 46)
 }
 
 /** Exporta o cartão como PNG (Blob). */

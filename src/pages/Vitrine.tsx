@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { PerfilForm } from '../components/PerfilForm'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { supabase } from '../lib/supabase'
@@ -74,7 +75,7 @@ export function Vitrine() {
     if (!perfil?.arroba) return
     const url = `https://cabideia.com.br/encanto/@${perfil.arroba}`
     const nome = perfil.nome_negocio ?? `@${perfil.arroba}`
-    const texto = `Veja os trabalhos de ${nome} ✨`
+    const texto = `Veja os trabalhos de ${nome}`
     if (navigator.share) {
       try {
         await navigator.share({ title: nome, text: texto, url })
@@ -108,7 +109,9 @@ export function Vitrine() {
         >
           <div className="babado" />
           <div className="vitrine-corpo">
-            <div className="logo-redonda">✨</div>
+            <div className="logo-redonda">
+              {perfil?.nome_negocio ? perfil.nome_negocio.trim().charAt(0).toUpperCase() : <Icone nome="brilho" size={24} />}
+            </div>
             <div className="nome-negocio">{perfil?.nome_negocio || 'Seu negócio'}</div>
             {temArroba ? (
               <>
@@ -124,14 +127,14 @@ export function Vitrine() {
                   }}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
-                  🔗 {link} · copiar
+                  <Icone nome="link" size={16} /> {link} · copiar
                 </div>
               </>
             ) : (
               <div className="apoio">Complete seu perfil para abrir a vitrine</div>
             )}
-            <div className="apoio" style={{ marginTop: 10, fontWeight: 600, color: 'var(--framboesa)' }}>
-              ✏️ Toque para editar o perfil
+            <div className="apoio" style={{ marginTop: 10, fontWeight: 600, color: 'var(--framboesa)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Icone nome="editar" size={15} /> Toque para editar o perfil
             </div>
           </div>
         </div>
@@ -145,16 +148,17 @@ export function Vitrine() {
               border: '2px solid var(--framboesa)', background: 'transparent',
               color: 'var(--framboesa)', fontWeight: 600, fontSize: 15,
               cursor: 'pointer', marginTop: 16,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            📤 Compartilhar vitrine
+            <Icone nome="compartilhar" size={18} /> Compartilhar vitrine
           </button>
         )}
 
         {/* 3 · Veja como a cliente vê (só se publicada) */}
         {temArroba && publicada && (
           <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
-            👀 Veja como a cliente vê:{' '}
+            <Icone nome="olho" size={15} style={{ verticalAlign: '-2px' }} /> Veja como a cliente vê:{' '}
             <a
               href={`https://${link}`}
               target="_blank"
@@ -175,8 +179,12 @@ export function Vitrine() {
           }}
         >
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>
-              {publicada ? '🟢 Vitrine publicada' : '⚫ Vitrine oculta'}
+            <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                width: 10, height: 10, borderRadius: '50%', flex: 'none',
+                background: publicada ? 'var(--pistache)' : 'var(--neutro)',
+              }} />
+              {publicada ? 'Vitrine publicada' : 'Vitrine oculta'}
             </div>
             <div className="apoio" style={{ marginTop: 2 }}>
               {publicada ? 'Clientes podem ver sua vitrine' : 'Só você vê. Publique quando estiver pronta.'}
@@ -207,8 +215,8 @@ export function Vitrine() {
         {/* 5 · xx Fotos na vitrine — origem das fotos: Meus trabalhos. Caminho único. */}
         <div className="card" style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="emoji" aria-hidden style={{ width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'var(--framboesa-suave)' }}>
-              🛍️
+            <div className="emoji" style={{ width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--acento-suave)', color: 'var(--acento)' }}>
+              <Icone nome="vitrine" />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 'var(--t-base)' }}>
@@ -218,7 +226,7 @@ export function Vitrine() {
               </div>
               <div className="apoio" style={{ marginTop: 2 }}>
                 As fotos da vitrine vêm dos seus trabalhos. Em “Meus trabalhos”,
-                toque no 🛍️ da foto para mostrá-la aqui.
+                toque no ícone de sacola da foto para mostrá-la aqui.
               </div>
             </div>
           </div>

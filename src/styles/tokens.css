@@ -3,21 +3,7 @@
    Tokens únicos · todas as telas derivam daqui (UX-003)
    ============================================================ */
 :root{
-  --massa:#FFF6F1;
-  --acucar:#FFFFFF;
-  --cacau:#43302B;
-  --cacau-claro:#8B6F65;
-  --framboesa:#C2476B;
-  --framboesa-escura:#A93A5C;
-  --framboesa-suave:#FBE9EE;
-  --pistache:#5E8C61;
-  --pistache-suave:#E9F2E9;
-  --caramelo:#B8762E;
-  --caramelo-suave:#FBEEDC;
-  --neutro:#9A8C86;
-  --neutro-suave:#F1ECEA;
-  --linha:#F0DFD8;
-
+  /* ---- Tipografia única (não muda com o tema) ---- */
   --fonte-titulo:"Fraunces",Georgia,serif;
   --fonte-texto:"Nunito Sans",system-ui,-apple-system,sans-serif;
 
@@ -25,13 +11,52 @@
 
   --raio-card:16px; --raio-pill:999px;
   --espaco:16px;
-  --sombra:0 1px 3px rgba(67,48,43,.07);
+  --sombra:0 1px 3px rgba(0,0,0,.07);
+
+  /* ---- Cores de STATUS (semânticas, iguais em todos os temas) ---- */
+  --pistache:#5E8C61;
+  --pistache-suave:#E9F2E9;
+  --caramelo:#B8762E;
+  --caramelo-suave:#FBEEDC;
+  --neutro:#9A8C86;
+  --neutro-suave:#F1ECEA;
+}
+
+/* ============================================================
+   TEMAS (Decisão #9) — só a cor muda; tipografia única.
+   Reusamos os nomes de variável já existentes para não tocar nas
+   telas: --framboesa = primária · --massa = fundo · --acucar = cartão ·
+   --cacau = tinta. --acento é a 2ª cor (quadradinhos do tema).
+   Tema nulo/legado → oficina (default no :root abaixo).
+   ============================================================ */
+:root, [data-tema="oficina"]{
+  --framboesa:#A8503A; --framboesa-escura:#8E4231; --framboesa-suave:#F4E2DC;
+  --acento:#6E8B5B;    --acento-suave:#E6EDDF;
+  --massa:#F2EBDF;     --acucar:#FFFFFF;
+  --cacau:#322B24;     --cacau-claro:#7A6E62;
+  --linha:#E7DCC9;     --moldura:#E6DBCB;
+}
+[data-tema="vitrine"]{
+  --framboesa:#1F6F6B; --framboesa-escura:#185955; --framboesa-suave:#DCEAE9;
+  --acento:#C9A24B;    --acento-suave:#F3EAD3;
+  --massa:#F4F2EE;     --acucar:#FFFFFF;
+  --cacau:#242424;     --cacau-claro:#6B6B6B;
+  --linha:#E4E0D8;     --moldura:#E2DCD0;
+}
+[data-tema="encanto"]{
+  --framboesa:#6E3D5B; --framboesa-escura:#5A3149; --framboesa-suave:#ECE0E8;
+  --acento:#C98A3A;    --acento-suave:#F4E7D4;
+  --massa:#F3EDE6;     --acucar:#FFFFFF;
+  --cacau:#2B2330;     --cacau-claro:#786B74;
+  --linha:#E6DDD2;     --moldura:#E3D8CA;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* Ícones de linha (lucide) — alinham ao texto quando usados inline (Decisão #9). */
+svg.lucide{vertical-align:-.18em;flex:none}
 html,body,#raiz{height:100%}
 body{
   font-family:var(--fonte-texto);font-size:var(--t-base);color:var(--cacau);
-  background:#EFE3DC;display:flex;justify-content:center;
+  background:var(--moldura);display:flex;justify-content:center;
 }
 #raiz{
   width:100%;max-width:420px;min-height:100dvh;background:var(--massa);
@@ -59,7 +84,7 @@ body{
 /* ---------- PADRÃO 2 · CONTEÚDO ---------- */
 .conteudo{flex:1;overflow-y:auto;padding:8px var(--espaco) 110px}
 .secao{margin:20px 0 10px;display:flex;align-items:center;gap:8px}
-.secao .confeito{width:8px;height:8px;border-radius:3px;background:var(--framboesa);flex:none}
+.secao .confeito{width:8px;height:8px;border-radius:3px;background:var(--acento);flex:none}
 .secao h2{font-family:var(--fonte-titulo);font-size:var(--t-card);font-weight:600}
 .apoio{font-size:var(--t-apoio);color:var(--cacau-claro);line-height:1.5}
 
@@ -181,7 +206,7 @@ body{
 .bloco:active{border-color:var(--framboesa)}
 .bloco .emoji{
   width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;
-  font-size:22px;background:var(--framboesa-suave);
+  font-size:22px;background:var(--acento-suave);color:var(--acento);
 }
 .bloco .nome{font-size:var(--t-base);font-weight:800}
 .bloco .conta{font-size:var(--t-apoio);color:var(--cacau-claro);font-weight:600}
@@ -204,17 +229,13 @@ body{
 }
 .aviso-teste .seta{margin-left:auto}
 
-/* ---------- ASSINATURA VISUAL · BABADO DE VITRINE ---------- */
+/* ---------- ASSINATURA VISUAL · MOLDURA DE VITRINE ---------- */
 .vitrine-moldura{
   background:var(--acucar);border:1px solid var(--linha);border-radius:var(--raio-card);
   box-shadow:var(--sombra);overflow:hidden;margin-bottom:10px;
 }
-.babado{
-  height:18px;background:var(--framboesa);
-  -webkit-mask:radial-gradient(circle 9px at 9px 0,transparent 8.5px,#000 9px) left top/18px 100% repeat-x;
-          mask:radial-gradient(circle 9px at 9px 0,transparent 8.5px,#000 9px) left top/18px 100% repeat-x;
-  transform:rotate(180deg);
-}
+/* Divisória limpa no topo da moldura (antes era o babado/renda). */
+.babado{height:5px;background:var(--framboesa)}
 .vitrine-corpo{padding:18px 16px 16px;text-align:center}
 .logo-redonda{
   width:64px;height:64px;border-radius:50%;margin:0 auto 8px;

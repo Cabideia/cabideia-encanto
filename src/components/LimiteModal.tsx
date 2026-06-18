@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { Icone } from './Icone'
 
 /**
  * M-011 · Modal de bloqueio de upload no plano Grátis.
@@ -11,8 +12,8 @@ export function LimiteModal({ onFechar }: { onFechar: () => void }) {
     <div className="painel-overlay" onClick={onFechar}>
       <div className="painel" onClick={(e) => e.stopPropagation()}>
         <div className="painel-puxador" />
-        <div className="form-acervo-titulo" style={{ textAlign: 'center' }}>
-          🎀 Limite do plano Grátis
+        <div className="form-acervo-titulo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Icone nome="cadeado" size={18} /> Limite do plano Grátis
         </div>
         <p className="apoio" style={{ textAlign: 'center', marginTop: 8 }}>
           Você atingiu o limite do plano Grátis (150 imagens). Para guardar mais fotos,

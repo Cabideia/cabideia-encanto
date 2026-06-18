@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp, type CamposCliente } from '../hooks/useClientes'
@@ -48,7 +49,7 @@ export function ClienteDetalhe() {
         <BarraTopo titulo="Cliente" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔍</div>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Esta cliente não foi encontrada.</p>
           </div>
         </div>
@@ -93,7 +94,7 @@ export function ClienteDetalhe() {
         acao={
           !editando ? (
             <button className="btn-icone" onClick={() => setEditando(true)} aria-label="Editar cliente">
-              ✏️
+              <Icone nome="editar" />
             </button>
           ) : undefined
         }
@@ -136,7 +137,7 @@ export function ClienteDetalhe() {
             <div className="card">
               <div className="card-linha">
                 <div className="bola" aria-hidden>
-                  {cliente.nome.trim().charAt(0).toUpperCase() || '🩷'}
+                  {cliente.nome.trim().charAt(0).toUpperCase() || <Icone nome="clientes" size={18} />}
                 </div>
                 <div className="card-info">
                   <div className="card-nome">{cliente.nome}</div>
@@ -149,7 +150,7 @@ export function ClienteDetalhe() {
                   style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
                   onClick={abrirWhatsApp}
                 >
-                  💬 Abrir conversa no WhatsApp
+                  <Icone nome="whatsapp" size={16} /> Abrir conversa no WhatsApp
                 </button>
               )}
             </div>
@@ -168,7 +169,7 @@ export function ClienteDetalhe() {
             {pedidosCliente.length === 0 ? (
               <div className="card">
                 <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
-                  🧁 Os pedidos desta cliente aparecerão aqui.
+                  Os pedidos desta cliente aparecerão aqui.
                 </p>
               </div>
             ) : (
@@ -202,7 +203,7 @@ export function ClienteDetalhe() {
             {propostasCliente.length === 0 ? (
               <div className="card">
                 <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
-                  ✨ Crie uma proposta encantadora para enviar no WhatsApp.
+                  Crie uma proposta encantadora para enviar no WhatsApp.
                 </p>
               </div>
             ) : (
@@ -236,7 +237,7 @@ export function ClienteDetalhe() {
               style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
               onClick={() => setAExcluir(true)}
             >
-              🗑️ Excluir cliente
+              <Icone nome="lixo" size={16} /> Excluir cliente
             </button>
           </>
         )}
@@ -246,7 +247,7 @@ export function ClienteDetalhe() {
       {!editando && (
         <div className="cta-area">
           <button className="cta" onClick={() => navegar(`/clientes/${cliente.id}/propostas/nova`)}>
-            ✨ Nova proposta
+            <Icone nome="mais" /> Nova proposta
           </button>
         </div>
       )}

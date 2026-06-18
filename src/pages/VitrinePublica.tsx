@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { aplicarTema } from '../lib/tema'
+import { Icone } from '../components/Icone'
 
 /**
  * M-017 · Etapa 3 — Vitrine pública (cabideia.com.br/encanto/@usuaria).
@@ -18,6 +20,7 @@ type PerfilPublico = {
   nicho: string | null
   whatsapp: string | null
   logo_path: string | null
+  tema: string | null
 }
 
 type FotoPublica = {
@@ -65,12 +68,14 @@ export function VitrinePublica() {
     async function carregar() {
       const { data: p } = await supabase
         .from('perfis')
-        .select('id, nome_negocio, bio, cidade, nicho, whatsapp, logo_path')
+        .select('id, nome_negocio, bio, cidade, nicho, whatsapp, logo_path, tema')
         .eq('arroba', usuaria)
         .eq('vitrine_publicada', true)
         .maybeSingle()
 
       setPerfil(p)
+      // Página pública: pinta com o tema da dona (default oficina se vier vazio).
+      aplicarTema(p?.tema, false)
 
       if (p) {
         // O corte por plano (slots_vitrine_publica) é SERVER-SIDE: a cliente é
@@ -133,13 +138,15 @@ export function VitrinePublica() {
     return (
       <div className="tela">
         <div className="conteudo" style={{ paddingTop: 40, textAlign: 'center' }}>
-          <div className="logo-redonda" style={{ margin: '0 auto 16px' }}>✨</div>
+          <div className="logo-redonda" style={{ margin: '0 auto 16px' }}>
+            <Icone nome="brilho" size={26} />
+          </div>
           <div className="nome-negocio">Vitrine não encontrada</div>
           <p className="apoio" style={{ marginTop: 8 }}>
             Esta vitrine não existe ou ainda não foi publicada.
           </p>
           <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
-            feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b> ✨
+            feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b>
           </p>
         </div>
       </div>
@@ -164,11 +171,15 @@ export function VitrinePublica() {
                   style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
                 />
               ) : (
-                '✨'
+                (perfil.nome_negocio || usuaria).trim().charAt(0).toUpperCase()
               )}
             </div>
             <div className="nome-negocio">{perfil.nome_negocio || `@${usuaria}`}</div>
-            {perfil.cidade && <div className="apoio">📍 {perfil.cidade}</div>}
+            {perfil.cidade && (
+              <div className="apoio" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icone nome="local" size={14} /> {perfil.cidade}
+              </div>
+            )}
             {perfil.bio && (
               <p className="apoio" style={{ marginTop: 8, textAlign: 'center' }}>
                 {perfil.bio}
@@ -238,14 +249,14 @@ export function VitrinePublica() {
         )}
 
         <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
-          feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b> ✨
+          feito com <b style={{ color: 'var(--framboesa)' }}>Cabideia Encanto</b>
         </p>
       </div>
 
       {perfil.whatsapp && (
         <div className="cta-area">
           <button className="cta" onClick={abrirWhatsApp}>
-            💬 Pedir pelo WhatsApp
+            <Icone nome="whatsapp" /> Pedir pelo WhatsApp
           </button>
         </div>
       )}

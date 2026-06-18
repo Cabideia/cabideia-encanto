@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { abrirImagem, type AreaRecorte } from '../lib/imagem'
+import { Icone } from './Icone'
 
 /**
  * Recorte manual de imagem — sem dependência externa.
@@ -266,21 +267,21 @@ export function Recorte({ arquivo, onConfirmar, onCancelar }: Props) {
                   className={`filtro${proporcao === 'quadrado' ? ' ativo' : ''}`}
                   onClick={() => trocarProporcao('quadrado')}
                 >
-                  ⬛ Quadrado
+                  <Icone nome="quadrado" size={15} /> Quadrado
                 </button>
                 <button
                   type="button"
                   className={`filtro${proporcao === 'livre' ? ' ativo' : ''}`}
                   onClick={() => trocarProporcao('livre')}
                 >
-                  ▭ Livre
+                  <Icone nome="cortar" size={15} /> Livre
                 </button>
                 <button
                   type="button"
                   className="filtro"
                   onClick={() => setGiro(((giro + 90) % 360) as 0 | 90 | 180 | 270)}
                 >
-                  ↻ Girar
+                  <Icone nome="girar" size={15} /> Girar
                 </button>
               </div>
               <p className="apoio" style={{ textAlign: 'center', marginTop: 6 }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useSelecoes, type Selecao } from '../hooks/useSelecoes'
@@ -60,7 +61,7 @@ export function MinhasSelecoes() {
 
         {selecoes.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🔗</div>
+            <div className="icone"><Icone nome="link" size={44} /></div>
             <p>
               Você ainda não criou seleções. Em “Meus trabalhos”, toque em
               Compartilhar para montar uma.
@@ -88,7 +89,7 @@ export function MinhasSelecoes() {
                     onClick={() => !expirada && compartilhar(s)}
                     disabled={expirada}
                   >
-                    📤 Enviar de novo
+                    <Icone nome="enviar" size={16} /> Enviar de novo
                   </button>
                   <button
                     className="btn-icone"
@@ -96,7 +97,7 @@ export function MinhasSelecoes() {
                     aria-label="Apagar seleção"
                     style={{ background: 'var(--neutro-suave)' }}
                   >
-                    🗑️
+                    <Icone nome="lixo" />
                   </button>
                 </div>
               </div>

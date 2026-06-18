@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
+import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type TagComUso } from '../hooks/useAcervo'
@@ -57,7 +58,7 @@ export function MinhasTags() {
 
         {tags.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
-            <div className="icone">🏷️</div>
+            <div className="icone"><Icone nome="tags" size={44} /></div>
             <p>Você ainda não criou tags. Crie ao guardar ou abrir um trabalho.</p>
           </div>
         ) : (
@@ -88,7 +89,7 @@ export function MinhasTags() {
                       onClick={() => { setEditandoId(null); setTexto('') }}
                       aria-label="Cancelar edição"
                     >
-                      ✕
+                      <Icone nome="fechar" />
                     </button>
                   </>
                 ) : (
@@ -106,14 +107,14 @@ export function MinhasTags() {
                       onClick={() => iniciarEdicao(tag)}
                       aria-label={`Renomear ${tag.nome}`}
                     >
-                      ✏️
+                      <Icone nome="editar" />
                     </button>
                     <button
                       className="btn-icone"
                       onClick={() => setAApagar(tag)}
                       aria-label={`Apagar ${tag.nome}`}
                     >
-                      🗑️
+                      <Icone nome="lixo" />
                     </button>
                   </>
                 )}

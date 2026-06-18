@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
+import { Icone } from '../components/Icone'
 
 /**
  * Login com Google (M-001).
@@ -62,7 +63,7 @@ export function Entrar() {
         <div className="vitrine-moldura">
           <div className="babado" />
           <div className="vitrine-corpo">
-            <div className="logo-redonda" aria-hidden>✨</div>
+            <div className="logo-redonda" aria-hidden><Icone nome="brilho" size={26} /></div>
             <div className="nome-negocio">Cabideia Encanto</div>
             <p className="apoio" style={{ marginTop: 6 }}>
               Vitrine, Meus Trabalhos e inspirações de quem trabalha por encomenda.

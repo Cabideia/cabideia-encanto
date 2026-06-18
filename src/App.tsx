@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { ToastProvider } from './components/Toast'
 import { useSessao } from './hooks/useSessao'
+import { useTema } from './hooks/useTema'
 import { Entrar } from './pages/Entrar'
 import { Home } from './pages/Home'
 import { Acervo } from './pages/Acervo'
@@ -26,6 +27,13 @@ import { Planos } from './pages/Planos'
 import { Config } from './pages/Config'
 import { Perfil } from './pages/Perfil'
 
+/** Aplica o tema da dona em todo o app (as páginas públicas pintam o seu). */
+function AplicadorTema() {
+  const { sessao } = useSessao()
+  useTema(sessao?.user.id)
+  return null
+}
+
 /** Rotas privadas exigem sessão; sem sessão, vão para /entrar. */
 function Privada({ children }: { children: React.ReactNode }) {
   const { sessao, carregando } = useSessao()
@@ -49,6 +57,7 @@ export function App() {
     // basename '/encanto': o app vive em cabideia.com.br/encanto/ (Decisão #5)
     <BrowserRouter basename="/encanto">
       <ToastProvider>
+        <AplicadorTema />
         <Routes>
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/" element={<Privada><Home /></Privada>} />

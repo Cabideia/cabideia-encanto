@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { Icone } from './Icone'
 
 type Props = {
   titulo: string
@@ -13,7 +14,7 @@ export function BarraTopo({ titulo, voltar = true, acao }: Props) {
     <div className="barra">
       {voltar ? (
         <button className="btn-icone" onClick={() => navegar(-1)} aria-label="Voltar">
-          ←
+          <Icone nome="setaEsq" />
         </button>
       ) : (
         <span className="vaga" />
