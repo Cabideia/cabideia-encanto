@@ -81,11 +81,10 @@ export function Entrar() {
             {erro}
           </p>
         )}
-        <nav className="legal-links" aria-label="Documentos legais">
-          <Link to="/privacidade">Política de Privacidade</Link>
-          <span className="legal-links-sep" aria-hidden>·</span>
-          <Link to="/termos">Termos de Uso</Link>
-        </nav>
+        <p className="legal-consentimento">
+          Ao entrar, você concorda com os <Link to="/termos">Termos de Uso</Link> e a{' '}
+          <Link to="/privacidade">Política de Privacidade</Link>.
+        </p>
       </div>
     </div>
   )

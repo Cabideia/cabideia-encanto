@@ -87,6 +87,12 @@ export function Config() {
             Plano Grátis: até {limite} imagens (trabalhos, inspirações e referências).
           </p>
         )}
+
+        <nav className="legal-links" aria-label="Documentos legais">
+          <Link to="/privacidade">Política de Privacidade</Link>
+          <span className="legal-links-sep" aria-hidden>·</span>
+          <Link to="/termos">Termos de Uso</Link>
+        </nav>
       </div>
     </div>
   )

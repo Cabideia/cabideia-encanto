@@ -740,3 +740,14 @@ img.logo-redonda { object-fit: cover; }
 }
 .legal-links a:active { color: var(--framboesa); }
 .legal-links .legal-links-sep { color: var(--linha); font-weight: 700; }
+
+/* Frase de consentimento abaixo do botão "Entrar com Google". */
+.legal-consentimento {
+  text-align: center; font-size: var(--t-apoio); line-height: 1.5;
+  color: var(--cacau-claro); margin-top: 14px;
+}
+.legal-consentimento a {
+  color: var(--cacau); font-weight: 700;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.legal-consentimento a:active { color: var(--framboesa); }
