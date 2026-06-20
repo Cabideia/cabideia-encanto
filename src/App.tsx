@@ -28,6 +28,7 @@ import { Config } from './pages/Config'
 import { Perfil } from './pages/Perfil'
 import { Privacidade } from './pages/Privacidade'
 import { Termos } from './pages/Termos'
+import { ExcluirConta } from './pages/ExcluirConta'
 
 /** Aplica o tema da dona em todo o app (as páginas públicas pintam o seu). */
 function AplicadorTema() {
@@ -89,6 +90,7 @@ export function App() {
           {/* Páginas legais públicas (sem login) — URLs exigidas pelo Google Play */}
           <Route path="/privacidade" element={<Privacidade />} />
           <Route path="/termos" element={<Termos />} />
+          <Route path="/excluir-conta" element={<ExcluirConta />} />
           {/* Página pública de uma seleção (sem login) */}
           <Route path="/s/:token" element={<SelecaoPublica />} />
           <Route path="/:arroba" element={<Coringa />} />

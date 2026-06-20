@@ -92,6 +92,8 @@ export function Config() {
           <Link to="/privacidade">Política de Privacidade</Link>
           <span className="legal-links-sep" aria-hidden>·</span>
           <Link to="/termos">Termos de Uso</Link>
+          <span className="legal-links-sep" aria-hidden>·</span>
+          <Link to="/excluir-conta">Excluir conta</Link>
         </nav>
       </div>
     </div>
