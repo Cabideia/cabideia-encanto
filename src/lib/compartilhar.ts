@@ -44,18 +44,65 @@ export async function compartilharImagem(
     }
 
     // 2) Fallback desktop/sem suporte: baixar o arquivo
-    const objUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = objUrl
-    a.download = nomeArquivo
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(objUrl), 4000)
+    baixarBlob(blob, nomeArquivo)
     return 'baixado'
   }
 
   // 3) Último recurso (não conseguiu o blob): abrir a imagem em nova aba
   window.open(url, '_blank', 'noopener')
   return 'aberto'
+}
+
+/** Dispara o download de um blob como arquivo (âncora <a download>). */
+function baixarBlob(blob: Blob, nomeArquivo: string) {
+  const objUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = objUrl
+  a.download = nomeArquivo
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(objUrl), 4000)
+}
+
+export type ResultadoCompartilharVarias = 'compartilhado' | 'baixado' | 'cancelado' | 'falhou'
+
+/**
+ * Compartilha/salva VÁRIAS imagens de uma vez (modo seleção do acervo).
+ *
+ * Celular: um único menu nativo com todos os arquivos quando o aparelho
+ * aceita (`navigator.canShare`). Caso contrário, baixa cada imagem.
+ * Itens cuja imagem não pôde ser baixada são ignorados.
+ */
+export async function compartilharImagens(
+  itens: { url: string; nome: string }[],
+  meta: { title?: string; text?: string } = {}
+): Promise<ResultadoCompartilharVarias> {
+  const arquivos: File[] = []
+  for (const item of itens) {
+    try {
+      const resp = await fetch(item.url)
+      if (!resp.ok) continue
+      const blob = await resp.blob()
+      arquivos.push(new File([blob], item.nome, { type: blob.type || 'image/jpeg' }))
+    } catch {
+      /* CORS/rede: pula este item */
+    }
+  }
+
+  if (arquivos.length === 0) return 'falhou'
+
+  // 1) Web Share com vários arquivos (celular)
+  if (navigator.canShare?.({ files: arquivos })) {
+    try {
+      await navigator.share({ files: arquivos, title: meta.title, text: meta.text })
+      return 'compartilhado'
+    } catch {
+      return 'cancelado'
+    }
+  }
+
+  // 2) Fallback desktop/sem suporte: baixa uma a uma
+  for (const arquivo of arquivos) baixarBlob(arquivo, arquivo.name)
+  return 'baixado'
 }

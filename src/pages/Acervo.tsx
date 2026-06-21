@@ -4,7 +4,7 @@ import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
-import { compartilharImagem } from '../lib/compartilhar'
+import { compartilharImagem, compartilharImagens } from '../lib/compartilhar'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
@@ -102,7 +102,7 @@ function PainelTrabalho({
           disabled={compartilhando}
         >
           <Icone nome="compartilhar" size={16} />{' '}
-          {compartilhando ? 'Abrindo…' : 'Compartilhar / Salvar'}
+          {compartilhando ? 'Abrindo…' : 'Compartilhar ou salvar'}
         </button>
 
         {pedidoVinculadoId && (
@@ -342,6 +342,7 @@ export function Acervo() {
   const [msgSel, setMsgSel] = useState('')
   const [criandoLink, setCriandoLink] = useState(false)
   const [linkPronto, setLinkPronto] = useState<string | null>(null)
+  const [salvandoFotos, setSalvandoFotos] = useState(false)
 
   const filtrados = trabalhos.filter((t) => {
     const okTexto = !busca || t.descricao?.toLowerCase().includes(busca.toLowerCase())
@@ -387,6 +388,44 @@ export function Acervo() {
       else n.add(chave)
       return n
     })
+  }
+
+  // Baixar/compartilhar as FOTOS marcadas (trabalhos + inspirações com imagem).
+  // Itens que são só link (sem imagem) são ignorados.
+  async function salvarFotosSelecionadas() {
+    if (salvandoFotos) return
+    const itens = Array.from(marcados)
+      .map((chave) => {
+        const id = chave.slice(2)
+        if (chave.startsWith('i:')) {
+          const insp = inspiracoes.find((i) => i.id === id)
+          if (!insp?.fotoUrl) return null
+          return {
+            url: insp.fotoUrl,
+            nome: insp.codigo_num != null ? `cabideia-I${insp.codigo_num}.jpg` : 'cabideia-inspiracao.jpg',
+          }
+        }
+        const t = trabalhos.find((x) => x.id === id)
+        if (!t) return null
+        return {
+          url: t.url,
+          nome: t.codigo_num != null ? `cabideia-A${t.codigo_num}.jpg` : 'cabideia-trabalho.jpg',
+        }
+      })
+      .filter((x): x is { url: string; nome: string } => x !== null)
+
+    if (itens.length === 0) {
+      avisar('Selecione fotos — itens só de link não têm imagem para salvar.')
+      return
+    }
+    setSalvandoFotos(true)
+    try {
+      const res = await compartilharImagens(itens, { title: 'Cabideia Encanto' })
+      if (res === 'baixado') avisar(itens.length > 1 ? 'Fotos baixadas ✓' : 'Imagem baixada ✓')
+      else if (res === 'falhou') avisar('Não consegui baixar as fotos. Tente de novo.')
+    } finally {
+      setSalvandoFotos(false)
+    }
   }
 
   async function gerarLink() {
@@ -635,8 +674,18 @@ export function Acervo() {
             {qtdMarcados} selecionado{qtdMarcados !== 1 ? 's' : ''}
           </span>
           <button
+            className="btn-icone"
+            style={{ marginLeft: 12, background: 'var(--neutro-suave)', width: 48, height: 48 }}
+            disabled={qtdMarcados === 0 || salvandoFotos}
+            onClick={salvarFotosSelecionadas}
+            aria-label="Salvar ou compartilhar as fotos selecionadas"
+            title="Salvar nas Fotos ou enviar pro WhatsApp/Instagram"
+          >
+            <Icone nome="compartilhar" />
+          </button>
+          <button
             className="cta"
-            style={{ width: 'auto', flex: 1, marginLeft: 12, height: 48 }}
+            style={{ width: 'auto', flex: 1, marginLeft: 8, height: 48 }}
             disabled={qtdMarcados === 0}
             onClick={() => setFormSelecao(true)}
           >
