@@ -71,9 +71,9 @@ export function Planos() {
           <div className="card-nome">Plano Vitrine</div>
           <div className="plano-preco">
             {periodo === 'anual' ? (
-              <>R$ 119<small>/ano</small></>
+              <>R$ 199<small>/ano</small></>
             ) : (
-              <>R$ 14,90<small>/mês</small></>
+              <>R$ 19,90<small>/mês</small></>
             )}
           </div>
           <div style={{ textAlign: 'left', marginTop: 8 }}>
