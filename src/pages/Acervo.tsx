@@ -4,6 +4,7 @@ import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
+import { compartilharImagem } from '../lib/compartilhar'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
@@ -38,7 +39,28 @@ function PainelTrabalho({
   onRemoverTag,
   onCriarTag,
 }: PainelProps) {
+  const avisar = useAviso()
   const [texto, setTexto] = useState('')
+  const [compartilhando, setCompartilhando] = useState(false)
+
+  async function compartilhar() {
+    if (compartilhando) return
+    setCompartilhando(true)
+    try {
+      const rotulo = trabalho.codigo_num != null ? `A-${trabalho.codigo_num}` : 'trabalho'
+      const nome =
+        trabalho.codigo_num != null
+          ? `cabideia-A${trabalho.codigo_num}.jpg`
+          : 'cabideia-trabalho.jpg'
+      const res = await compartilharImagem(trabalho.url, nome, {
+        title: `Trabalho ${rotulo} · Cabideia Encanto`,
+        text: trabalho.descricao ?? undefined,
+      })
+      if (res === 'baixado') avisar('Imagem baixada ✓')
+    } finally {
+      setCompartilhando(false)
+    }
+  }
 
   const disponiveis = todasTags.filter(
     (t) => !trabalho.tags.some((tg) => tg.id === t.id)
@@ -71,6 +93,17 @@ function PainelTrabalho({
           <div className="cod-linha">Código <b>A-{trabalho.codigo_num}</b></div>
         )}
         {trabalho.descricao && <div className="painel-legenda">{trabalho.descricao}</div>}
+
+        <button
+          type="button"
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+          onClick={compartilhar}
+          disabled={compartilhando}
+        >
+          <Icone nome="compartilhar" size={16} />{' '}
+          {compartilhando ? 'Abrindo…' : 'Compartilhar / Salvar'}
+        </button>
 
         {pedidoVinculadoId && (
           <button
