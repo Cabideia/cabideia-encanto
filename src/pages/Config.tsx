@@ -88,12 +88,32 @@ export function Config() {
           </p>
         )}
 
+        {/* M-033 · Caminho de exclusão de conta visível dentro do app (exigência
+            do Google Play). Ação destrutiva: cor framboesa (a do design system).
+            Navegação interna respeita o basename /encanto. */}
+        <div className="lista card" style={{ padding: '4px 16px', marginTop: 18 }}>
+          <Link
+            to="/excluir-conta"
+            className="item"
+            style={{ color: 'var(--framboesa)', textDecoration: 'none' }}
+          >
+            <div className="bola" style={{ color: 'var(--framboesa)' }}>
+              <Icone nome="lixo" />
+            </div>
+            <div className="card-info">
+              <div className="card-nome" style={{ fontSize: 'var(--t-base)', color: 'var(--framboesa)' }}>
+                Excluir minha conta
+              </div>
+              <div className="apoio">Apague sua conta e todos os seus dados</div>
+            </div>
+            <span aria-hidden style={{ color: 'var(--framboesa)' }}>›</span>
+          </Link>
+        </div>
+
         <nav className="legal-links" aria-label="Documentos legais">
           <Link to="/privacidade">Política de Privacidade</Link>
           <span className="legal-links-sep" aria-hidden>·</span>
           <Link to="/termos">Termos de Uso</Link>
-          <span className="legal-links-sep" aria-hidden>·</span>
-          <Link to="/excluir-conta">Excluir conta</Link>
         </nav>
       </div>
     </div>
