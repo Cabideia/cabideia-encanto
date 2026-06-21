@@ -102,7 +102,7 @@ function PainelTrabalho({
           disabled={compartilhando}
         >
           <Icone nome="compartilhar" size={16} />{' '}
-          {compartilhando ? 'Abrindo…' : 'Compartilhar / Salvar'}
+          {compartilhando ? 'Abrindo…' : 'Compartilhar ou salvar'}
         </button>
 
         {pedidoVinculadoId && (
