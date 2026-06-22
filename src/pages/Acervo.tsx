@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { compartilharImagem, compartilharImagens } from '../lib/compartilhar'
+import { comprimirImagem } from '../lib/imagem'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
 import { useSelecoes, type ItemSelecao } from '../hooks/useSelecoes'
-import { usePedidos } from '../hooks/usePedidos'
 import { useAssinatura } from '../hooks/useAssinatura'
 
 const AVISO_CURADORIA_TRAVADA =
@@ -21,27 +21,80 @@ const AVISO_CURADORIA_TRAVADA =
 type PainelProps = {
   trabalho: Trabalho
   todasTags: Tag[]
-  pedidoVinculadoId: string | null
+  enviando: boolean
   onFechar: () => void
   onVerPedido: (pedidoId: string) => void
   onAtribuirTag: (trabalhoId: string, tagId: string) => Promise<void>
   onRemoverTag: (trabalhoId: string, tagId: string) => Promise<void>
   onCriarTag: (nome: string) => Promise<Tag | null>
+  onAtualizar: (
+    trabalho: Trabalho,
+    dados: { descricao: string; novoBlob?: Blob | null }
+  ) => Promise<string | null>
 }
 
 function PainelTrabalho({
   trabalho,
   todasTags,
-  pedidoVinculadoId,
+  enviando,
   onFechar,
   onVerPedido,
   onAtribuirTag,
   onRemoverTag,
   onCriarTag,
+  onAtualizar,
 }: PainelProps) {
   const avisar = useAviso()
   const [texto, setTexto] = useState('')
   const [compartilhando, setCompartilhando] = useState(false)
+
+  // M-026 · edição inline (legenda + troca de foto). Tags já são editáveis abaixo.
+  const [editando, setEditando] = useState(false)
+  const [legendaEdit, setLegendaEdit] = useState(trabalho.descricao ?? '')
+  const [novoBlob, setNovoBlob] = useState<Blob | null>(null)
+  const [previewEdit, setPreviewEdit] = useState<string | null>(null)
+  const inputFoto = useRef<HTMLInputElement>(null)
+
+  const pedidoVinculadoId = trabalho.pedido_id
+
+  function abrirEdicao() {
+    setLegendaEdit(trabalho.descricao ?? '')
+    setNovoBlob(null)
+    if (previewEdit) URL.revokeObjectURL(previewEdit)
+    setPreviewEdit(null)
+    setEditando(true)
+  }
+  function cancelarEdicao() {
+    if (previewEdit) URL.revokeObjectURL(previewEdit)
+    setPreviewEdit(null)
+    setNovoBlob(null)
+    setEditando(false)
+  }
+  async function aoTrocarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    try {
+      const { blob } = await comprimirImagem(f) // compressão obrigatória (M-009)
+      if (previewEdit) URL.revokeObjectURL(previewEdit)
+      setNovoBlob(blob)
+      setPreviewEdit(URL.createObjectURL(blob))
+    } catch (err: unknown) {
+      avisar((err as Error)?.message ?? 'Não consegui processar a foto.')
+    }
+  }
+  async function salvarEdicao() {
+    const erro = await onAtualizar(trabalho, { descricao: legendaEdit, novoBlob })
+    if (erro) {
+      avisar(erro)
+      return
+    }
+    if (previewEdit) URL.revokeObjectURL(previewEdit)
+    setPreviewEdit(null)
+    setNovoBlob(null)
+    setEditando(false)
+    avisar('Trabalho atualizado ✓')
+  }
 
   async function compartilhar() {
     if (compartilhando) return
@@ -88,32 +141,96 @@ function PainelTrabalho({
         <div className="painel-puxador" />
         <button className="painel-fechar" onClick={onFechar} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
 
-        <img className="painel-foto" src={trabalho.url} alt={trabalho.descricao ?? ''} />
+        <img className="painel-foto" src={previewEdit ?? trabalho.url} alt={trabalho.descricao ?? ''} />
         {trabalho.codigo_num != null && (
           <div className="cod-linha">Código <b>A-{trabalho.codigo_num}</b></div>
         )}
-        {trabalho.descricao && <div className="painel-legenda">{trabalho.descricao}</div>}
 
-        <button
-          type="button"
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-          onClick={compartilhar}
-          disabled={compartilhando}
-        >
-          <Icone nome="compartilhar" size={16} />{' '}
-          {compartilhando ? 'Abrindo…' : 'Compartilhar ou salvar'}
-        </button>
+        {editando ? (
+          <>
+            <input
+              ref={inputFoto}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }}
+              onChange={aoTrocarFoto}
+            />
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+              onClick={() => inputFoto.current?.click()}
+              disabled={enviando}
+            >
+              <Icone nome="imagem" size={16} /> Trocar foto
+            </button>
 
-        {pedidoVinculadoId && (
-          <button
-            type="button"
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-            onClick={() => onVerPedido(pedidoVinculadoId)}
-          >
-            <Icone nome="pedidos" size={16} /> Ver pedido
-          </button>
+            <div className="painel-secao">Legenda</div>
+            <input
+              className="painel-input"
+              value={legendaEdit}
+              onChange={(e) => setLegendaEdit(e.target.value)}
+              placeholder="Ex.: Bolo de casamento 3 andares"
+              maxLength={80}
+            />
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1 }}
+                onClick={cancelarEdicao}
+                disabled={enviando}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cta"
+                style={{ flex: 2, height: 48 }}
+                onClick={salvarEdicao}
+                disabled={enviando}
+              >
+                {enviando ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {trabalho.descricao && <div className="painel-legenda">{trabalho.descricao}</div>}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={abrirEdicao}
+              >
+                <Icone nome="editar" size={16} /> Editar
+              </button>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={compartilhar}
+                disabled={compartilhando}
+              >
+                <Icone nome="compartilhar" size={16} />{' '}
+                {compartilhando ? 'Abrindo…' : 'Baixar / compartilhar foto'}
+              </button>
+            </div>
+
+            {pedidoVinculadoId && (
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+                onClick={() => onVerPedido(pedidoVinculadoId)}
+              >
+                <Icone nome="pedidos" size={16} /> Ver pedido
+              </button>
+            )}
+          </>
         )}
 
         <div className="painel-secao">Tags desta foto</div>
@@ -315,16 +432,18 @@ export function Acervo() {
     trabalhos,
     todasTags,
     carregando,
+    enviando,
     remover,
     alternarVitrine,
+    atualizarTrabalho,
     criarTag,
     atribuirTag,
     removerTag,
   } = useAcervo(sessao?.user.id)
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
   const { criar: criarSelecao } = useSelecoes(sessao?.user.id)
-  const { pedidos } = usePedidos(sessao?.user.id)
   const { total, limite, ilimitado, emExcedente } = useAssinatura(sessao?.user.id)
+  const [params, setParams] = useSearchParams()
 
   const [busca, setBusca] = useState('')
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
@@ -357,10 +476,16 @@ export function Acervo() {
   })
 
   const trabalhoAberto = abertoId ? trabalhos.find((t) => t.id === abertoId) ?? null : null
-  // Pedido vinculado a este trabalho (pedidos.trabalho_id = trabalho.id), se houver.
-  const pedidoVinculadoId = trabalhoAberto
-    ? pedidos.find((p) => p.trabalho_id === trabalhoAberto.id)?.id ?? null
-    : null
+
+  // Deep-link vindo do detalhe do pedido (M-028): /acervo?t=<id> abre o painel.
+  useEffect(() => {
+    const t = params.get('t')
+    if (t) {
+      setAbertoId(t)
+      setParams({}, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Uso do plano: total de IMAGENS (trabalhos + inspirações-imagem + referências),
   // não só os trabalhos desta tela. Fundadora/Vitrine = ilimitado.
@@ -484,6 +609,13 @@ export function Acervo() {
   if (carregando) return null
 
   const qtdMarcados = marcados.size
+  // Quantas das marcadas têm imagem de fato (links-só de inspiração não contam)
+  // — base do plural dinâmico do botão de fotos.
+  const qtdFotosMarcadas = Array.from(marcados).filter((chave) => {
+    if (chave.startsWith('i:')) return !!inspiracoes.find((i) => i.id === chave.slice(2))?.fotoUrl
+    return true
+  }).length
+  const rotuloFotos = `Baixar / compartilhar ${qtdFotosMarcadas === 1 ? 'foto' : 'fotos'}`
 
   return (
     <div className="tela">
@@ -498,7 +630,7 @@ export function Acervo() {
           )
         }
       />
-      <div className="conteudo" style={{ paddingBottom: modoSelecao ? 96 : undefined }}>
+      <div className="conteudo" style={{ paddingBottom: modoSelecao ? 168 : undefined }}>
 
         {!modoSelecao && (
           <>
@@ -667,29 +799,34 @@ export function Acervo() {
         </div>
       )}
 
-      {/* Barra inferior do modo seleção */}
+      {/* Barra inferior do modo seleção — dois caminhos (M-036):
+          link de seleção (M-022) e baixar/compartilhar as fotos (M-035). */}
       {modoSelecao && (
-        <div className="barra-selecao">
+        <div
+          className="barra-selecao"
+          style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}
+        >
           <span className="barra-selecao-conta">
             {qtdMarcados} selecionado{qtdMarcados !== 1 ? 's' : ''}
           </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="cta"
+              style={{ flex: 1, height: 48 }}
+              disabled={qtdMarcados === 0}
+              onClick={() => setFormSelecao(true)}
+            >
+              <Icone nome="link" size={18} /> Compartilhar link
+            </button>
+          </div>
           <button
-            className="btn-icone"
-            style={{ marginLeft: 12, background: 'var(--neutro-suave)', width: 48, height: 48 }}
-            disabled={qtdMarcados === 0 || salvandoFotos}
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', height: 48 }}
+            disabled={qtdFotosMarcadas === 0 || salvandoFotos}
             onClick={salvarFotosSelecionadas}
-            aria-label="Salvar ou compartilhar as fotos selecionadas"
             title="Salvar nas Fotos ou enviar pro WhatsApp/Instagram"
           >
-            <Icone nome="compartilhar" />
-          </button>
-          <button
-            className="cta"
-            style={{ width: 'auto', flex: 1, marginLeft: 8, height: 48 }}
-            disabled={qtdMarcados === 0}
-            onClick={() => setFormSelecao(true)}
-          >
-            Criar link
+            <Icone nome="compartilhar" size={18} /> {salvandoFotos ? 'Abrindo…' : rotuloFotos}
           </button>
         </div>
       )}
@@ -776,12 +913,13 @@ export function Acervo() {
         <PainelTrabalho
           trabalho={trabalhoAberto}
           todasTags={todasTags}
-          pedidoVinculadoId={pedidoVinculadoId}
+          enviando={enviando}
           onFechar={() => setAbertoId(null)}
           onVerPedido={(pedidoId) => navegar(`/pedidos/${pedidoId}`)}
           onAtribuirTag={atribuirTag}
           onRemoverTag={removerTag}
           onCriarTag={criarTag}
+          onAtualizar={atualizarTrabalho}
         />
       )}
 

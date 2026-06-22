@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
@@ -8,7 +8,7 @@ import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
-import { comprimirImagem } from '../lib/imagem'
+import { compartilharImagens } from '../lib/compartilhar'
 import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -20,20 +20,23 @@ export function PedidoDetalhe() {
   const { sessao } = useSessao()
   const avisar = useAviso()
 
-  const { carregando, buscarPorId, mudarStatus, atualizar, urlReferencia, baixarReferencia } =
+  const { carregando, buscarPorId, mudarStatus, urlReferencia, baixarReferencia } =
     usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
-  const { criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
+  const { trabalhos, criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
   const { buscarPorId: buscarInspiracao } = useInspiracoes(sessao?.user.id)
 
   const pedido = id ? buscarPorId(id) : undefined
   const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
   const inspiracao = pedido?.inspiracao_id ? buscarInspiracao(pedido.inspiracao_id) : undefined
 
+  // M-028 · trabalhos ligados a este pedido (1 pedido → N trabalhos).
+  const vinculados = pedido ? trabalhos.filter((t) => t.pedido_id === pedido.id) : []
+
   const [fotoUrl, setFotoUrl] = useState<string | null>(null)
   const [modalAcervo, setModalAcervo] = useState(false)
   const [enviandoAcervo, setEnviandoAcervo] = useState(false)
-  const inputAcervo = useRef<HTMLInputElement>(null)
+  const [compartilhandoFotos, setCompartilhandoFotos] = useState(false)
 
   // Busca URL assinada da foto de referência (bucket privado).
   useEffect(() => {
@@ -77,18 +80,12 @@ export function PedidoDetalhe() {
       avisar(erro)
       return
     }
-    // Ao entregar, oferece levar o trabalho ao acervo (uma vez).
-    if (s === 'entregue' && !pedido!.trabalho_id) setModalAcervo(true)
+    // Ao entregar, oferece levar as fotos a Meus Trabalhos (se ainda não houver).
+    if (s === 'entregue' && vinculados.length === 0) setModalAcervo(true)
     else avisar('Status atualizado ✓')
   }
 
-  async function inserirNoAcervo(blob: Blob): Promise<string | null> {
-    // descrição do trabalho = nome curto do pedido (não os detalhes longos)
-    const res = await criarTrabalhoDeBlob(blob, tituloPedido(pedido!), [])
-    if ('erro' in res) return res.erro
-    return await atualizar(pedido!.id, { trabalho_id: res.id })
-  }
-
+  // Atalho: usar a própria foto de referência como 1 trabalho deste pedido.
   async function usarReferencia() {
     if (!pedido!.foto_referencia_path) return
     setEnviandoAcervo(true)
@@ -98,9 +95,10 @@ export function PedidoDetalhe() {
         avisar('Não consegui baixar a foto de referência.')
         return
       }
-      const erro = await inserirNoAcervo(blob)
-      if (erro) {
-        avisar(erro)
+      // descrição = nome curto do pedido; vincula via pedido_id (M-028).
+      const res = await criarTrabalhoDeBlob(blob, tituloPedido(pedido!), [], pedido!.id)
+      if ('erro' in res) {
+        avisar(res.erro)
         return
       }
       avisar('Foto adicionada a Meus Trabalhos ✓')
@@ -110,24 +108,20 @@ export function PedidoDetalhe() {
     }
   }
 
-  async function escolherNovaParaAcervo(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    setEnviandoAcervo(true)
+  // M-035 · baixar/compartilhar o conjunto de fotos do pedido (Web Share).
+  async function compartilharFotos() {
+    if (compartilhandoFotos || vinculados.length === 0) return
+    setCompartilhandoFotos(true)
     try {
-      const { blob } = await comprimirImagem(f)
-      const erro = await inserirNoAcervo(blob)
-      if (erro) {
-        avisar(erro)
-        return
-      }
-      avisar('Foto adicionada a Meus Trabalhos ✓')
-      setModalAcervo(false)
-    } catch (err: unknown) {
-      avisar((err as Error)?.message ?? 'Não consegui processar a foto.')
+      const itens = vinculados.map((t) => ({
+        url: t.url,
+        nome: t.codigo_num != null ? `cabideia-A${t.codigo_num}.jpg` : 'cabideia-trabalho.jpg',
+      }))
+      const res = await compartilharImagens(itens, { title: tituloPedido(pedido!) })
+      if (res === 'baixado') avisar(itens.length > 1 ? 'Fotos baixadas ✓' : 'Imagem baixada ✓')
+      else if (res === 'falhou') avisar('Não consegui baixar as fotos. Tente de novo.')
     } finally {
-      setEnviandoAcervo(false)
+      setCompartilhandoFotos(false)
     }
   }
 
@@ -162,9 +156,9 @@ export function PedidoDetalhe() {
             <p style={{ marginTop: 10, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{pedido.tema}</p>
           )}
 
-          {pedido.trabalho_id && (
+          {vinculados.length > 0 && (
             <div className="apoio" style={{ marginTop: 10, color: 'var(--pistache)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Icone nome="trabalhos" size={15} /> Em Meus Trabalhos
+              <Icone nome="trabalhos" size={15} /> {vinculados.length} trabalho{vinculados.length !== 1 ? 's' : ''}
             </div>
           )}
         </div>
@@ -266,14 +260,53 @@ export function PedidoDetalhe() {
           ))}
         </div>
 
-        {/* Adicionar a Meus Trabalhos (se entregue e ainda não está) */}
-        {pedido.status === 'entregue' && !pedido.trabalho_id && (
+        {/* Galeria dos trabalhos ligados a este pedido (M-028) */}
+        {vinculados.length > 0 && (
+          <>
+            <div className="secao">
+              <span className="confeito" />
+              <h2>Fotos do pedido · {vinculados.length} trabalho{vinculados.length !== 1 ? 's' : ''}</h2>
+            </div>
+            <div className="grade-fotos" style={{ alignItems: 'start' }}>
+              {vinculados.map((t) => (
+                <div className="foto-item" key={t.id}>
+                  <div
+                    className="acervo-img-wrap"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navegar(`/acervo?t=${t.id}`)}
+                    onKeyDown={(e) => e.key === 'Enter' && navegar(`/acervo?t=${t.id}`)}
+                  >
+                    <img src={t.url} alt={t.descricao ?? ''} loading="lazy" />
+                    {t.codigo_num != null && (
+                      <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+              onClick={compartilharFotos}
+              disabled={compartilhandoFotos}
+            >
+              <Icone nome="compartilhar" size={16} />{' '}
+              {compartilhandoFotos
+                ? 'Abrindo…'
+                : `Baixar / compartilhar ${vinculados.length === 1 ? 'foto' : 'fotos'}`}
+            </button>
+          </>
+        )}
+
+        {/* Adicionar fotos a Meus Trabalhos (quando entregue) */}
+        {pedido.status === 'entregue' && (
           <button
             className="btn-secundario"
             style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
-            onClick={() => setModalAcervo(true)}
+            onClick={() => navegar(`/pedidos/${pedido.id}/fotos`)}
           >
-            <Icone nome="trabalhos" size={16} /> Adicionar a Meus Trabalhos
+            <Icone nome="mais" size={16} /> Adicionar fotos a Meus Trabalhos
           </button>
         )}
       </div>
@@ -285,17 +318,9 @@ export function PedidoDetalhe() {
             <div className="painel-puxador" />
             <div className="form-acervo-titulo">Adicionar a Meus Trabalhos?</div>
             <p className="apoio" style={{ marginBottom: 14 }}>
-              Guarde a foto do trabalho entregue em Meus Trabalhos, na nuvem. Você decide
-              depois se ela vai para a vitrine.
+              Guarde as fotos do trabalho entregue em Meus Trabalhos, na nuvem. Você decide
+              depois quais vão para a vitrine.
             </p>
-
-            <input
-              ref={inputAcervo}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={escolherNovaParaAcervo}
-            />
 
             {pedido.foto_referencia_path && (
               <button
@@ -310,10 +335,10 @@ export function PedidoDetalhe() {
             <button
               className={pedido.foto_referencia_path ? 'btn-secundario' : 'cta'}
               style={{ width: '100%', justifyContent: 'center', marginBottom: 10 }}
-              onClick={() => inputAcervo.current?.click()}
+              onClick={() => { setModalAcervo(false); navegar(`/pedidos/${pedido.id}/fotos`) }}
               disabled={enviandoAcervo}
             >
-              <Icone nome="imagem" size={16} /> Escolher outra foto
+              <Icone nome="imagem" size={16} /> Escolher fotos da galeria
             </button>
             <button
               className="btn-secundario"

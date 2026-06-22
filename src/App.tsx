@@ -6,6 +6,7 @@ import { Entrar } from './pages/Entrar'
 import { Home } from './pages/Home'
 import { Acervo } from './pages/Acervo'
 import { GuardarTrabalho } from './pages/GuardarTrabalho'
+import { GuardarLotePedido } from './pages/GuardarLotePedido'
 import { MinhasTags } from './pages/MinhasTags'
 import { MinhasSelecoes } from './pages/MinhasSelecoes'
 import { SelecaoPublica } from './pages/SelecaoPublica'
@@ -74,6 +75,7 @@ export function App() {
           <Route path="/pedidos/novo" element={<Privada><PedidoForm /></Privada>} />
           <Route path="/pedidos/:id" element={<Privada><PedidoDetalhe /></Privada>} />
           <Route path="/pedidos/:id/editar" element={<Privada><PedidoForm /></Privada>} />
+          <Route path="/pedidos/:id/fotos" element={<Privada><GuardarLotePedido /></Privada>} />
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
           <Route path="/clientes/:id" element={<Privada><ClienteDetalhe /></Privada>} />
           <Route path="/clientes/:clienteId/propostas/nova" element={<Privada><PropostaForm /></Privada>} />
