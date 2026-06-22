@@ -298,6 +298,7 @@ type CartaoProps = {
   vitrineBloqueada: boolean
   onAbrir: () => void
   onAlternarMarca: () => void
+  onLongPress: () => void
   onPedirRemover: () => void
   onAlternarVitrine: () => void
 }
@@ -309,14 +310,49 @@ function CartaoTrabalho({
   vitrineBloqueada,
   onAbrir,
   onAlternarMarca,
+  onLongPress,
   onPedirRemover,
   onAlternarVitrine,
 }: CartaoProps) {
+  // Segurar a foto (long-press) entra no modo seleção já marcando esta foto
+  // (M-036). Um toque curto abre o detalhe; em modo seleção, alterna a marca.
+  const timer = useRef<number | null>(null)
+  const segurou = useRef(false)
+
+  function limparTimer() {
+    if (timer.current != null) {
+      clearTimeout(timer.current)
+      timer.current = null
+    }
+  }
+  function aoPressionar() {
+    if (modoSelecao) return
+    segurou.current = false
+    timer.current = window.setTimeout(() => {
+      segurou.current = true
+      onLongPress()
+    }, 450)
+  }
+  function aoClicar() {
+    // Se acabou de ser um long-press, não dispara o toque curto.
+    if (segurou.current) {
+      segurou.current = false
+      return
+    }
+    if (modoSelecao) onAlternarMarca()
+    else onAbrir()
+  }
+
   return (
     <div className={`foto-item${modoSelecao && marcado ? ' marcado' : ''}`}>
       <div
         className="acervo-img-wrap"
-        onClick={modoSelecao ? onAlternarMarca : onAbrir}
+        onClick={aoClicar}
+        onPointerDown={aoPressionar}
+        onPointerUp={limparTimer}
+        onPointerLeave={limparTimer}
+        onPointerCancel={limparTimer}
+        onContextMenu={(e) => e.preventDefault()}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && (modoSelecao ? onAlternarMarca() : onAbrir())}
@@ -506,6 +542,12 @@ export function Acervo() {
     setMsgSel('')
     setLinkPronto(null)
   }
+  // Entrar no modo seleção já marcando um item (vindo do long-press na grade).
+  function iniciarSelecaoCom(chave: string) {
+    setModoSelecao(true)
+    setAbaSelecao('trabalhos')
+    setMarcados(new Set([chave]))
+  }
   function alternarMarca(chave: string) {
     setMarcados((prev) => {
       const n = new Set(prev)
@@ -661,15 +703,20 @@ export function Acervo() {
               )}
             </div>
 
-            {/* Ações: compartilhar seleção + minhas seleções */}
+            {/* Entrar no modo seleção para montar um link / baixar fotos (M-036).
+                Também dá pra segurar uma foto na grade para entrar já marcando. */}
             {trabalhos.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="btn-secundario" style={{ flex: 1 }} onClick={entrarSelecao}>
-                  <Icone nome="compartilhar" size={16} /> Compartilhar com cliente
+              <div style={{ marginTop: 10 }}>
+                <button
+                  className="btn-secundario"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={entrarSelecao}
+                >
+                  <Icone nome="ok" size={16} /> Selecionar
                 </button>
-                <Link to="/selecoes" className="btn-icone" aria-label="Minhas seleções" style={{ background: 'var(--neutro-suave)' }}>
-                  <Icone nome="link" />
-                </Link>
+                <p className="apoio" style={{ textAlign: 'center', marginTop: 6 }}>
+                  ou segure uma foto para escolher
+                </p>
               </div>
             )}
           </>
@@ -781,6 +828,7 @@ export function Acervo() {
                 vitrineBloqueada={emExcedente}
                 onAbrir={() => setAbertoId(t.id)}
                 onAlternarMarca={() => alternarMarca(`t:${t.id}`)}
+                onLongPress={() => iniciarSelecaoCom(`t:${t.id}`)}
                 onPedirRemover={() => setAApagar(t)}
                 onAlternarVitrine={() => aoAlternarVitrine(t)}
               />
