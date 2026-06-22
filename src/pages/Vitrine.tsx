@@ -151,7 +151,7 @@ export function Vitrine() {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            <Icone nome="compartilhar" size={18} /> Compartilhar vitrine
+            <Icone nome="compartilhar" size={18} /> Compartilhar link
           </button>
         )}
 

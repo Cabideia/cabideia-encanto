@@ -11,6 +11,7 @@ export type Trabalho = {
   descricao: string | null
   na_vitrine: boolean
   codigo_num: number | null // código curto exibido como A-{n}
+  pedido_id: string | null // M-028: pedido de origem (1 pedido → N trabalhos)
   criado_em: string
   url: string
   tags: Tag[]
@@ -33,7 +34,7 @@ export function useAcervo(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('trabalhos')
       .select(
-        'id, foto_path, foto_publica_path, descricao, na_vitrine, codigo_num, criado_em, trabalho_tags(tag_id, tags(id, nome))'
+        'id, foto_path, foto_publica_path, descricao, na_vitrine, codigo_num, pedido_id, criado_em, trabalho_tags(tag_id, tags(id, nome))'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -47,6 +48,7 @@ export function useAcervo(usuariaId: string | undefined) {
         descricao: t.descricao as string | null,
         na_vitrine: t.na_vitrine as boolean,
         codigo_num: (t.codigo_num ?? null) as number | null,
+        pedido_id: (t.pedido_id ?? null) as string | null,
         criado_em: t.criado_em as string,
         url: urlDe((t.foto_publica_path ?? t.foto_path) as string),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,12 +76,13 @@ export function useAcervo(usuariaId: string | undefined) {
   }, [carregar, carregarTags])
 
   // ── Cria um trabalho a partir de um BLOB já tratado e devolve o id criado ──
-  // (usado tanto pela tela de acervo quanto pelo "entregar → mandar ao acervo"
-  //  do M-002, que precisa do id para gravar em pedidos.trabalho_id)
+  // (usado tanto pela tela de acervo quanto pelo "entregue → Meus Trabalhos" do
+  //  pedido — M-028 —, que passa o pedidoId para gravar em trabalhos.pedido_id)
   async function criarTrabalhoDeBlob(
     blob: Blob,
     descricao: string,
-    tagIds: string[]
+    tagIds: string[],
+    pedidoId?: string | null
   ): Promise<{ id: string } | { erro: string }> {
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     setEnviando(true)
@@ -99,6 +102,7 @@ export function useAcervo(usuariaId: string | undefined) {
           foto_publica_path: nome,
           descricao: descricao.trim() || null,
           na_vitrine: false,
+          pedido_id: pedidoId ?? null,
         })
         .select('id')
         .single()
@@ -131,6 +135,70 @@ export function useAcervo(usuariaId: string | undefined) {
   ): Promise<string | null> {
     const res = await criarTrabalhoDeBlob(blob, descricao, tagIds)
     return 'erro' in res ? res.erro : null
+  }
+
+  // ── M-026 · Edita um trabalho existente: legenda e/ou troca de foto ──
+  // A foto nova já chega como BLOB comprimido (M-009). Ao trocar, sobe o novo
+  // arquivo, aponta a linha para ele e só então apaga o antigo do storage.
+  async function atualizarTrabalho(
+    trabalho: Trabalho,
+    dados: { descricao: string; novoBlob?: Blob | null }
+  ): Promise<string | null> {
+    if (!usuariaId) return 'Sessão expirada. Entre de novo.'
+    setEnviando(true)
+    try {
+      const patch: Record<string, unknown> = {
+        descricao: dados.descricao.trim() || null,
+      }
+      let novoPath: string | null = null
+
+      if (dados.novoBlob) {
+        novoPath = `${usuariaId}/${crypto.randomUUID()}.jpg`
+        const { error: upErro } = await supabase.storage
+          .from('publico')
+          .upload(novoPath, dados.novoBlob, { contentType: 'image/jpeg', upsert: false })
+        if (upErro) return 'Falha ao enviar a foto: ' + upErro.message
+        patch.foto_path = novoPath
+        patch.foto_publica_path = novoPath
+      }
+
+      const { error: dbErro } = await supabase
+        .from('trabalhos')
+        .update(patch)
+        .eq('id', trabalho.id)
+      if (dbErro) {
+        // Desfaz o upload órfão se o banco recusou.
+        if (novoPath) await supabase.storage.from('publico').remove([novoPath])
+        return 'Falha ao salvar: ' + dbErro.message
+      }
+
+      // Apaga os arquivos antigos só depois de a linha já apontar para o novo.
+      if (novoPath) {
+        const antigos = [trabalho.foto_path]
+        if (trabalho.foto_publica_path && trabalho.foto_publica_path !== trabalho.foto_path)
+          antigos.push(trabalho.foto_publica_path)
+        await supabase.storage.from('publico').remove(antigos)
+      }
+
+      setTrabalhos((prev) =>
+        prev.map((t) =>
+          t.id === trabalho.id
+            ? {
+                ...t,
+                descricao: dados.descricao.trim() || null,
+                foto_path: novoPath ?? t.foto_path,
+                foto_publica_path: novoPath ?? t.foto_publica_path,
+                url: novoPath ? urlDe(novoPath) : t.url,
+              }
+            : t
+        )
+      )
+      return null
+    } catch (e: unknown) {
+      return (e as Error)?.message ?? 'Erro inesperado ao salvar.'
+    } finally {
+      setEnviando(false)
+    }
   }
 
   // ── Remove trabalho do banco e do storage ──
@@ -259,6 +327,7 @@ export function useAcervo(usuariaId: string | undefined) {
     enviando,
     adicionarBlob,
     criarTrabalhoDeBlob,
+    atualizarTrabalho,
     remover,
     alternarVitrine,
     criarTag,
