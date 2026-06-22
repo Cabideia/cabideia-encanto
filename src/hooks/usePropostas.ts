@@ -17,6 +17,7 @@ export type Proposta = {
   valor: number | null
   validade: string | null // 'YYYY-MM-DD'
   foto_path: string | null // bucket 'publico'
+  resolvida: boolean // M-037: arquivada em "Acompanhar" (reversível)
   criado_em: string
 }
 
@@ -28,7 +29,7 @@ export type CamposProposta = {
   foto_path: string | null
 }
 
-const COLUNAS = 'id, cliente_id, titulo, descricao, valor, validade, foto_path, criado_em'
+const COLUNAS = 'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, criado_em'
 
 export function usePropostas(usuariaId: string | undefined) {
   const [propostas, setPropostas] = useState<Proposta[]>([])
@@ -132,6 +133,17 @@ export function usePropostas(usuariaId: string | undefined) {
     }
   }
 
+  /**
+   * M-037 · "Marcar como resolvido" (arquivar) — diferente de excluir:
+   * a proposta segue salva (reversível), só sai da aba ativa de Acompanhar.
+   */
+  async function marcarResolvida(id: string, resolvida: boolean): Promise<string | null> {
+    const { error } = await supabase.from('propostas').update({ resolvida }).eq('id', id)
+    if (error) return 'Falha ao atualizar: ' + error.message
+    setPropostas((prev) => prev.map((p) => (p.id === id ? { ...p, resolvida } : p)))
+    return null
+  }
+
   async function excluir(proposta: Proposta): Promise<string | null> {
     const { error } = await supabase.from('propostas').delete().eq('id', proposta.id)
     if (error) return 'Falha ao excluir: ' + error.message
@@ -140,5 +152,5 @@ export function usePropostas(usuariaId: string | undefined) {
     return null
   }
 
-  return { propostas, carregando, salvando, listar, porCliente, buscarPorId, subirFoto, criar, atualizar, excluir }
+  return { propostas, carregando, salvando, listar, porCliente, buscarPorId, subirFoto, criar, atualizar, marcarResolvida, excluir }
 }

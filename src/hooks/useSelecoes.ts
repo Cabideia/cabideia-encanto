@@ -8,6 +8,7 @@ export type Selecao = {
   mensagem: string | null
   expira_em: string
   criado_em: string
+  resolvida: boolean // M-037: arquivada em "Acompanhar" (reversível)
   qtd: number
 }
 
@@ -41,7 +42,7 @@ export function useSelecoes(usuariaId: string | undefined) {
     if (!usuariaId) return
     const { data } = await supabase
       .from('selecoes')
-      .select('id, token, titulo, mensagem, expira_em, criado_em, selecao_itens(id)')
+      .select('id, token, titulo, mensagem, expira_em, criado_em, resolvida, selecao_itens(id)')
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
 
@@ -54,6 +55,7 @@ export function useSelecoes(usuariaId: string | undefined) {
         mensagem: s.mensagem,
         expira_em: s.expira_em,
         criado_em: s.criado_em,
+        resolvida: !!s.resolvida,
         qtd: (s.selecao_itens ?? []).length,
       }))
     )
@@ -152,5 +154,16 @@ export function useSelecoes(usuariaId: string | undefined) {
     return null
   }
 
-  return { selecoes, carregando, criar, apagar }
+  /**
+   * M-037 · "Marcar como resolvido" (arquivar) — diferente da lixeira:
+   * o link continua existindo (reversível), só sai da aba ativa de Acompanhar.
+   */
+  async function marcarResolvida(id: string, resolvida: boolean): Promise<string | null> {
+    const { error } = await supabase.from('selecoes').update({ resolvida }).eq('id', id)
+    if (error) return 'Falha ao atualizar: ' + error.message
+    setSelecoes((prev) => prev.map((s) => (s.id === id ? { ...s, resolvida } : s)))
+    return null
+  }
+
+  return { selecoes, carregando, criar, apagar, marcarResolvida }
 }

@@ -8,7 +8,7 @@ import { Acervo } from './pages/Acervo'
 import { GuardarTrabalho } from './pages/GuardarTrabalho'
 import { GuardarLotePedido } from './pages/GuardarLotePedido'
 import { MinhasTags } from './pages/MinhasTags'
-import { MinhasSelecoes } from './pages/MinhasSelecoes'
+import { Acompanhar } from './pages/Acompanhar'
 import { SelecaoPublica } from './pages/SelecaoPublica'
 import { Vitrine } from './pages/Vitrine'
 import { VitrinePublica } from './pages/VitrinePublica'
@@ -68,7 +68,7 @@ export function App() {
           <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
           <Route path="/acervo/novo" element={<Privada><GuardarTrabalho /></Privada>} />
           <Route path="/tags" element={<Privada><MinhasTags /></Privada>} />
-          <Route path="/selecoes" element={<Privada><MinhasSelecoes /></Privada>} />
+          <Route path="/acompanhar" element={<Privada><Acompanhar /></Privada>} />
           <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />
           <Route path="/perfil" element={<Privada><Perfil /></Privada>} />
           <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
