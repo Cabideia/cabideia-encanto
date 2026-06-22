@@ -88,6 +88,10 @@ export function Home() {
             <div className="emoji"><Icone nome="anotacoes" /></div>
             <div><div className="nome">Anotações</div><div className="conta">texto livre</div></div>
           </Link>
+          <Link to="/acompanhar" className="bloco">
+            <div className="emoji"><Icone nome="acompanhar" /></div>
+            <div><div className="nome">Acompanhar</div><div className="conta">links e propostas</div></div>
+          </Link>
         </div>
 
         <Link to="/planos" className="aviso-teste">
