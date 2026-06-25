@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { SeletorTema } from '../components/SeletorTema'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
 import { useAssinatura } from '../hooks/useAssinatura'
+import { useAviso } from '../components/Toast'
+
+/** Palavra que a usuária precisa digitar para liberar a exclusão (M-033). */
+const PALAVRA_CONFIRMA = 'EXCLUIR'
 
 /** Retorno da RPC `resumo_imagens_usuaria` (M-011). */
 type ResumoImagens = {
@@ -19,6 +23,37 @@ type ResumoImagens = {
 export function Config() {
   const { sessao } = useSessao()
   const { plano, fundadora, total, limite, ilimitado } = useAssinatura(sessao?.user.id)
+  const navegar = useNavigate()
+  const avisar = useAviso()
+
+  // M-033 · exclusão real da conta. Abre confirmação que só libera o botão
+  // quando a usuária digita EXCLUIR; aí invoca a Edge Function `excluir-conta`.
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [textoConfirma, setTextoConfirma] = useState('')
+  const [excluindo, setExcluindo] = useState(false)
+
+  const podeExcluir = textoConfirma.trim().toUpperCase() === PALAVRA_CONFIRMA
+
+  function fecharConfirma() {
+    if (excluindo) return // não deixa fechar no meio da exclusão
+    setConfirmandoExclusao(false)
+    setTextoConfirma('')
+  }
+
+  async function excluirConta() {
+    if (!podeExcluir || excluindo) return
+    setExcluindo(true)
+    const { error } = await supabase.functions.invoke('excluir-conta', { method: 'POST' })
+    if (error) {
+      setExcluindo(false)
+      avisar('Não foi possível excluir. Tente novamente.')
+      return
+    }
+    // Sucesso: encerra a sessão e volta para a tela de entrada.
+    avisar('Conta excluída')
+    await supabase.auth.signOut()
+    navegar('/entrar', { replace: true })
+  }
 
   // Detalhamento das imagens por categoria (M-011) — RPC dedicada.
   const [resumo, setResumo] = useState<ResumoImagens | null>(null)
@@ -88,14 +123,19 @@ export function Config() {
           </p>
         )}
 
-        {/* M-033 · Caminho de exclusão de conta visível dentro do app (exigência
-            do Google Play). Ação destrutiva: cor framboesa (a do design system).
-            Navegação interna respeita o basename /encanto. */}
+        {/* M-033 · Exclusão REAL da conta de dentro do app (exigência do Google
+            Play). Ação destrutiva: cor framboesa (a do design system). Abre a
+            confirmação por digitação — não navega mais para a página de texto. */}
         <div className="lista card" style={{ padding: '4px 16px', marginTop: 18 }}>
-          <Link
-            to="/excluir-conta"
+          <div
             className="item"
-            style={{ color: 'var(--framboesa)', textDecoration: 'none' }}
+            role="button"
+            tabIndex={0}
+            onClick={() => setConfirmandoExclusao(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') setConfirmandoExclusao(true)
+            }}
+            style={{ color: 'var(--framboesa)' }}
           >
             <div className="bola" style={{ color: 'var(--framboesa)' }}>
               <Icone nome="lixo" />
@@ -107,7 +147,7 @@ export function Config() {
               <div className="apoio">Apague sua conta e todos os seus dados</div>
             </div>
             <span aria-hidden style={{ color: 'var(--framboesa)' }}>›</span>
-          </Link>
+          </div>
         </div>
 
         <nav className="legal-links" aria-label="Documentos legais">
@@ -116,6 +156,61 @@ export function Config() {
           <Link to="/termos">Termos de Uso</Link>
         </nav>
       </div>
+
+      {/* M-033 · Confirmação por digitação. O botão de exclusão só habilita
+          quando o campo bate com EXCLUIR — barreira contra toque acidental. */}
+      {confirmandoExclusao && (
+        <div className="confirmar-overlay" onClick={fecharConfirma}>
+          <div
+            className="confirmar-caixa"
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-label="Excluir minha conta"
+          >
+            <div className="confirmar-titulo">Excluir minha conta</div>
+            <p className="confirmar-desc">
+              Esta ação é definitiva. Apagamos seu perfil, suas fotos, pedidos,
+              clientes e tudo o que está na sua conta. Não dá para desfazer.
+              <br />
+              Para confirmar, digite <strong>{PALAVRA_CONFIRMA}</strong> abaixo.
+            </p>
+            <div className="campo" style={{ marginBottom: 18 }}>
+              <input
+                type="text"
+                value={textoConfirma}
+                onChange={(e) => setTextoConfirma(e.target.value)}
+                placeholder={PALAVRA_CONFIRMA}
+                autoFocus
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                disabled={excluindo}
+                aria-label={`Digite ${PALAVRA_CONFIRMA} para confirmar`}
+                style={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: '.1em' }}
+              />
+            </div>
+            <div className="confirmar-botoes">
+              <button
+                type="button"
+                className="btn-secundario"
+                onClick={fecharConfirma}
+                disabled={excluindo}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="confirmar-perigo"
+                onClick={excluirConta}
+                disabled={!podeExcluir || excluindo}
+                style={{ opacity: podeExcluir && !excluindo ? 1 : 0.5 }}
+              >
+                {excluindo ? 'Excluindo…' : 'Excluir conta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
