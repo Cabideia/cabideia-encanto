@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { urlPublica } from '../lib/storage'
 import { comprimirImagem } from '../lib/imagem'
 
 /**
@@ -18,10 +19,6 @@ export function useFotosVitrine(usuariaId: string | undefined) {
   const [fotos, setFotos] = useState<FotoVitrine[]>([])
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
-
-  const urlPublica = useCallback((path: string) => {
-    return supabase.storage.from('publico').getPublicUrl(path).data.publicUrl
-  }, [])
 
   const carregar = useCallback(async () => {
     if (!usuariaId) return
@@ -42,7 +39,7 @@ export function useFotosVitrine(usuariaId: string | undefined) {
       }))
     setFotos(lista)
     setCarregando(false)
-  }, [usuariaId, urlPublica])
+  }, [usuariaId])
 
   useEffect(() => {
     carregar()
