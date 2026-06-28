@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { Icone } from '../components/Icone'
 
@@ -88,7 +89,7 @@ export function VitrinePublica() {
           ((t ?? []) as any[]).map((x) => ({
             id: x.id,
             descricao: x.descricao,
-            url: supabase.storage.from('publico').getPublicUrl(x.foto_publica_path).data.publicUrl,
+            url: urlPublica(x.foto_publica_path),
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             tags: ((x.tags ?? []) as any[]).map((tg) => ({ id: tg.id, nome: tg.nome })),
           }))
@@ -153,9 +154,7 @@ export function VitrinePublica() {
     )
   }
 
-  const logoUrl = perfil.logo_path
-    ? supabase.storage.from('publico').getPublicUrl(perfil.logo_path).data.publicUrl
-    : null
+  const logoUrl = perfil.logo_path ? urlPublica(perfil.logo_path) : null
 
   return (
     <div className="tela">

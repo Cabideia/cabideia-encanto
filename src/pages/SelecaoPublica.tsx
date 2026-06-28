@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { Icone } from '../components/Icone'
 
@@ -59,9 +60,6 @@ export function SelecaoPublica() {
 
       // Página pública: pinta com o tema da dona (default oficina se vier vazio).
       aplicarTema(linha.tema, false)
-
-      const urlPublica = (path: string) =>
-        supabase.storage.from('publico').getPublicUrl(path).data.publicUrl
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const itens: ItemPublico[] = ((linha.itens ?? []) as any[]).map((it) => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { urlPublica } from '../lib/storage'
 
 export type Tag = { id: string; nome: string }
 export type TagComUso = Tag & { uso: number }
@@ -23,11 +24,7 @@ export function useAcervo(usuariaId: string | undefined) {
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
 
-  const urlDe = useCallback(
-    (path: string) =>
-      supabase.storage.from('publico').getPublicUrl(path).data.publicUrl,
-    []
-  )
+  const urlDe = useCallback((path: string) => urlPublica(path), [])
 
   const carregar = useCallback(async () => {
     if (!usuariaId) return
