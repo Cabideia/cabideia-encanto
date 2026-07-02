@@ -27,11 +27,14 @@ export function ExcluirConta() {
 
       <h2>Como solicitar</h2>
       <p>
-        Envie um e-mail para cabideia.contato@gmail.com com o assunto "Excluir minha conta" e o e-mail que
-        você usa para fazer login. Sua conta e todos os dados serão excluídos em até 7 dias úteis. Você
-        receberá uma confirmação por e-mail quando a exclusão for concluída.
+        A forma mais rápida é pelo próprio app: abra <strong>Configurações → Excluir minha conta</strong>,
+        digite EXCLUIR para confirmar e a exclusão é feita na hora, de forma definitiva.
       </p>
-      <p>Você também pode excluir sua conta diretamente pelo app, nas Configurações.</p>
+      <p>
+        Se preferir, envie um e-mail para cabideia.contato@gmail.com com o assunto "Excluir minha conta" e o
+        e-mail que você usa para fazer login. Nesse caso, sua conta e todos os dados serão excluídos em até 7
+        dias úteis e você receberá uma confirmação por e-mail.
+      </p>
 
       <h2>Contato</h2>
       <p>cabideia.contato@gmail.com</p>
