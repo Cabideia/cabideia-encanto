@@ -19,6 +19,7 @@ export const LIMITE_GRATIS = 150
 export function useAssinatura(usuariaId: string | undefined) {
   const [plano, setPlano] = useState<PlanoAssinatura>('gratis')
   const [fundadora, setFundadora] = useState(false)
+  const [renovacaoEm, setRenovacaoEm] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(true)
 
@@ -29,11 +30,12 @@ export function useAssinatura(usuariaId: string | undefined) {
     // Assinatura — fallback: ausência de linha = gratis/ativa.
     const { data: a } = await supabase
       .from('assinaturas')
-      .select('plano, fundadora')
+      .select('plano, fundadora, renovacao_em')
       .eq('usuaria_id', usuariaId)
       .maybeSingle()
     setPlano(((a?.plano as PlanoAssinatura | undefined) ?? 'gratis'))
     setFundadora(a?.fundadora ?? false)
+    setRenovacaoEm((a?.renovacao_em as string | null | undefined) ?? null)
 
     // Total de imagens (trabalhos + inspirações-imagem + referências de pedido).
     const { data: t } = await supabase.rpc('total_imagens_usuaria', { uid: usuariaId })
@@ -50,9 +52,18 @@ export function useAssinatura(usuariaId: string | undefined) {
   const podeAdicionar = ilimitado || total < LIMITE_GRATIS
   const emExcedente = !ilimitado && total > LIMITE_GRATIS
 
+  // Dias até a renovação (plano anual manual). null = sem data (grátis/fundadora).
+  // Fundadora é vitalícia, então nunca avisamos renovação para ela.
+  const diasParaRenovar =
+    !fundadora && renovacaoEm
+      ? Math.ceil((new Date(renovacaoEm).getTime() - Date.now()) / 86_400_000)
+      : null
+
   return {
     plano,
     fundadora,
+    renovacaoEm,
+    diasParaRenovar,
     total,
     limite: LIMITE_GRATIS,
     ilimitado,

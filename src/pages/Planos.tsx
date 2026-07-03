@@ -16,8 +16,16 @@ import { useAssinatura } from '../hooks/useAssinatura'
 export function Planos() {
   const [periodo, setPeriodo] = useState<'anual' | 'mensal'>('anual')
   const { sessao } = useSessao()
-  const { plano, fundadora, total, limite, ilimitado, emExcedente } =
+  const { plano, fundadora, total, limite, ilimitado, emExcedente, diasParaRenovar } =
     useAssinatura(sessao?.user.id)
+
+  // Aviso de renovação (plano anual manual): só quando faltam ≤30 dias.
+  const avisoRenovacao =
+    plano === 'vitrine' && diasParaRenovar !== null && diasParaRenovar <= 30
+      ? diasParaRenovar <= 0
+        ? 'Sua assinatura venceu. Renove pelo mesmo caminho para manter a vitrine sem corte.'
+        : `Sua assinatura vence em ${diasParaRenovar} ${diasParaRenovar === 1 ? 'dia' : 'dias'}. Renove pelo mesmo caminho para não perder o Plano Vitrine.`
+      : null
 
   const pct = Math.min(100, Math.round((total / limite) * 100))
   const corBarra = emExcedente || pct >= 90 ? 'var(--caramelo)' : 'var(--framboesa)'
@@ -26,6 +34,17 @@ export function Planos() {
     <div className="tela">
       <BarraTopo titulo="Planos" />
       <div className="conteudo">
+        {/* Aviso de renovação (plano anual manual) — informativo, sem CTA */}
+        {avisoRenovacao && (
+          <div
+            className="card"
+            style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4, borderColor: 'var(--caramelo)' }}
+          >
+            <Icone nome="estrela" size={16} style={{ flex: 'none', marginTop: 2, color: 'var(--caramelo)' }} />
+            <span className="apoio">{avisoRenovacao}</span>
+          </div>
+        )}
+
         {/* Selo Fundadora (quando aplicável) */}
         {fundadora && (
           <div
