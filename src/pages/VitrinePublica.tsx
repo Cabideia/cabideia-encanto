@@ -67,12 +67,11 @@ export function VitrinePublica() {
       return
     }
     async function carregar() {
-      const { data: p } = await supabase
-        .from('perfis')
-        .select('id, nome_negocio, bio, cidade, nicho, whatsapp, logo_path, tema')
-        .eq('arroba', usuaria)
-        .eq('vitrine_publicada', true)
-        .maybeSingle()
+      // Cabeçalho da vitrine via RPC SECURITY DEFINER: devolve só as colunas
+      // públicas de um perfil PUBLICADO. O anon não tem SELECT direto em `perfis`
+      // (evita raspagem em massa de telefones/dados das vitrines).
+      const { data: rows } = await supabase.rpc('perfil_vitrine', { arroba: usuaria })
+      const p = ((rows ?? []) as PerfilPublico[])[0] ?? null
 
       setPerfil(p)
       // Página pública: pinta com o tema da dona (default oficina se vier vazio).
