@@ -1,21 +1,31 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
-import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAssinatura } from '../hooks/useAssinatura'
 
 /**
  * M-011 · Planos (Grátis × Vitrine).
  * Sem trial: a conta nasce no Grátis (150 imagens). Fundadora e Vitrine = ilimitado.
- * A cobrança real (Play Billing) entra no M-018 — aqui o botão é só um stub.
+ *
+ * Modelo web-first (Mercado Pago/Pix, fora do app): esta tela é APENAS
+ * informativa. Não há CTA de compra dentro do app empacotado na Play Store
+ * (a assinatura é vendida e paga por fora), para não configurar venda de bem
+ * digital dentro da TWA. O app só HONRA quem já assinou (lê `assinaturas`).
  */
 export function Planos() {
   const [periodo, setPeriodo] = useState<'anual' | 'mensal'>('anual')
-  const avisar = useAviso()
   const { sessao } = useSessao()
-  const { plano, fundadora, total, limite, ilimitado, emExcedente } =
+  const { plano, fundadora, total, limite, ilimitado, emExcedente, diasParaRenovar } =
     useAssinatura(sessao?.user.id)
+
+  // Aviso de renovação (plano anual manual): só quando faltam ≤30 dias.
+  const avisoRenovacao =
+    plano === 'vitrine' && diasParaRenovar !== null && diasParaRenovar <= 30
+      ? diasParaRenovar <= 0
+        ? 'Sua assinatura venceu. Renove pelo mesmo caminho para manter a vitrine sem corte.'
+        : `Sua assinatura vence em ${diasParaRenovar} ${diasParaRenovar === 1 ? 'dia' : 'dias'}. Renove pelo mesmo caminho para não perder o Plano Vitrine.`
+      : null
 
   const pct = Math.min(100, Math.round((total / limite) * 100))
   const corBarra = emExcedente || pct >= 90 ? 'var(--caramelo)' : 'var(--framboesa)'
@@ -24,6 +34,17 @@ export function Planos() {
     <div className="tela">
       <BarraTopo titulo="Planos" />
       <div className="conteudo">
+        {/* Aviso de renovação (plano anual manual) — informativo, sem CTA */}
+        {avisoRenovacao && (
+          <div
+            className="card"
+            style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4, borderColor: 'var(--caramelo)' }}
+          >
+            <Icone nome="estrela" size={16} style={{ flex: 'none', marginTop: 2, color: 'var(--caramelo)' }} />
+            <span className="apoio">{avisoRenovacao}</span>
+          </div>
+        )}
+
         {/* Selo Fundadora (quando aplicável) */}
         {fundadora && (
           <div
@@ -107,14 +128,11 @@ export function Planos() {
             a todas as suas imagens salvas.
           </span>
         </p>
-      </div>
-      <div className="cta-area">
-        <button
-          className="cta"
-          onClick={() => avisar('Assinatura em breve — a cobrança pelo Google Play chega já já')}
-        >
-          {plano === 'vitrine' ? 'Plano Vitrine ativo' : 'Assinar o Plano Vitrine · Em breve'}
-        </button>
+        <p className="apoio" style={{ textAlign: 'center', marginTop: 18, lineHeight: 1.5 }}>
+          {ilimitado
+            ? 'Seu plano está ativo. Obrigada por apoiar o Cabideia Encanto 💛'
+            : 'A assinatura do Plano Vitrine é feita fora do app. Assim que o pagamento é confirmado, seu plano é liberado aqui automaticamente.'}
+        </p>
       </div>
     </div>
   )
