@@ -13,7 +13,8 @@ export const LIMITE_GRATIS = 150
  * de imagens via RPC `total_imagens_usuaria`. Fallback robusto: sem linha em
  * `assinaturas` (ex.: conta antiga) trata como `gratis`/`ativa`.
  *
- * A escrita de plano vem do Play Billing (M-018) — o app NUNCA grava aqui.
+ * A escrita de plano vem do webhook do Mercado Pago (Edge Function
+ * `mercadopago-webhook`, service_role) — o app NUNCA grava aqui.
  */
 export function useAssinatura(usuariaId: string | undefined) {
   const [plano, setPlano] = useState<PlanoAssinatura>('gratis')

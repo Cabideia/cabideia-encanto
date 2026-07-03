@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
-import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAssinatura } from '../hooks/useAssinatura'
 
 /**
  * M-011 · Planos (Grátis × Vitrine).
  * Sem trial: a conta nasce no Grátis (150 imagens). Fundadora e Vitrine = ilimitado.
- * A cobrança real (Play Billing) entra no M-018 — aqui o botão é só um stub.
+ *
+ * Modelo web-first (Mercado Pago/Pix, fora do app): esta tela é APENAS
+ * informativa. Não há CTA de compra dentro do app empacotado na Play Store
+ * (a assinatura é vendida e paga por fora), para não configurar venda de bem
+ * digital dentro da TWA. O app só HONRA quem já assinou (lê `assinaturas`).
  */
 export function Planos() {
   const [periodo, setPeriodo] = useState<'anual' | 'mensal'>('anual')
-  const avisar = useAviso()
   const { sessao } = useSessao()
   const { plano, fundadora, total, limite, ilimitado, emExcedente } =
     useAssinatura(sessao?.user.id)
@@ -107,14 +109,11 @@ export function Planos() {
             a todas as suas imagens salvas.
           </span>
         </p>
-      </div>
-      <div className="cta-area">
-        <button
-          className="cta"
-          onClick={() => avisar('Assinatura em breve — a cobrança pelo Google Play chega já já')}
-        >
-          {plano === 'vitrine' ? 'Plano Vitrine ativo' : 'Assinar o Plano Vitrine · Em breve'}
-        </button>
+        <p className="apoio" style={{ textAlign: 'center', marginTop: 18, lineHeight: 1.5 }}>
+          {ilimitado
+            ? 'Seu plano está ativo. Obrigada por apoiar o Cabideia Encanto 💛'
+            : 'A assinatura do Plano Vitrine é feita fora do app. Assim que o pagamento é confirmado, seu plano é liberado aqui automaticamente.'}
+        </p>
       </div>
     </div>
   )
