@@ -18,7 +18,7 @@ export function ClienteDetalhe() {
   const { sessao } = useSessao()
   const avisar = useAviso()
   const { carregando, salvando, buscarPorId, atualizar, excluir } = useClientes(sessao?.user.id)
-  const { porCliente } = usePedidos(sessao?.user.id)
+  const { porCliente, pedidoDaProposta } = usePedidos(sessao?.user.id)
   const { porCliente: propostasPorCliente } = usePropostas(sessao?.user.id)
 
   const cliente = id ? buscarPorId(id) : undefined
@@ -207,29 +207,58 @@ export function ClienteDetalhe() {
                 </p>
               </div>
             ) : (
-              propostasCliente.map((p) => (
-                <div
-                  key={p.id}
-                  className="card card-toque"
-                  onClick={() => navegar(`/propostas/${p.id}`)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && navegar(`/propostas/${p.id}`)}
-                >
-                  <div className="card-linha" style={{ alignItems: 'flex-start' }}>
-                    <div className="card-info">
-                      <div className="card-nome" style={{ whiteSpace: 'normal' }}>
-                        {p.titulo || 'Proposta'}
+              propostasCliente.map((p) => {
+                const pedido = pedidoDaProposta(p.id) // M-039 · vínculo derivado, sem coluna nova
+                return (
+                  <div
+                    key={p.id}
+                    className="card card-toque"
+                    onClick={() => navegar(`/propostas/${p.id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && navegar(`/propostas/${p.id}`)}
+                  >
+                    <div className="card-linha" style={{ alignItems: 'flex-start' }}>
+                      <div className="card-info">
+                        <div className="card-nome" style={{ whiteSpace: 'normal' }}>
+                          {p.titulo || 'Proposta'}
+                        </div>
+                        <div className="apoio">
+                          {p.valor != null ? formatarReal(p.valor) : 'Valor a combinar'}
+                          {p.validade ? ` · vale até ${formatarDataNumerica(p.validade)}` : ''}
+                        </div>
                       </div>
-                      <div className="apoio">
-                        {p.valor != null ? formatarReal(p.valor) : 'Valor a combinar'}
-                        {p.validade ? ` · vale até ${formatarDataNumerica(p.validade)}` : ''}
-                      </div>
+                      <span aria-hidden>›</span>
                     </div>
-                    <span aria-hidden>›</span>
+                    {pedido && (
+                      <button
+                        type="button"
+                        className="chip entregue"
+                        style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', gap: 4, marginTop: 10 }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navegar(`/pedidos/${pedido.id}`)
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        aria-label="Virou pedido — abrir o pedido"
+                      >
+                        <Icone nome="ok" size={13} strokeWidth={3} /> Virou pedido
+                      </button>
+                    )}
+                    <button
+                      className="btn-secundario"
+                      style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navegar(pedido ? `/pedidos/${pedido.id}` : `/pedidos/novo?proposta=${p.id}`)
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Icone nome="pedidos" size={16} /> {pedido ? 'Ver pedido' : 'Virar pedido'}
+                    </button>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
 
             <button

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export type StatusPedido = 'a_fazer' | 'em_producao' | 'entregue' | 'cancelado'
+export type StatusPagamento = 'nao_pago' | 'sinal' | 'pago'
 
 export type Pedido = {
   id: string
@@ -9,11 +10,14 @@ export type Pedido = {
   cliente_nome: string | null // via join com clientes
   nome: string | null // título curto (registros antigos podem só ter tema)
   tema: string | null // "detalhes do pedido" (longo, opcional)
+  valor: number | null // M-039 · valor opcional (só exibição — sem somas/totais)
   data_entrega: string | null // 'YYYY-MM-DD'
   status: StatusPedido
+  status_pagamento: StatusPagamento
   foto_referencia_path: string | null
   inspiracao_id: string | null
   trabalho_id: string | null
+  proposta_id: string | null // M-039 · proposta que virou este pedido
   criado_em: string
 }
 
@@ -26,10 +30,12 @@ export type CamposPedido = {
   cliente_id: string | null
   nome: string // obrigatório no app
   tema: string // detalhes, opcional
+  valor: number | null // M-039 · opcional em todos os pedidos
   data_entrega: string | null
   status: StatusPedido
   foto_referencia_path: string | null
   inspiracao_id: string | null
+  proposta_id?: string | null // M-039 · só na conversão proposta → pedido
 }
 
 /** Rótulos e classes de chip por status (rótulos exatos do handoff). */
@@ -38,6 +44,13 @@ export const STATUS_INFO: Record<StatusPedido, { rotulo: string; chip: string }>
   em_producao: { rotulo: 'Em produção', chip: 'producao' },
   entregue: { rotulo: 'Entregue', chip: 'entregue' },
   cancelado: { rotulo: 'Cancelado', chip: 'cancelado' },
+}
+
+/** Rótulos do status de pagamento (enum `status_pagamento` do banco). */
+export const PAGAMENTO_INFO: Record<StatusPagamento, string> = {
+  nao_pago: 'Não pago',
+  sinal: 'Sinal pago',
+  pago: 'Pago',
 }
 
 export type JanelaEntrega = '7d' | 'mes'
@@ -51,7 +64,7 @@ function isoLocal(d: Date): string {
   return `${ano}-${mes}-${dia}`
 }
 
-/** M-002 · Pedido leve (texto livre, sem valores nem itens estruturados). */
+/** M-002 · Pedido leve (texto livre, sem itens estruturados; valor opcional só p/ exibição — M-039). */
 export function usePedidos(usuariaId: string | undefined) {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -63,7 +76,7 @@ export function usePedidos(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, cliente_id, nome, tema, data_entrega, status, foto_referencia_path, inspiracao_id, trabalho_id, criado_em, clientes(nome)'
+        'id, cliente_id, nome, tema, valor, data_entrega, status, status_pagamento, foto_referencia_path, inspiracao_id, trabalho_id, proposta_id, criado_em, clientes(nome)'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -76,11 +89,14 @@ export function usePedidos(usuariaId: string | undefined) {
         cliente_nome: (p.clientes?.nome ?? null) as string | null,
         nome: p.nome as string | null,
         tema: p.tema as string | null,
+        valor: p.valor as number | null,
         data_entrega: p.data_entrega as string | null,
         status: p.status as StatusPedido,
+        status_pagamento: p.status_pagamento as StatusPagamento,
         foto_referencia_path: p.foto_referencia_path as string | null,
         inspiracao_id: p.inspiracao_id as string | null,
         trabalho_id: p.trabalho_id as string | null,
+        proposta_id: p.proposta_id as string | null,
         criado_em: p.criado_em as string,
       }))
     )
@@ -143,6 +159,14 @@ export function usePedidos(usuariaId: string | undefined) {
     [pedidos]
   )
 
+  // ── pedidoDaProposta(propostaId): o pedido que nasceu de uma proposta
+  //    (M-039 · base do selo "Virou pedido" e do botão "Ver pedido") ──
+  const pedidoDaProposta = useCallback(
+    (propostaId: string): Pedido | undefined =>
+      pedidos.find((p) => p.proposta_id === propostaId),
+    [pedidos]
+  )
+
   // ── Sobe a foto de referência no bucket privado 'acervo' sob {uid}/referencias/ ──
   async function subirReferencia(blob: Blob): Promise<{ path: string } | { erro: string }> {
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
@@ -180,10 +204,12 @@ export function usePedidos(usuariaId: string | undefined) {
           cliente_id: campos.cliente_id,
           nome,
           tema: campos.tema.trim() || null,
+          valor: campos.valor,
           data_entrega: campos.data_entrega,
           status: campos.status,
           foto_referencia_path: campos.foto_referencia_path,
           inspiracao_id: campos.inspiracao_id,
+          proposta_id: campos.proposta_id ?? null,
         })
         .select('id')
         .single()
@@ -241,6 +267,7 @@ export function usePedidos(usuariaId: string | undefined) {
     pedidosPorMes,
     pedidosPorDia,
     porCliente,
+    pedidoDaProposta,
     subirReferencia,
     urlReferencia,
     baixarReferencia,

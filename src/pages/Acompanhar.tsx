@@ -7,6 +7,7 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useSelecoes, type Selecao } from '../hooks/useSelecoes'
 import { usePropostas } from '../hooks/usePropostas'
+import { usePedidos } from '../hooks/usePedidos'
 import { useClientes } from '../hooks/useClientes'
 import { formatarReal } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
@@ -40,6 +41,7 @@ export function Acompanhar() {
     useSelecoes(sessao?.user.id)
   const { propostas, carregando: carregandoProp, marcarResolvida: resolverProposta } =
     usePropostas(sessao?.user.id)
+  const { pedidoDaProposta } = usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
 
   const [aba, setAba] = useState<Aba>('links')
@@ -217,6 +219,7 @@ export function Acompanhar() {
             ) : (
               propostasFiltradas.map((p) => {
                 const cliente = p.cliente_id ? buscarCliente(p.cliente_id) : undefined
+                const pedido = pedidoDaProposta(p.id) // M-039 · vínculo derivado, sem coluna nova
                 return (
                   <div className="card" key={p.id}>
                     <div
@@ -240,6 +243,26 @@ export function Acompanhar() {
                       </div>
                       <span aria-hidden>›</span>
                     </div>
+                    {pedido && (
+                      <button
+                        type="button"
+                        className="chip entregue"
+                        style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', gap: 4, marginTop: 10 }}
+                        onClick={() => navegar(`/pedidos/${pedido.id}`)}
+                        aria-label="Virou pedido — abrir o pedido"
+                      >
+                        <Icone nome="ok" size={13} strokeWidth={3} /> Virou pedido
+                      </button>
+                    )}
+                    <button
+                      className="btn-secundario"
+                      style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+                      onClick={() =>
+                        navegar(pedido ? `/pedidos/${pedido.id}` : `/pedidos/novo?proposta=${p.id}`)
+                      }
+                    >
+                      <Icone nome="pedidos" size={16} /> {pedido ? 'Ver pedido' : 'Virar pedido'}
+                    </button>
                     <button
                       className="btn-secundario"
                       style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
