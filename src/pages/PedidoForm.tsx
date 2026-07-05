@@ -8,10 +8,12 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
+import { usePropostas } from '../hooks/usePropostas'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { useAssinatura } from '../hooks/useAssinatura'
-import { useCardapio, textoItemCardapio, formatarReal } from '../hooks/useCardapio'
+import { useCardapio, textoItemCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { comprimirImagem } from '../lib/imagem'
+import { supabase } from '../lib/supabase'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 
@@ -19,12 +21,18 @@ type DadosForm = {
   cliente_id: string | null
   nome: string
   tema: string
+  valor: string // texto BR ("120,00"); vazio = sem valor
   data_entrega: string
   status: StatusPedido
   inspiracao_id: string | null
 }
 
-/** M-002 · Formulário de pedido (cria em /pedidos/novo, edita em /pedidos/:id/editar). */
+/**
+ * M-002 · Formulário de pedido (cria em /pedidos/novo, edita em /pedidos/:id/editar).
+ * M-039 · Conversão proposta → pedido: /pedidos/novo?proposta=<id> pré-preenche
+ * tudo da proposta (100% editável), exige a data de entrega e, ao salvar, copia
+ * a foto para o acervo, grava proposta_id e marca a proposta como resolvida.
+ */
 export function PedidoForm() {
   const { id } = useParams()
   const edicao = !!id
@@ -40,18 +48,30 @@ export function PedidoForm() {
     carregando,
     salvando,
     buscarPorId,
+    pedidoDaProposta,
     criar,
     atualizar,
     excluir,
     subirReferencia,
     urlReferencia,
   } = usePedidos(sessao?.user.id)
+  const {
+    carregando: carregandoPropostas,
+    buscarPorId: buscarProposta,
+    marcarResolvida,
+  } = usePropostas(sessao?.user.id)
   const { podeAdicionar } = useAssinatura(sessao?.user.id)
+
+  // M-039 · modo conversão (?proposta=<id>) — só na criação.
+  const propostaId = !edicao ? searchParams.get('proposta') : null
+  const conversao = !!propostaId
+  const proposta = propostaId ? buscarProposta(propostaId) : undefined
 
   const [form, setForm] = useState<DadosForm>({
     cliente_id: null,
     nome: '',
     tema: '',
+    valor: '',
     data_entrega: '',
     status: 'a_fazer',
     inspiracao_id: null,
@@ -74,6 +94,7 @@ export function PedidoForm() {
   const caretTema = useRef<number | null>(null) // ponto de inserção da Tabela de preços
   const prefilled = useRef(false)
   const prefilledNovo = useRef(false)
+  const prefilledProposta = useRef(false)
 
   // UX-002 · Abre o atalho guardando onde está o cursor (ou o fim, se o campo
   // não estiver em foco) — assim os itens entram no ponto certo.
@@ -113,6 +134,7 @@ export function PedidoForm() {
       cliente_id: pedido.cliente_id,
       nome: pedido.nome ?? '',
       tema: pedido.tema ?? '',
+      valor: pedido.valor != null ? String(pedido.valor).replace('.', ',') : '',
       data_entrega: pedido.data_entrega ?? '',
       status: pedido.status,
       inspiracao_id: pedido.inspiracao_id,
@@ -133,6 +155,42 @@ export function PedidoForm() {
     prefilledNovo.current = true
     setForm((f) => ({ ...f, data_entrega: data }))
   }, [edicao, searchParams])
+
+  // M-039 · Conversão: pré-preenche da proposta (uma vez, quando as listas carregam).
+  // Data de entrega fica VAZIA de propósito (validade da proposta ≠ data de entrega).
+  useEffect(() => {
+    if (!conversao || !propostaId || prefilledProposta.current) return
+    if (carregando || carregandoPropostas) return
+    prefilledProposta.current = true
+    // Se a proposta já virou pedido, nunca duplica: vai direto ao pedido.
+    const existente = pedidoDaProposta(propostaId)
+    if (existente) {
+      navegar(`/pedidos/${existente.id}`, { replace: true })
+      return
+    }
+    if (!proposta) return // id inválido → segue como pedido novo em branco
+    setForm((f) => ({
+      ...f,
+      cliente_id: proposta.cliente_id,
+      nome: proposta.titulo ?? '',
+      tema: proposta.descricao ?? '',
+      valor: proposta.valor != null ? String(proposta.valor).replace('.', ',') : '',
+      data_entrega: '',
+      status: 'a_fazer',
+    }))
+    // A foto entra como "foto nova" (blob): ao salvar, sobe uma CÓPIA no acervo
+    // (arquivo novo em {uid}/referencias/ — nunca a mesma URL da proposta).
+    if (proposta.foto_path) {
+      supabase.storage
+        .from('publico')
+        .download(proposta.foto_path)
+        .then(({ data }) => {
+          if (!data) return
+          setBlobNovo(data)
+          setPreviewUrl(URL.createObjectURL(data))
+        })
+    }
+  }, [conversao, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar])
 
   // Limpa o objectURL da foto nova ao desmontar/trocar.
   useEffect(() => {
@@ -204,25 +262,43 @@ export function PedidoForm() {
       avisar('Dê um nome ao pedido.')
       return
     }
-    // Sobe a foto nova, se houver.
+    // M-039 · na conversão a data de entrega é obrigatória.
+    if (conversao && !form.data_entrega) {
+      avisar('Escolha a data de entrega.')
+      return
+    }
+    // Sobe a foto nova, se houver. Na conversão, se o limite de 150 estourar,
+    // o pedido é criado SEM a foto (a conversão nunca falha por causa dela —
+    // o gate server-side barraria o upload de qualquer forma).
     let caminhoFoto = fotoPath
+    let fotoPulada = false
     if (blobNovo) {
       if (!podeAdicionar) {
-        setLimiteAberto(true)
-        return
+        if (!conversao) {
+          setLimiteAberto(true)
+          return
+        }
+        fotoPulada = true
+      } else {
+        const up = await subirReferencia(blobNovo)
+        if ('erro' in up) {
+          if (!conversao) {
+            avisar(up.erro)
+            return
+          }
+          fotoPulada = true
+        } else {
+          caminhoFoto = up.path
+        }
       }
-      const up = await subirReferencia(blobNovo)
-      if ('erro' in up) {
-        avisar(up.erro)
-        return
-      }
-      caminhoFoto = up.path
     }
+    if (fotoPulada) caminhoFoto = null
 
     const campos: CamposPedido = {
       cliente_id: form.cliente_id,
       nome: form.nome,
       tema: form.tema,
+      valor: precoParaNumero(form.valor),
       data_entrega: form.data_entrega || null,
       status: form.status,
       foto_referencia_path: caminhoFoto,
@@ -238,12 +314,23 @@ export function PedidoForm() {
       avisar('Pedido atualizado ✓')
       navegar(`/pedidos/${id}`, { replace: true })
     } else {
+      if (conversao && propostaId) campos.proposta_id = propostaId
       const res = await criar(campos)
       if ('erro' in res) {
         avisar(res.erro)
         return
       }
-      avisar('Pedido salvo ✓')
+      if (conversao && propostaId) {
+        // Auto-arquiva a proposta na aba ativa do Acompanhar (padrão M-037).
+        await marcarResolvida(propostaId, true)
+        avisar(
+          fotoPulada
+            ? 'Pedido criado sem a foto — você chegou ao limite de 150 imagens do plano Grátis.'
+            : 'Proposta virou pedido ✓'
+        )
+      } else {
+        avisar('Pedido salvo ✓')
+      }
       navegar(`/pedidos/${res.id}`, { replace: true })
     }
   }
@@ -338,14 +425,30 @@ export function PedidoForm() {
           />
         </div>
 
-        {/* Data de entrega */}
+        {/* Valor (M-039 · Decisão #22 — só exibição, sem somas/totais) */}
         <div className="campo">
-          <label>Data de entrega (opcional)</label>
+          <label>Valor (R$) (opcional)</label>
+          <input
+            value={form.valor}
+            onChange={(e) => setForm({ ...form, valor: e.target.value })}
+            placeholder="Ex.: 120,00"
+            inputMode="decimal"
+          />
+        </div>
+
+        {/* Data de entrega (obrigatória na conversão de proposta) */}
+        <div className="campo">
+          <label>{conversao ? 'Data de entrega' : 'Data de entrega (opcional)'}</label>
           <input
             type="date"
             value={form.data_entrega}
             onChange={(e) => setForm({ ...form, data_entrega: e.target.value })}
           />
+          {conversao && !form.data_entrega && (
+            <div className="apoio" style={{ marginTop: 6 }}>
+              Escolha a data de entrega — a validade da proposta não vale como entrega.
+            </div>
+          )}
         </div>
 
         {/* Status */}
@@ -482,7 +585,7 @@ export function PedidoForm() {
             className="cta"
             style={{ flex: 2 }}
             onClick={salvar}
-            disabled={salvando || processando || !form.nome.trim()}
+            disabled={salvando || processando || !form.nome.trim() || (conversao && !form.data_entrega)}
           >
             {salvando ? 'Salvando…' : edicao ? 'Salvar' : 'Criar pedido'}
           </button>

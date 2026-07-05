@@ -7,7 +7,8 @@ import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
-import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
+import { usePedidos, STATUS_INFO, PAGAMENTO_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
+import { formatarReal } from '../hooks/useCardapio'
 import { compartilharImagens } from '../lib/compartilhar'
 import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
 
@@ -146,6 +147,12 @@ export function PedidoDetalhe() {
               {pedido.data_entrega && (
                 <div className="apoio" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Icone nome="calendario" size={14} /> {formatarDataLonga(pedido.data_entrega)} · {rotuloEntrega(pedido.data_entrega)}
+                </div>
+              )}
+              {/* M-039 · valor junto ao status de pagamento (só exibição) */}
+              {pedido.valor != null && (
+                <div className="apoio" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icone nome="precos" size={14} /> {formatarReal(pedido.valor)} · {PAGAMENTO_INFO[pedido.status_pagamento]}
                 </div>
               )}
             </div>
