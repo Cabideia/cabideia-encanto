@@ -6,25 +6,36 @@ import { useSessao } from '../hooks/useSessao'
 import { usePedidos, STATUS_INFO, PAGAMENTO_CURTO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
 
-type Filtro = 'todos' | StatusPedido
-
-const FILTROS: { chave: Filtro; rotulo: string }[] = [
-  { chave: 'todos', rotulo: 'Todos' },
+const FILTROS: { chave: StatusPedido; rotulo: string }[] = [
   { chave: 'a_fazer', rotulo: 'A fazer' },
   { chave: 'em_producao', rotulo: 'Em produção' },
   { chave: 'entregue', rotulo: 'Entregue' },
   { chave: 'cancelado', rotulo: 'Cancelado' },
 ]
 
-/** M-002 · Pedidos — lista leve com filtro por status. */
+/** M-002 · Pedidos — lista leve com filtro por status.
+ *  UX-006 · Filtro em multi-seleção: abre só com os ativos ("A fazer" +
+ *  "Em produção") ligados; Entregue/Cancelado entram por toque. O padrão é
+ *  fixo a cada abertura — sem persistência entre sessões. */
 export function Pedidos() {
   const { sessao } = useSessao()
   const navegar = useNavigate()
   const { pedidos, carregando } = usePedidos(sessao?.user.id)
 
-  const [filtro, setFiltro] = useState<Filtro>('todos')
+  const [statusLigados, setStatusLigados] = useState<Set<StatusPedido>>(
+    () => new Set<StatusPedido>(['a_fazer', 'em_producao'])
+  )
 
-  const filtrados = pedidos.filter((p) => filtro === 'todos' || p.status === filtro)
+  function alternarStatus(s: StatusPedido) {
+    setStatusLigados((prev) => {
+      const novo = new Set(prev)
+      if (novo.has(s)) novo.delete(s)
+      else novo.add(s)
+      return novo
+    })
+  }
+
+  const filtrados = pedidos.filter((p) => statusLigados.has(p.status))
 
   if (carregando) return null
 
@@ -33,24 +44,31 @@ export function Pedidos() {
       <BarraTopo titulo="Pedidos" />
       <div className="conteudo">
         <div className="filtros">
-          {FILTROS.map((f) => (
-            <button
-              key={f.chave}
-              className={`filtro${filtro === f.chave ? ' ativo' : ''}`}
-              onClick={() => setFiltro(f.chave)}
-            >
-              {f.rotulo}
-            </button>
-          ))}
+          {FILTROS.map((f) => {
+            const ligado = statusLigados.has(f.chave)
+            return (
+              <button
+                key={f.chave}
+                className={`filtro${ligado ? ' ativo' : ''}`}
+                onClick={() => alternarStatus(f.chave)}
+                aria-pressed={ligado}
+              >
+                {ligado && <Icone nome="ok" size={13} strokeWidth={3} style={{ marginRight: 4 }} />}
+                {f.rotulo}
+              </button>
+            )
+          })}
         </div>
 
         {filtrados.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="pedidos" size={44} /></div>
             <p>
-              {filtro === 'todos'
+              {pedidos.length === 0
                 ? 'Anote um pedido em segundos: cliente, tema e data. Sem burocracia.'
-                : 'Nenhum pedido com esse status.'}
+                : statusLigados.size === 0
+                  ? 'Nenhum status ligado — toque num filtro acima para ver seus pedidos.'
+                  : 'Nenhum pedido com esses status.'}
             </p>
           </div>
         ) : (
