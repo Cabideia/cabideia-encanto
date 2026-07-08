@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
+import { SeletorTag } from '../components/SeletorTag'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes } from '../hooks/useInspiracoes'
@@ -36,7 +37,6 @@ export function GuardarLoteInspiracao() {
   const pedido = pedidoId ? buscarPorId(pedidoId) : undefined
 
   const [tagTexto, setTagTexto] = useState('')
-  const [tagTocada, setTagTocada] = useState(false)
   const [nota, setNota] = useState('')
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([])
   const [arquivos, setArquivos] = useState<File[]>([])
@@ -47,12 +47,6 @@ export function GuardarLoteInspiracao() {
 
   const inputCamera = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
-
-  // A tag sugerida é o nome do pedido, já na forma das tags (minúsculas).
-  useEffect(() => {
-    if (pedido && !tagTocada && !tagTexto)
-      setTagTexto(tituloPedido(pedido).trim().toLowerCase())
-  }, [pedido, tagTocada, tagTexto])
 
   // Limpa as URLs de preview ao desmontar.
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
@@ -77,10 +71,11 @@ export function GuardarLoteInspiracao() {
     setPreviews((prev) => prev.filter((_, idx) => idx !== i))
   }
 
-  function toggleTag(tagId: string) {
-    setTagsSelecionadas((prev) =>
-      prev.includes(tagId) ? prev.filter((x) => x !== tagId) : [...prev, tagId]
-    )
+  function adicionarTag(tagId: string) {
+    setTagsSelecionadas((prev) => (prev.includes(tagId) ? prev : [...prev, tagId]))
+  }
+  function removerTag(tagId: string) {
+    setTagsSelecionadas((prev) => prev.filter((x) => x !== tagId))
   }
 
   async function aoGuardar() {
@@ -226,8 +221,8 @@ export function GuardarLoteInspiracao() {
           <label>Tag deste pedido (vale para todas)</label>
           <input
             value={tagTexto}
-            onChange={(e) => { setTagTocada(true); setTagTexto(e.target.value) }}
-            placeholder="Ex.: unicórnio"
+            onChange={(e) => setTagTexto(e.target.value)}
+            placeholder="ex.: naruto, casamento rústico"
             autoCapitalize="none"
             maxLength={40}
           />
@@ -237,23 +232,34 @@ export function GuardarLoteInspiracao() {
           </p>
         </div>
 
-        {todasTags.length > 0 && (
-          <div className="campo">
-            <label>Outras tags (opcional)</label>
-            <div className="tags-area" style={{ padding: '0 0 2px' }}>
-              {todasTags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className={`tag-chip${tagsSelecionadas.includes(tag.id) ? ' selecionada' : ''}`}
-                  onClick={() => toggleTag(tag.id)}
-                >
-                  {tagsSelecionadas.includes(tag.id) && <Icone nome="ok" size={13} strokeWidth={3} style={{ marginRight: 4 }} />}{tag.nome}
-                </button>
-              ))}
+        <div className="campo">
+          <label>Outras tags (opcional)</label>
+          {tagsSelecionadas.length > 0 && (
+            <div className="tags-area" style={{ padding: '0 0 8px' }}>
+              {tagsSelecionadas.map((tagId) => {
+                const tag = todasTags.find((t) => t.id === tagId)
+                if (!tag) return null
+                return (
+                  <button
+                    key={tagId}
+                    type="button"
+                    className="tag-chip aplicada"
+                    onClick={() => removerTag(tagId)}
+                    title="Toque para tirar esta tag"
+                  >
+                    {tag.nome} <Icone nome="fechar" size={13} />
+                  </button>
+                )
+              })}
             </div>
-          </div>
-        )}
+          )}
+          <SeletorTag
+            todasTags={todasTags}
+            selecionadas={tagsSelecionadas}
+            onSelecionar={(tag) => adicionarTag(tag.id)}
+            onCriar={criarTag}
+          />
+        </div>
 
         <div className="campo">
           <label>Nota (opcional, vale para todas)</label>
