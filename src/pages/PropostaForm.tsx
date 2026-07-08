@@ -7,6 +7,7 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
 import { usePropostas, type CamposProposta } from '../hooks/usePropostas'
+import { usePedidos } from '../hooks/usePedidos'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
 import { comprimirImagem } from '../lib/imagem'
@@ -50,9 +51,13 @@ export function PropostaForm() {
     excluir,
   } = usePropostas(sessao?.user.id)
 
+  // M-039/M-042 · o pedido que nasceu desta proposta (base do "Virar/Ver pedido").
+  const { pedidoDaProposta } = usePedidos(sessao?.user.id)
+
   const proposta = edicao && id ? buscarProposta(id) : undefined
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
   const cliente = clienteIdAtivo ? buscarCliente(clienteIdAtivo) : undefined
+  const pedidoDaEdicao = edicao && id ? pedidoDaProposta(id) : undefined
 
   // Campos editáveis
   const [titulo, setTitulo] = useState('')
@@ -332,6 +337,22 @@ export function PropostaForm() {
       />
 
       <div className="conteudo">
+        {/* M-042 · reuso do M-039: virar pedido (ou ir ao pedido já criado) */}
+        {edicao && (
+          <button
+            type="button"
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 14 }}
+            onClick={() =>
+              pedidoDaEdicao
+                ? navegar(`/pedidos/${pedidoDaEdicao.id}`)
+                : navegar(`/pedidos/novo?proposta=${id}`)
+            }
+          >
+            <Icone nome="pedidos" size={16} /> {pedidoDaEdicao ? 'Ver pedido' : 'Virar pedido'}
+          </button>
+        )}
+
         {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
         <canvas ref={canvasRef} className="proposta-previa" aria-label="Prévia da proposta" />
 
