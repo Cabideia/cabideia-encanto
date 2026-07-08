@@ -44,7 +44,8 @@ export function Acompanhar() {
   const { pedidoDaProposta } = usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
 
-  const [aba, setAba] = useState<Aba>('links')
+  // UX-008 · Propostas é a aba inicial (é onde a conversa com a cliente começa).
+  const [aba, setAba] = useState<Aba>('propostas')
   const [verResolvidos, setVerResolvidos] = useState(false)
   const [aApagar, setAApagar] = useState<Selecao | null>(null)
 
@@ -99,17 +100,17 @@ export function Acompanhar() {
         <div className="escolha">
           <button
             type="button"
-            className={`filtro${aba === 'links' ? ' ativo' : ''}`}
-            onClick={() => setAba('links')}
-          >
-            <Icone nome="link" size={15} /> Links
-          </button>
-          <button
-            type="button"
             className={`filtro${aba === 'propostas' ? ' ativo' : ''}`}
             onClick={() => setAba('propostas')}
           >
             <Icone nome="editar" size={15} /> Propostas
+          </button>
+          <button
+            type="button"
+            className={`filtro${aba === 'links' ? ' ativo' : ''}`}
+            onClick={() => setAba('links')}
+          >
+            <Icone nome="link" size={15} /> Links
           </button>
         </div>
 
