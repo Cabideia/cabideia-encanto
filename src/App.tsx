@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ToastProvider } from './components/Toast'
 import { useSessao } from './hooks/useSessao'
 import { useTema } from './hooks/useTema'
@@ -41,8 +41,21 @@ function AplicadorTema() {
 /** Rotas privadas exigem sessão; sem sessão, vão para /entrar. */
 function Privada({ children }: { children: React.ReactNode }) {
   const { sessao, carregando } = useSessao()
+  const { search } = useLocation()
   if (carregando) return null
-  if (!sessao) return <Navigate to="/entrar" replace />
+  if (!sessao) {
+    // Blindagem: se o OAuth voltar numa rota privada, leva o ?code=/?error=
+    // junto para /entrar — que conclui a troca (ou mostra o erro) em vez de
+    // descartar o retorno do Google no redirect.
+    const params = new URLSearchParams(search)
+    const oauth = new URLSearchParams()
+    for (const chave of ['code', 'error', 'error_code', 'error_description']) {
+      const valor = params.get(chave)
+      if (valor) oauth.set(chave, valor)
+    }
+    const query = oauth.toString()
+    return <Navigate to={query ? `/entrar?${query}` : '/entrar'} replace />
+  }
   return <>{children}</>
 }
 

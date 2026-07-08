@@ -24,6 +24,25 @@ export function Entrar() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
+    const erroOAuth = params.get('error')
+
+    // Provedor recusou/cancelou o login (?error=...): mostra mensagem amigável
+    // e limpa a query da barra — sem ?code= não há troca a fazer.
+    if (erroOAuth) {
+      console.error(
+        '[Cabideia Encanto] Login recusado pelo provedor:',
+        erroOAuth,
+        params.get('error_description') ?? ''
+      )
+      setErro(
+        erroOAuth === 'access_denied'
+          ? 'Login cancelado. Quando quiser, é só tentar de novo.'
+          : 'Não consegui concluir o login. Tente novamente.'
+      )
+      window.history.replaceState({}, '', window.location.origin + window.location.pathname)
+      return
+    }
+
     if (!code) return
 
     setTrocando(true)
