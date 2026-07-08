@@ -4,6 +4,7 @@ import { BarraTopo } from '../components/BarraTopo'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { SeletorTag } from '../components/SeletorTag'
+import type { Tag } from '../hooks/useAcervo'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes } from '../hooks/useInspiracoes'
@@ -36,7 +37,10 @@ export function GuardarLoteInspiracao() {
 
   const pedido = pedidoId ? buscarPorId(pedidoId) : undefined
 
-  const [tagTexto, setTagTexto] = useState('')
+  // A "tag deste pedido" (tag-ponte gravada em pedidos.tag_id) agora é escolhida
+  // pelo mesmo autocomplete das outras tags — evita variações "naruto"/"Naruto"
+  // poluírem o vocabulário. O vínculo tag_id em si não muda: é uma tag só.
+  const [tagPonte, setTagPonte] = useState<Tag | null>(null)
   const [nota, setNota] = useState('')
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([])
   const [arquivos, setArquivos] = useState<File[]>([])
@@ -87,8 +91,8 @@ export function GuardarLoteInspiracao() {
     }
     setSalvando(true)
     try {
-      // Cria/reusa a tag-ponte antes do lote (criarTag deduplica e normaliza).
-      const tagPonte = tagTexto.trim() ? await criarTag(tagTexto) : null
+      // A tag-ponte já foi criada/escolhida no autocomplete (criarTag deduplica
+      // e normaliza); aqui só a colocamos na frente das outras, sem repetir.
       const tagIds = [
         ...(tagPonte ? [tagPonte.id] : []),
         ...tagsSelecionadas.filter((t) => t !== tagPonte?.id),
@@ -219,13 +223,26 @@ export function GuardarLoteInspiracao() {
 
         <div className="campo" style={{ marginTop: 14 }}>
           <label>Tag deste pedido (vale para todas)</label>
-          <input
-            value={tagTexto}
-            onChange={(e) => setTagTexto(e.target.value)}
-            placeholder="ex.: naruto, casamento rústico"
-            autoCapitalize="none"
-            maxLength={40}
-          />
+          {tagPonte ? (
+            <div className="tags-area" style={{ padding: '0 0 2px' }}>
+              <button
+                type="button"
+                className="tag-chip aplicada"
+                onClick={() => setTagPonte(null)}
+                title="Toque para trocar a tag deste pedido"
+              >
+                {tagPonte.nome} <Icone nome="fechar" size={13} />
+              </button>
+            </div>
+          ) : (
+            <SeletorTag
+              todasTags={todasTags}
+              selecionadas={[]}
+              onSelecionar={(tag) => setTagPonte(tag)}
+              onCriar={criarTag}
+              placeholder="ex.: naruto, casamento rústico"
+            />
+          )}
           <p className="apoio" style={{ marginTop: 6 }}>
             É por essa tag que o pedido acha as inspirações depois. Pode encurtar
             (ex.: só o tema da festa).
