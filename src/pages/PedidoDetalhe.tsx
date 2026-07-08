@@ -323,6 +323,18 @@ export function PedidoDetalhe() {
           <Icone nome="mais" size={16} /> Guardar inspirações deste pedido
         </button>
 
+        {/* M-042 · referências do pedido (só no pedido avulso, sem proposta —
+            pedidos vindos de proposta recebem referências na conversão, Fase 2) */}
+        {!pedido.proposta_id && (
+          <button
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+            onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
+          >
+            <Icone nome="imagem" size={16} /> Selecionar referências
+          </button>
+        )}
+
         {/* Mudar status */}
         <div className="secao"><span className="confeito" /><h2>Status</h2></div>
         <div className="escolha">
