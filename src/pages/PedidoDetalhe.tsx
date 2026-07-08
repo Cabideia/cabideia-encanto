@@ -392,14 +392,16 @@ export function PedidoDetalhe() {
           </>
         )}
 
-        {/* Adicionar fotos a Meus Trabalhos (quando entregue) */}
-        {pedido.status === 'entregue' && (
+        {/* I7 · guardar fotos do trabalho (Meus Trabalhos) — enquanto em produção
+            E depois de entregue. Rótulo desambiguado do "Guardar inspirações
+            deste pedido" acima (fotos prontas do trabalho ≠ referências/prints). */}
+        {(pedido.status === 'em_producao' || pedido.status === 'entregue') && (
           <button
             className="btn-secundario"
             style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
             onClick={() => navegar(`/pedidos/${pedido.id}/fotos`)}
           >
-            <Icone nome="mais" size={16} /> Adicionar fotos ao pedido
+            <Icone nome="trabalhos" size={16} /> Guardar fotos do trabalho
           </button>
         )}
       </div>
