@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
-import { usePedidos, STATUS_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
+import { usePedidos, STATUS_INFO, PAGAMENTO_CURTO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
 import { rotuloEntrega } from '../lib/datas'
 
 type Filtro = 'todos' | StatusPedido
@@ -72,6 +72,8 @@ export function Pedidos() {
                       <div className="apoio">
                         {p.cliente_nome ?? 'sem cliente'}
                         {p.data_entrega ? ` · ${rotuloEntrega(p.data_entrega)}` : ''}
+                        {/* Indicador discreto de pagamento — só quando difere de "não pago" */}
+                        {p.status_pagamento !== 'nao_pago' ? ` · ${PAGAMENTO_CURTO[p.status_pagamento]}` : ''}
                       </div>
                     </div>
                     <span className={`chip ${info.chip}`}>{info.rotulo}</span>

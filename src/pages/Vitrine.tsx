@@ -159,14 +159,13 @@ export function Vitrine() {
         {temArroba && publicada && (
           <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
             <Icone nome="olho" size={15} style={{ verticalAlign: '-2px' }} /> Veja como a cliente vê:{' '}
-            <a
-              href={`https://${link}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--framboesa)', fontWeight: 700 }}
-            >
+            {/* Link interno (mesma aba): no TWA, target=_blank abria fora do app
+                e sem sessão não havia caminho de volta. A rota /@arroba é do
+                próprio router (basename /encanto), então funciona igual em
+                cabideia.com.br e no preview .pages.dev. */}
+            <Link to={`/@${perfil!.arroba}`} style={{ color: 'var(--framboesa)', fontWeight: 700 }}>
               abrir minha vitrine
-            </a>
+            </Link>
           </p>
         )}
 

@@ -53,6 +53,13 @@ export const PAGAMENTO_INFO: Record<StatusPagamento, string> = {
   pago: 'Pago',
 }
 
+/** Rótulo curto do pagamento — chips do detalhe e indicador "· Sinal"/"· Pago" da lista. */
+export const PAGAMENTO_CURTO: Record<StatusPagamento, string> = {
+  nao_pago: 'Não pago',
+  sinal: 'Sinal',
+  pago: 'Pago',
+}
+
 export type JanelaEntrega = '7d' | 'mes'
 const DIAS_JANELA: Record<JanelaEntrega, number> = { '7d': 7, mes: 30 }
 
@@ -249,6 +256,14 @@ export function usePedidos(usuariaId: string | undefined) {
     return null
   }
 
+  // ── mudarStatusPagamento() — espelho do mudarStatus para o pagamento ──
+  async function mudarStatusPagamento(id: string, status_pagamento: StatusPagamento): Promise<string | null> {
+    const { error } = await supabase.from('pedidos').update({ status_pagamento }).eq('id', id)
+    if (error) return 'Falha ao mudar o pagamento: ' + error.message
+    setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, status_pagamento } : p)))
+    return null
+  }
+
   // ── excluir() (a confirmação fica na UI) ──
   async function excluir(id: string): Promise<string | null> {
     const { error } = await supabase.from('pedidos').delete().eq('id', id)
@@ -274,6 +289,7 @@ export function usePedidos(usuariaId: string | undefined) {
     criar,
     atualizar,
     mudarStatus,
+    mudarStatusPagamento,
     excluir,
   }
 }
