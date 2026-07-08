@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { Icone } from '../components/Icone'
+import { useSessao } from '../hooks/useSessao'
 
 /**
  * M-017 · Etapa 3 — Vitrine pública (cabideia.com.br/encanto/@usuaria).
@@ -54,6 +55,7 @@ const MSG_WHATSAPP = 'Olá! Vi seus trabalhos e gostaria de um orçamento'
 export function VitrinePublica() {
   const { arroba } = useParams()
   const usuaria = (arroba ?? '').replace(/^@/, '')
+  const { sessao } = useSessao()
 
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null)
   const [fotos, setFotos] = useState<FotoPublica[]>([])
@@ -155,9 +157,25 @@ export function VitrinePublica() {
 
   const logoUrl = perfil.logo_path ? urlPublica(perfil.logo_path) : null
 
+  // Só a dona logada vê o banner de volta — para a cliente a página é 100% pública.
+  const dona = sessao?.user.id === perfil.id
+
   return (
     <div className="tela">
       <div className="conteudo" style={{ paddingTop: 16 }}>
+        {dona && (
+          <Link
+            to="/vitrine"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '10px 14px', marginBottom: 14, borderRadius: 14,
+              background: 'var(--acento-suave)', color: 'var(--acento)',
+              fontWeight: 600, fontSize: 14, textDecoration: 'none',
+            }}
+          >
+            ← Voltar · você está vendo sua vitrine como a cliente vê
+          </Link>
+        )}
         <div className="vitrine-moldura">
           <div className="babado" />
           <div className="vitrine-corpo">
