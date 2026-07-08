@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
@@ -56,6 +56,7 @@ export function VitrinePublica() {
   const { arroba } = useParams()
   const usuaria = (arroba ?? '').replace(/^@/, '')
   const { sessao } = useSessao()
+  const navigate = useNavigate()
 
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null)
   const [fotos, setFotos] = useState<FotoPublica[]>([])
@@ -160,21 +161,33 @@ export function VitrinePublica() {
   // Só a dona logada vê o banner de volta — para a cliente a página é 100% pública.
   const dona = sessao?.user.id === perfil.id
 
+  // Voltar de verdade (pop): um push para /vitrine deixava a vitrine no
+  // histórico e a seta nativa do Android voltava PARA ela (pingue-pongue).
+  // Sem histórico no app (link direto), navigate(-1) sairia do app —
+  // fallback para a home substituindo a entrada atual.
+  function voltarDoBanner() {
+    const podeVoltar = window.history.state?.idx > 0
+    if (podeVoltar) navigate(-1)
+    else navigate('/', { replace: true })
+  }
+
   return (
     <div className="tela">
       <div className="conteudo" style={{ paddingTop: 16 }}>
         {dona && (
-          <Link
-            to="/vitrine"
+          <button
+            type="button"
+            onClick={voltarDoBanner}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%', border: 'none', cursor: 'pointer',
               padding: '10px 14px', marginBottom: 14, borderRadius: 14,
               background: 'var(--acento-suave)', color: 'var(--acento)',
-              fontWeight: 600, fontSize: 14, textDecoration: 'none',
+              fontWeight: 600, fontSize: 14, fontFamily: 'inherit',
             }}
           >
             ← Voltar · você está vendo sua vitrine como a cliente vê
-          </Link>
+          </button>
         )}
         <div className="vitrine-moldura">
           <div className="babado" />
