@@ -12,7 +12,6 @@ import { usePropostas } from '../hooks/usePropostas'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { useAssinatura } from '../hooks/useAssinatura'
 import { useCardapio, textoItemCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
-import { comprimirImagem } from '../lib/imagem'
 import { supabase } from '../lib/supabase'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -54,7 +53,6 @@ export function PedidoForm() {
     atualizar,
     excluir,
     subirReferencia,
-    urlReferencia,
   } = usePedidos(sessao?.user.id)
   const {
     carregando: carregandoPropostas,
@@ -81,17 +79,18 @@ export function PedidoForm() {
   const [pickerInsp, setPickerInsp] = useState(false)
   const [pickerTabela, setPickerTabela] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
-  const [fotoPath, setFotoPath] = useState<string | null>(null) // referência já salva
-  const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // referência nova a subir
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [processando, setProcessando] = useState(false)
+  // I4 · a captura/troca/remoção da foto de referência saiu do formulário: a
+  // coluna é legado (só exibida, somente-leitura, no detalhe). fotoPath preserva
+  // o valor já salvo na edição; blobNovo só é usado pela conversão M-039, que
+  // ainda copia a foto da proposta como referência do pedido.
+  const [fotoPath, setFotoPath] = useState<string | null>(null) // referência já salva (legado)
+  const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // cópia da proposta (conversão M-039)
   const [limiteAberto, setLimiteAberto] = useState(false)
 
   // Atalho "novo cliente" — formulário completo num sheet por cima do pedido
   const [novoClienteAberto, setNovoClienteAberto] = useState(false)
   const [novoCliente, setNovoCliente] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
 
-  const inputFoto = useRef<HTMLInputElement>(null)
   const temaRef = useRef<HTMLTextAreaElement>(null)
   const caretTema = useRef<number | null>(null) // ponto de inserção da Tabela de preços
   const prefilled = useRef(false)
@@ -142,13 +141,9 @@ export function PedidoForm() {
       inspiracao_id: pedido.inspiracao_id,
       link_inspiracao: pedido.link_inspiracao ?? '',
     })
+    // Preserva a referência legada (só p/ não zerar a coluna ao salvar a edição).
     setFotoPath(pedido.foto_referencia_path)
-    if (pedido.foto_referencia_path) {
-      urlReferencia(pedido.foto_referencia_path).then((u) => {
-        if (u) setPreviewUrl(u)
-      })
-    }
-  }, [edicao, pedido, urlReferencia])
+  }, [edicao, pedido])
 
   // Criação a partir do calendário: pré-preenche a data de entrega (?data=YYYY-MM-DD).
   useEffect(() => {
@@ -188,52 +183,10 @@ export function PedidoForm() {
         .from('publico')
         .download(proposta.foto_path)
         .then(({ data }) => {
-          if (!data) return
-          setBlobNovo(data)
-          setPreviewUrl(URL.createObjectURL(data))
+          if (data) setBlobNovo(data)
         })
     }
   }, [conversao, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar])
-
-  // Limpa o objectURL da foto nova ao desmontar/trocar.
-  useEffect(() => {
-    return () => {
-      if (blobNovo && previewUrl) URL.revokeObjectURL(previewUrl)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewUrl])
-
-  // A foto de referência conta para o limite de 150 imagens do plano Grátis.
-  function abrirFoto() {
-    if (!podeAdicionar) {
-      setLimiteAberto(true)
-      return
-    }
-    inputFoto.current?.click()
-  }
-  async function aoEscolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    setProcessando(true)
-    try {
-      const { blob } = await comprimirImagem(f)
-      if (blobNovo && previewUrl) URL.revokeObjectURL(previewUrl)
-      setBlobNovo(blob)
-      setPreviewUrl(URL.createObjectURL(blob))
-    } catch (err: unknown) {
-      avisar((err as Error)?.message ?? 'Não consegui processar a foto.')
-    } finally {
-      setProcessando(false)
-    }
-  }
-
-  function removerFoto() {
-    if (blobNovo && previewUrl) URL.revokeObjectURL(previewUrl)
-    setBlobNovo(null)
-    setPreviewUrl(null)
-    setFotoPath(null)
-  }
 
   function abrirNovoCliente() {
     setNovoCliente({ nome: '', whatsapp: '', nota: '' })
@@ -472,44 +425,6 @@ export function PedidoForm() {
           </div>
         </div>
 
-        {/* Foto de referência */}
-        <div className="campo">
-          <label>Foto de referência (opcional)</label>
-          <input
-            ref={inputFoto}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={aoEscolherFoto}
-          />
-          {previewUrl ? (
-            <div className="foto-seletor" style={{ borderStyle: 'solid' }}>
-              <img src={previewUrl} alt="Referência" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }} />
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="origem-botao"
-              style={{ width: '100%' }}
-              onClick={abrirFoto}
-              disabled={processando}
-            >
-              <span className="origem-emoji"><Icone nome="imagem" size={30} /></span>
-              {processando ? 'Processando…' : 'Adicionar foto'}
-            </button>
-          )}
-          {previewUrl && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button type="button" className="btn-secundario" style={{ flex: 1 }} onClick={abrirFoto}>
-                Trocar
-              </button>
-              <button type="button" className="btn-secundario" style={{ flex: 1 }} onClick={removerFoto}>
-                Remover
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Inspiração (opcional) — escolher uma da galeria */}
         <div className="campo">
           <label>Inspiração (opcional)</label>
@@ -601,7 +516,7 @@ export function PedidoForm() {
             className="cta"
             style={{ flex: 2 }}
             onClick={salvar}
-            disabled={salvando || processando || !form.nome.trim() || (conversao && !form.data_entrega)}
+            disabled={salvando || !form.nome.trim() || (conversao && !form.data_entrega)}
           >
             {salvando ? 'Salvando…' : edicao ? 'Salvar' : 'Criar pedido'}
           </button>
