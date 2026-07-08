@@ -7,12 +7,21 @@ import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
-import { usePedidos, STATUS_INFO, PAGAMENTO_INFO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
+import {
+  usePedidos,
+  STATUS_INFO,
+  PAGAMENTO_INFO,
+  PAGAMENTO_CURTO,
+  tituloPedido,
+  type StatusPedido,
+  type StatusPagamento,
+} from '../hooks/usePedidos'
 import { formatarReal } from '../hooks/useCardapio'
 import { compartilharImagens } from '../lib/compartilhar'
 import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
+const ORDEM_PAGAMENTO: StatusPagamento[] = ['nao_pago', 'sinal', 'pago']
 
 /** M-002 · Detalhe do pedido — status, foto, cliente, excluir, "mandar ao acervo". */
 export function PedidoDetalhe() {
@@ -21,7 +30,7 @@ export function PedidoDetalhe() {
   const { sessao } = useSessao()
   const avisar = useAviso()
 
-  const { carregando, buscarPorId, mudarStatus, urlReferencia, baixarReferencia } =
+  const { carregando, buscarPorId, mudarStatus, mudarStatusPagamento, urlReferencia, baixarReferencia } =
     usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
   const { trabalhos, criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
@@ -84,6 +93,16 @@ export function PedidoDetalhe() {
     // Ao entregar, oferece levar as fotos a Meus Trabalhos (se ainda não houver).
     if (s === 'entregue' && vinculados.length === 0) setModalAcervo(true)
     else avisar('Status atualizado ✓')
+  }
+
+  async function aoMudarPagamento(s: StatusPagamento) {
+    if (s === pedido!.status_pagamento) return
+    const erro = await mudarStatusPagamento(pedido!.id, s)
+    if (erro) {
+      avisar(erro)
+      return
+    }
+    avisar('Pagamento atualizado ✓')
   }
 
   // Atalho: usar a própria foto de referência como 1 trabalho deste pedido.
@@ -263,6 +282,21 @@ export function PedidoDetalhe() {
               onClick={() => aoMudarStatus(s)}
             >
               {STATUS_INFO[s].rotulo}
+            </button>
+          ))}
+        </div>
+
+        {/* Mudar status de pagamento — sempre visível, com ou sem valor no pedido */}
+        <div className="secao"><span className="confeito" /><h2>Pagamento</h2></div>
+        <div className="escolha">
+          {ORDEM_PAGAMENTO.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`filtro${pedido.status_pagamento === s ? ' ativo' : ''}`}
+              onClick={() => aoMudarPagamento(s)}
+            >
+              {PAGAMENTO_CURTO[s]}
             </button>
           ))}
         </div>
