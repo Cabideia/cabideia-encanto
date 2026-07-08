@@ -7,6 +7,7 @@ import { useSessao } from '../hooks/useSessao'
 import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
+import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
 import {
   usePedidos,
   STATUS_INFO,
@@ -39,7 +40,8 @@ export function PedidoDetalhe() {
     usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
   const { trabalhos, criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
-  const { buscarPorId: buscarInspiracao } = useInspiracoes(sessao?.user.id)
+  const { inspiracoes, buscarPorId: buscarInspiracao } = useInspiracoes(sessao?.user.id)
+  const { referencias, remover: removerReferencia } = usePedidoReferencias(sessao?.user.id, id)
 
   const pedido = id ? buscarPorId(id) : undefined
   const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
@@ -131,6 +133,12 @@ export function PedidoDetalhe() {
     } finally {
       setEnviandoAcervo(false)
     }
+  }
+
+  // M-042 · tira uma referência do pedido (não apaga o trabalho/inspiração).
+  async function aoRemoverReferencia(refId: string) {
+    const erro = await removerReferencia(refId)
+    avisar(erro ?? 'Referência removida')
   }
 
   // M-035 · baixar/compartilhar o conjunto de fotos do pedido (Web Share).
@@ -241,6 +249,92 @@ export function PedidoDetalhe() {
           </>
         )}
 
+        {/* M-042 · Referências do pedido (trabalhos/inspirações escolhidos).
+            A seção aparece se já há referências (qualquer pedido) ou se dá pra
+            adicionar (pedido avulso). Tocar abre a origem; o × tira só a
+            referência — nunca apaga o trabalho/inspiração. */}
+        {(referencias.length > 0 || !pedido.proposta_id) && (
+          <>
+            <div className="secao"><span className="confeito" /><h2>Referências</h2></div>
+            {referencias.length > 0 && (
+              <div className="grade-fotos" style={{ alignItems: 'start' }}>
+                {referencias.map((r) => {
+                  if (r.origem === 'trabalho') {
+                    const t = trabalhos.find((x) => x.id === r.trabalho_id)
+                    if (!t) return null
+                    return (
+                      <div className="foto-item" key={r.id}>
+                        <div
+                          className="acervo-img-wrap"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navegar(`/acervo?t=${t.id}`)}
+                          onKeyDown={(e) => e.key === 'Enter' && navegar(`/acervo?t=${t.id}`)}
+                        >
+                          <img src={t.url} alt={t.descricao ?? ''} loading="lazy" />
+                          {t.codigo_num != null && (
+                            <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
+                          )}
+                          <button
+                            className="foto-remover"
+                            onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                            aria-label="Tirar esta referência do pedido"
+                          >
+                            <Icone nome="fechar" size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  const insp = inspiracoes.find((x) => x.id === r.inspiracao_id)
+                  if (!insp) return null
+                  return (
+                    <div className="foto-item" key={r.id}>
+                      <div
+                        className="acervo-img-wrap"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navegar(`/inspiracoes/${insp.id}`)}
+                        onKeyDown={(e) => e.key === 'Enter' && navegar(`/inspiracoes/${insp.id}`)}
+                      >
+                        {insp.fotoUrl ? (
+                          <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
+                        ) : (
+                          <div className="insp-link-capa">
+                            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
+                            <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
+                          </div>
+                        )}
+                        {insp.codigo_num != null && (
+                          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>I-{insp.codigo_num}</span>
+                        )}
+                        <button
+                          className="foto-remover"
+                          onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                          aria-label="Tirar esta referência do pedido"
+                        >
+                          <Icone nome="fechar" size={15} />
+                        </button>
+                      </div>
+                      {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {!pedido.proposta_id && (
+              <button
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center', marginTop: referencias.length > 0 ? 12 : 0 }}
+                onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
+              >
+                <Icone nome="imagem" size={16} />{' '}
+                {referencias.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
+              </button>
+            )}
+          </>
+        )}
+
         {/* Inspirações do pedido: anexo 1:1 (M-007), link da cliente e
             tag-ponte com a galeria (M-040) */}
         <div className="secao"><span className="confeito" /><h2>Inspirações</h2></div>
@@ -322,18 +416,6 @@ export function PedidoDetalhe() {
         >
           <Icone nome="mais" size={16} /> Guardar inspirações deste pedido
         </button>
-
-        {/* M-042 · referências do pedido (só no pedido avulso, sem proposta —
-            pedidos vindos de proposta recebem referências na conversão, Fase 2) */}
-        {!pedido.proposta_id && (
-          <button
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-            onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
-          >
-            <Icone nome="imagem" size={16} /> Selecionar referências
-          </button>
-        )}
 
         {/* Mudar status */}
         <div className="secao"><span className="confeito" /><h2>Status</h2></div>
