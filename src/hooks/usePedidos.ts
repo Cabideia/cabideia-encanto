@@ -18,6 +18,8 @@ export type Pedido = {
   inspiracao_id: string | null
   trabalho_id: string | null
   proposta_id: string | null // M-039 · proposta que virou este pedido
+  link_inspiracao: string | null // M-040 · URL de inspiração da cliente
+  tag_id: string | null // M-040 · tag-ponte p/ inspirações do pedido
   criado_em: string
 }
 
@@ -36,6 +38,8 @@ export type CamposPedido = {
   foto_referencia_path: string | null
   inspiracao_id: string | null
   proposta_id?: string | null // M-039 · só na conversão proposta → pedido
+  link_inspiracao?: string | null // M-040 · URL de inspiração da cliente
+  tag_id?: string | null // M-040 · gravado pelo lote de inspirações do pedido
 }
 
 /** Rótulos e classes de chip por status (rótulos exatos do handoff). */
@@ -83,7 +87,7 @@ export function usePedidos(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, cliente_id, nome, tema, valor, data_entrega, status, status_pagamento, foto_referencia_path, inspiracao_id, trabalho_id, proposta_id, criado_em, clientes(nome)'
+        'id, cliente_id, nome, tema, valor, data_entrega, status, status_pagamento, foto_referencia_path, inspiracao_id, trabalho_id, proposta_id, link_inspiracao, tag_id, criado_em, clientes(nome)'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -104,6 +108,8 @@ export function usePedidos(usuariaId: string | undefined) {
         inspiracao_id: p.inspiracao_id as string | null,
         trabalho_id: p.trabalho_id as string | null,
         proposta_id: p.proposta_id as string | null,
+        link_inspiracao: p.link_inspiracao as string | null,
+        tag_id: p.tag_id as string | null,
         criado_em: p.criado_em as string,
       }))
     )
@@ -217,6 +223,7 @@ export function usePedidos(usuariaId: string | undefined) {
           foto_referencia_path: campos.foto_referencia_path,
           inspiracao_id: campos.inspiracao_id,
           proposta_id: campos.proposta_id ?? null,
+          link_inspiracao: campos.link_inspiracao?.trim() || null,
         })
         .select('id')
         .single()
@@ -237,6 +244,8 @@ export function usePedidos(usuariaId: string | undefined) {
     const corpo: Record<string, unknown> = { ...patch }
     if (typeof corpo.nome === 'string') corpo.nome = corpo.nome.trim()
     if (typeof corpo.tema === 'string') corpo.tema = corpo.tema.trim() || null
+    if (typeof corpo.link_inspiracao === 'string')
+      corpo.link_inspiracao = corpo.link_inspiracao.trim() || null
     setSalvando(true)
     try {
       const { error } = await supabase.from('pedidos').update(corpo).eq('id', id)

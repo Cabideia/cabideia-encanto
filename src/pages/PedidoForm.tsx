@@ -25,6 +25,7 @@ type DadosForm = {
   data_entrega: string
   status: StatusPedido
   inspiracao_id: string | null
+  link_inspiracao: string // M-040 · URL de inspiração da cliente (texto livre)
 }
 
 /**
@@ -75,6 +76,7 @@ export function PedidoForm() {
     data_entrega: '',
     status: 'a_fazer',
     inspiracao_id: null,
+    link_inspiracao: '',
   })
   const [pickerInsp, setPickerInsp] = useState(false)
   const [pickerTabela, setPickerTabela] = useState(false)
@@ -138,6 +140,7 @@ export function PedidoForm() {
       data_entrega: pedido.data_entrega ?? '',
       status: pedido.status,
       inspiracao_id: pedido.inspiracao_id,
+      link_inspiracao: pedido.link_inspiracao ?? '',
     })
     setFotoPath(pedido.foto_referencia_path)
     if (pedido.foto_referencia_path) {
@@ -303,6 +306,7 @@ export function PedidoForm() {
       status: form.status,
       foto_referencia_path: caminhoFoto,
       inspiracao_id: form.inspiracao_id,
+      link_inspiracao: form.link_inspiracao,
     }
 
     if (edicao && id) {
@@ -554,6 +558,18 @@ export function PedidoForm() {
               </button>
             )
           })()}
+        </div>
+
+        {/* Link de inspiração da cliente (M-040) — texto livre, abre no navegador */}
+        <div className="campo">
+          <label>Link de inspiração da cliente (opcional)</label>
+          <input
+            value={form.link_inspiracao}
+            onChange={(e) => setForm({ ...form, link_inspiracao: e.target.value })}
+            placeholder="Cole o link que a cliente mandou (Pinterest, Instagram…)"
+            inputMode="url"
+            autoCapitalize="none"
+          />
         </div>
 
         {/* Excluir (só na edição) */}

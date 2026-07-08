@@ -23,6 +23,11 @@ import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 const ORDEM_PAGAMENTO: StatusPagamento[] = ['nao_pago', 'sinal', 'pago']
 
+/** URLs coladas pela cliente costumam vir sem https:// — garante o esquema. */
+function comEsquema(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`
+}
+
 /** M-002 · Detalhe do pedido — status, foto, cliente, excluir, "mandar ao acervo". */
 export function PedidoDetalhe() {
   const { id } = useParams()
@@ -121,7 +126,7 @@ export function PedidoDetalhe() {
         avisar(res.erro)
         return
       }
-      avisar('Foto adicionada a Meus Trabalhos ✓')
+      avisar('Foto adicionada ao pedido ✓')
       setModalAcervo(false)
     } finally {
       setEnviandoAcervo(false)
@@ -225,10 +230,11 @@ export function PedidoDetalhe() {
           </>
         )}
 
-        {/* Inspiração vinculada */}
+        {/* Inspirações do pedido: anexo 1:1 (M-007), link da cliente e
+            tag-ponte com a galeria (M-040) */}
+        <div className="secao"><span className="confeito" /><h2>Inspirações</h2></div>
         {inspiracao && (
           <>
-            <div className="secao"><span className="confeito" /><h2>Inspiração</h2></div>
             {inspiracao.fotoUrl ? (
               <button
                 type="button"
@@ -270,6 +276,41 @@ export function PedidoDetalhe() {
             )}
           </>
         )}
+
+        {/* Link que a cliente mandou (M-040) */}
+        {pedido.link_inspiracao && (
+          <button
+            type="button"
+            className="card card-toque card-linha"
+            style={{ width: '100%', textAlign: 'left', gap: 10 }}
+            onClick={() => window.open(comEsquema(pedido.link_inspiracao!), '_blank', 'noopener')}
+          >
+            <div className="bola" aria-hidden><Icone nome="link" size={18} /></div>
+            <div className="card-info">
+              <div className="card-nome">Link da cliente</div>
+              <div className="apoio">{dominioDe(pedido.link_inspiracao)} · toque para abrir</div>
+            </div>
+            <span aria-hidden>›</span>
+          </button>
+        )}
+
+        {/* Tag-ponte (M-040): guardar prints em lote e rever a galeria filtrada */}
+        {pedido.tag_id && (
+          <button
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 10 }}
+            onClick={() => navegar(`/inspiracoes?tag=${pedido.tag_id}`)}
+          >
+            <Icone nome="inspiracoes" size={16} /> Ver inspirações do pedido
+          </button>
+        )}
+        <button
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center' }}
+          onClick={() => navegar(`/inspiracoes/lote?pedido=${pedido.id}`)}
+        >
+          <Icone nome="mais" size={16} /> Guardar inspirações deste pedido
+        </button>
 
         {/* Mudar status */}
         <div className="secao"><span className="confeito" /><h2>Status</h2></div>
@@ -347,7 +388,7 @@ export function PedidoDetalhe() {
             style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
             onClick={() => navegar(`/pedidos/${pedido.id}/fotos`)}
           >
-            <Icone nome="mais" size={16} /> Adicionar fotos a Meus Trabalhos
+            <Icone nome="mais" size={16} /> Adicionar fotos ao pedido
           </button>
         )}
       </div>
@@ -357,9 +398,9 @@ export function PedidoDetalhe() {
         <div className="painel-overlay" onClick={() => !enviandoAcervo && setModalAcervo(false)}>
           <div className="painel" onClick={(e) => e.stopPropagation()}>
             <div className="painel-puxador" />
-            <div className="form-acervo-titulo">Adicionar a Meus Trabalhos?</div>
+            <div className="form-acervo-titulo">Guardar as fotos deste pedido?</div>
             <p className="apoio" style={{ marginBottom: 14 }}>
-              Guarde as fotos do trabalho entregue em Meus Trabalhos, na nuvem. Você decide
+              As fotos ficam no pedido e também em Meus Trabalhos, na nuvem. Você decide
               depois quais vão para a vitrine.
             </p>
 

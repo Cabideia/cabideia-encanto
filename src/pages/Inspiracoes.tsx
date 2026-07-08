@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
@@ -47,10 +47,12 @@ function Cartao({ insp, onAbrir }: { insp: Inspiracao; onAbrir: () => void }) {
 export function Inspiracoes() {
   const { sessao } = useSessao()
   const navegar = useNavigate()
+  const [searchParams] = useSearchParams()
   const { inspiracoes, todasTags, carregando } = useInspiracoes(sessao?.user.id)
 
   const [busca, setBusca] = useState('')
-  const [tagFiltro, setTagFiltro] = useState<string | null>(null)
+  // M-040 · ?tag=<id> chega pré-ligado (é o "Ver inspirações do pedido").
+  const [tagFiltro, setTagFiltro] = useState<string | null>(() => searchParams.get('tag'))
 
   const filtradas = inspiracoes.filter((i) => {
     const okTexto = !busca || i.nota?.toLowerCase().includes(busca.toLowerCase())

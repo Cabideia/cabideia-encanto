@@ -94,7 +94,7 @@ export function GuardarTrabalho() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo="Guardar trabalho" />
+      <BarraTopo titulo="Adicionar ao acervo" />
 
       <div className="conteudo">
         <input ref={inputCamera} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={aoEscolher} />

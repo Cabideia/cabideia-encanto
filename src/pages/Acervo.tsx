@@ -842,7 +842,7 @@ export function Acervo() {
       {!modoSelecao && (
         <div className="cta-area">
           <button className="cta" onClick={() => navegar('/acervo/novo')}>
-            <Icone nome="mais" /> Guardar um trabalho
+            <Icone nome="mais" /> Adicionar ao acervo
           </button>
         </div>
       )}

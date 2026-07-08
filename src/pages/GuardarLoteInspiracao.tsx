@@ -1,56 +1,58 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
-import { useAcervo } from '../hooks/useAcervo'
+import { useInspiracoes } from '../hooks/useInspiracoes'
 import { usePedidos, tituloPedido } from '../hooks/usePedidos'
 import { useAssinatura } from '../hooks/useAssinatura'
 import { comprimirImagem } from '../lib/imagem'
 
 /**
- * M-028 · Upload em LOTE das fotos de um pedido entregue.
+ * M-040 · Lote de inspirações de um PEDIDO (rota /inspiracoes/lote?pedido=<id>).
  *
- * Cada foto vira 1 registro em `trabalhos` com o mesmo `pedido_id`. Legenda e
- * tags são as MESMAS para todo o lote (a edição individual fica para depois,
- * pelo detalhe do trabalho — M-026). Compressão obrigatória em todas (M-009);
- * o recorte manual é pulado no lote (só existe no upload de 1 foto, em M-009).
+ * A ponte pedido↔inspirações é uma TAG (tabela `tags`, a mesma do acervo):
+ * a "tag deste pedido" vem sugerida do nome do pedido (editável), é criada/
+ * reusada via criarTag (que normaliza igual às tags de hoje) e, ao guardar,
+ * fica gravada em pedidos.tag_id — daí o "Ver inspirações do pedido".
  *
- * Gate do plano Grátis (150 imagens): pré-checa o saldo e, se o lote estourar,
- * sobe só até o teto e avisa — nunca falha o lote inteiro.
+ * Mesmas regras do lote de trabalhos (M-028): compressão obrigatória em todas,
+ * pré-checagem do limite de 150 (sobe só até o teto, nunca falha o lote) e
+ * captura contínua da câmera (UX-007).
  */
-export function GuardarLotePedido() {
-  const { id } = useParams()
+export function GuardarLoteInspiracao() {
+  const [searchParams] = useSearchParams()
+  const pedidoId = searchParams.get('pedido')
   const { sessao } = useSessao()
   const avisar = useAviso()
   const navegar = useNavigate()
 
-  const { todasTags, enviando, criarTrabalhoDeBlob, criarTag } = useAcervo(sessao?.user.id)
-  const { buscarPorId, carregando } = usePedidos(sessao?.user.id)
+  const { todasTags, subirImagem, criar, criarTag } = useInspiracoes(sessao?.user.id)
+  const { buscarPorId, atualizar, carregando } = usePedidos(sessao?.user.id)
   const { total, limite, ilimitado, recarregar } = useAssinatura(sessao?.user.id)
 
-  const pedido = id ? buscarPorId(id) : undefined
+  const pedido = pedidoId ? buscarPorId(pedidoId) : undefined
 
-  const [descricao, setDescricao] = useState('')
-  const [legendaTocada, setLegendaTocada] = useState(false)
+  const [tagTexto, setTagTexto] = useState('')
+  const [tagTocada, setTagTocada] = useState(false)
+  const [nota, setNota] = useState('')
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([])
-  const [novaTagTexto, setNovaTagTexto] = useState('')
   const [arquivos, setArquivos] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+  const [salvando, setSalvando] = useState(false)
   const [limiteAberto, setLimiteAberto] = useState(false)
-  // UX-007 · Captura contínua: depois da 1ª foto de câmera, um sheet oferece
-  // "Nova foto" (tira e continua) e "Concluir" (volta ao lote com tudo anexado).
   const [capturaContinua, setCapturaContinua] = useState(false)
 
   const inputCamera = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
 
-  // Legenda começa com o nome curto do pedido (a dona pode trocar).
+  // A tag sugerida é o nome do pedido, já na forma das tags (minúsculas).
   useEffect(() => {
-    if (pedido && !legendaTocada && !descricao) setDescricao(tituloPedido(pedido))
-  }, [pedido, legendaTocada, descricao])
+    if (pedido && !tagTocada && !tagTexto)
+      setTagTexto(tituloPedido(pedido).trim().toLowerCase())
+  }, [pedido, tagTocada, tagTexto])
 
   // Limpa as URLs de preview ao desmontar.
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
@@ -80,68 +82,104 @@ export function GuardarLotePedido() {
       prev.includes(tagId) ? prev.filter((x) => x !== tagId) : [...prev, tagId]
     )
   }
-  async function aoAdicionarNovaTag() {
-    if (!novaTagTexto.trim()) return
-    const tag = await criarTag(novaTagTexto)
-    if (tag && !tagsSelecionadas.includes(tag.id))
-      setTagsSelecionadas((prev) => [...prev, tag.id])
-    setNovaTagTexto('')
-  }
 
   async function aoGuardar() {
+    if (!pedidoId) return
     if (arquivos.length === 0) return avisar('Escolha ao menos uma foto.')
     if (restante <= 0) {
       setLimiteAberto(true)
       return
     }
+    setSalvando(true)
+    try {
+      // Cria/reusa a tag-ponte antes do lote (criarTag deduplica e normaliza).
+      const tagPonte = tagTexto.trim() ? await criarTag(tagTexto) : null
+      const tagIds = [
+        ...(tagPonte ? [tagPonte.id] : []),
+        ...tagsSelecionadas.filter((t) => t !== tagPonte?.id),
+      ]
 
-    // Pré-checa o saldo: sobe só até o teto do plano (não falha o lote inteiro).
-    const aSubir = ilimitado ? arquivos : arquivos.slice(0, restante)
-    const sobraram = arquivos.length - aSubir.length
+      // Pré-checa o saldo: sobe só até o teto do plano (não falha o lote inteiro).
+      const aSubir = ilimitado ? arquivos : arquivos.slice(0, restante)
+      const sobraram = arquivos.length - aSubir.length
 
-    let ok = 0
-    let falhas = 0
-    for (const arq of aSubir) {
-      try {
-        const { blob } = await comprimirImagem(arq)
-        const res = await criarTrabalhoDeBlob(blob, descricao, tagsSelecionadas, id)
-        if ('erro' in res) falhas++
-        else ok++
-      } catch {
-        falhas++
+      let ok = 0
+      let falhas = 0
+      for (const arq of aSubir) {
+        try {
+          const { blob } = await comprimirImagem(arq)
+          const up = await subirImagem(blob)
+          if ('erro' in up) {
+            falhas++
+            continue
+          }
+          const res = await criar({
+            tipo: 'imagem',
+            foto_path: up.path,
+            url: null,
+            nota: nota.trim() || null,
+            tagIds,
+          })
+          if ('erro' in res) falhas++
+          else ok++
+        } catch {
+          falhas++
+        }
       }
-    }
 
-    await recarregar()
+      await recarregar()
 
-    if (ok > 0 && sobraram > 0) {
-      avisar(
-        `Subi ${ok} foto${ok !== 1 ? 's' : ''}. As outras ${sobraram} passaram do limite de ${limite} imagens do plano Grátis.`
-      )
-    } else if (ok > 0 && falhas > 0) {
-      avisar(`Subi ${ok} foto${ok !== 1 ? 's' : ''}; ${falhas} falharam.`)
-    } else if (ok > 0) {
-      avisar(`${ok} foto${ok !== 1 ? 's' : ''} guardada${ok !== 1 ? 's' : ''} ✓`)
-    } else {
-      avisar('Não consegui guardar as fotos. Tente de novo.')
-      return
+      if (ok === 0) {
+        avisar('Não consegui guardar as inspirações. Tente de novo.')
+        return
+      }
+
+      // Grava a ponte no pedido — é ela que liga "Ver inspirações do pedido".
+      if (tagPonte) await atualizar(pedidoId, { tag_id: tagPonte.id })
+
+      if (sobraram > 0) {
+        avisar(
+          `Guardei ${ok} inspiraç${ok !== 1 ? 'ões' : 'ão'}. As outras ${sobraram} passaram do limite de ${limite} imagens do plano Grátis.`
+        )
+      } else if (falhas > 0) {
+        avisar(`Guardei ${ok} inspiraç${ok !== 1 ? 'ões' : 'ão'}; ${falhas} falharam.`)
+      } else {
+        avisar(`${ok} inspiraç${ok !== 1 ? 'ões guardadas' : 'ão guardada'} ✓`)
+      }
+      navegar(`/pedidos/${pedidoId}`, { replace: true })
+    } finally {
+      setSalvando(false)
     }
-    navegar(`/pedidos/${id}`, { replace: true })
   }
 
   if (carregando) return null
 
+  if (!pedidoId || !pedido) {
+    return (
+      <div className="tela">
+        <BarraTopo titulo="Inspirações do pedido" />
+        <div className="conteudo">
+          <div className="vazio" style={{ marginTop: 16 }}>
+            <div className="icone"><Icone nome="busca" size={44} /></div>
+            <p>Este pedido não foi encontrado.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="tela">
-      <BarraTopo titulo="Fotos do pedido" />
+      <BarraTopo titulo="Inspirações do pedido" />
 
       <div className="conteudo">
         <input ref={inputCamera} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={adicionarDaCamera} />
         <input ref={inputGaleria} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: 'none' }} onChange={adicionarArquivos} />
 
         <p className="apoio" style={{ marginBottom: 12 }}>
-          Cada foto vira um trabalho ligado a este pedido. A legenda e as tags
-          valem para todas — depois você ajusta cada uma no detalhe.
+          Guarde prints e fotos de referência de “{tituloPedido(pedido)}”. Todas
+          entram na galeria de Inspirações com a tag do pedido — para achar em
+          segundos quando precisar.
         </p>
 
         <div className="seletor-origem">
@@ -185,19 +223,24 @@ export function GuardarLotePedido() {
         )}
 
         <div className="campo" style={{ marginTop: 14 }}>
-          <label>Legenda (vale para todas)</label>
+          <label>Tag deste pedido (vale para todas)</label>
           <input
-            value={descricao}
-            onChange={(e) => { setLegendaTocada(true); setDescricao(e.target.value) }}
-            placeholder="Ex.: Bolo de casamento 3 andares"
-            maxLength={80}
+            value={tagTexto}
+            onChange={(e) => { setTagTocada(true); setTagTexto(e.target.value) }}
+            placeholder="Ex.: unicórnio"
+            autoCapitalize="none"
+            maxLength={40}
           />
+          <p className="apoio" style={{ marginTop: 6 }}>
+            É por essa tag que o pedido acha as inspirações depois. Pode encurtar
+            (ex.: só o tema da festa).
+          </p>
         </div>
 
-        <div className="campo">
-          <label>Tags (valem para todas)</label>
-          {todasTags.length > 0 && (
-            <div className="tags-area" style={{ marginBottom: 8, padding: '0 0 2px' }}>
+        {todasTags.length > 0 && (
+          <div className="campo">
+            <label>Outras tags (opcional)</label>
+            <div className="tags-area" style={{ padding: '0 0 2px' }}>
               {todasTags.map((tag) => (
                 <button
                   key={tag.id}
@@ -209,28 +252,17 @@ export function GuardarLotePedido() {
                 </button>
               ))}
             </div>
-          )}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              value={novaTagTexto}
-              onChange={(e) => setNovaTagTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault()
-                  aoAdicionarNovaTag()
-                }
-              }}
-              placeholder="Nova tag… Enter para criar"
-              style={{ flex: 1, minHeight: 44, padding: '10px 14px', border: '1px solid var(--linha)', borderRadius: 12, font: 'inherit', fontSize: 'var(--t-base)', outline: 'none', background: 'var(--acucar)', color: 'var(--cacau)' }}
-            />
-            <button
-              type="button"
-              onClick={aoAdicionarNovaTag}
-              style={{ height: 44, padding: '0 16px', border: '1px solid var(--linha)', borderRadius: 12, background: 'var(--pistache-suave)', color: 'var(--pistache)', fontWeight: 700, cursor: 'pointer', fontSize: 18 }}
-            >
-              ＋
-            </button>
           </div>
+        )}
+
+        <div className="campo">
+          <label>Nota (opcional, vale para todas)</label>
+          <input
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="Ex.: referências que a cliente mandou"
+            maxLength={80}
+          />
         </div>
       </div>
 
@@ -239,21 +271,21 @@ export function GuardarLotePedido() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
-            onClick={() => navegar(`/pedidos/${id}`)}
+            onClick={() => navegar(`/pedidos/${pedidoId}`)}
             className="btn-secundario"
             style={{ flex: 1 }}
-            disabled={enviando}
+            disabled={salvando}
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={aoGuardar}
-            disabled={enviando || arquivos.length === 0}
+            disabled={salvando || arquivos.length === 0}
             className="cta"
             style={{ flex: 2 }}
           >
-            {enviando ? 'Enviando…' : `Guardar ${arquivos.length || ''}`.trim()}
+            {salvando ? 'Enviando…' : `Guardar ${arquivos.length || ''}`.trim()}
           </button>
         </div>
       </div>
