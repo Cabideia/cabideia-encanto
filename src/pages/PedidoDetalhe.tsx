@@ -218,6 +218,17 @@ export function PedidoDetalhe() {
           </div>
         )}
 
+        {/* M-042 · atalho para a proposta que originou este pedido (M-039) */}
+        {pedido.proposta_id && (
+          <button
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => navegar(`/propostas/${pedido.proposta_id}`)}
+          >
+            <Icone nome="precos" size={16} /> Ver proposta
+          </button>
+        )}
+
         {/* Foto de referência */}
         {fotoUrl && (
           <>
