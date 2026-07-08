@@ -121,7 +121,7 @@ export function PedidoDetalhe() {
         avisar(res.erro)
         return
       }
-      avisar('Foto adicionada a Meus Trabalhos ✓')
+      avisar('Foto adicionada ao pedido ✓')
       setModalAcervo(false)
     } finally {
       setEnviandoAcervo(false)
@@ -347,7 +347,7 @@ export function PedidoDetalhe() {
             style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
             onClick={() => navegar(`/pedidos/${pedido.id}/fotos`)}
           >
-            <Icone nome="mais" size={16} /> Adicionar fotos a Meus Trabalhos
+            <Icone nome="mais" size={16} /> Adicionar fotos ao pedido
           </button>
         )}
       </div>
@@ -357,9 +357,9 @@ export function PedidoDetalhe() {
         <div className="painel-overlay" onClick={() => !enviandoAcervo && setModalAcervo(false)}>
           <div className="painel" onClick={(e) => e.stopPropagation()}>
             <div className="painel-puxador" />
-            <div className="form-acervo-titulo">Adicionar a Meus Trabalhos?</div>
+            <div className="form-acervo-titulo">Guardar as fotos deste pedido?</div>
             <p className="apoio" style={{ marginBottom: 14 }}>
-              Guarde as fotos do trabalho entregue em Meus Trabalhos, na nuvem. Você decide
+              As fotos ficam no pedido e também em Meus Trabalhos, na nuvem. Você decide
               depois quais vão para a vitrine.
             </p>
 

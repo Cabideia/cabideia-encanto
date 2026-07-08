@@ -40,6 +40,9 @@ export function GuardarLotePedido() {
   const [arquivos, setArquivos] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [limiteAberto, setLimiteAberto] = useState(false)
+  // UX-007 · Captura contínua: depois da 1ª foto de câmera, um sheet oferece
+  // "Nova foto" (tira e continua) e "Concluir" (volta ao lote com tudo anexado).
+  const [capturaContinua, setCapturaContinua] = useState(false)
 
   const inputCamera = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
@@ -60,6 +63,11 @@ export function GuardarLotePedido() {
     if (novos.length === 0) return
     setArquivos((prev) => [...prev, ...novos])
     setPreviews((prev) => [...prev, ...novos.map((f) => URL.createObjectURL(f))])
+  }
+  function adicionarDaCamera(e: React.ChangeEvent<HTMLInputElement>) {
+    const veioFoto = (e.target.files?.length ?? 0) > 0
+    adicionarArquivos(e)
+    if (veioFoto) setCapturaContinua(true)
   }
   function removerArquivo(i: number) {
     URL.revokeObjectURL(previews[i])
@@ -128,7 +136,7 @@ export function GuardarLotePedido() {
       <BarraTopo titulo="Fotos do pedido" />
 
       <div className="conteudo">
-        <input ref={inputCamera} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={adicionarArquivos} />
+        <input ref={inputCamera} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={adicionarDaCamera} />
         <input ref={inputGaleria} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: 'none' }} onChange={adicionarArquivos} />
 
         <p className="apoio" style={{ marginBottom: 12 }}>
@@ -249,6 +257,35 @@ export function GuardarLotePedido() {
           </button>
         </div>
       </div>
+
+      {/* Sheet da captura contínua (UX-007): tirar várias sem sair do fluxo */}
+      {capturaContinua && (
+        <div className="painel-overlay" onClick={() => setCapturaContinua(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <div className="form-acervo-titulo">
+              {arquivos.length} foto{arquivos.length !== 1 ? 's' : ''} no lote ✓
+            </div>
+            <p className="apoio" style={{ marginBottom: 14 }}>
+              Tire quantas quiser em sequência. Ao concluir, você revisa tudo antes de guardar.
+            </p>
+            <button
+              className="cta"
+              style={{ marginBottom: 10 }}
+              onClick={() => inputCamera.current?.click()}
+            >
+              <Icone nome="camera" size={16} /> Nova foto
+            </button>
+            <button
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={() => setCapturaContinua(false)}
+            >
+              <Icone nome="ok" size={16} /> Concluir
+            </button>
+          </div>
+        </div>
+      )}
 
       {limiteAberto && <LimiteModal onFechar={() => setLimiteAberto(false)} />}
     </div>
