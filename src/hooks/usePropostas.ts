@@ -9,6 +9,9 @@ import { supabase } from '../lib/supabase'
  * bucket público — NÃO é um trabalho (não conta no limite de 150 imagens).
  * O cartão (PNG) é montado no cliente a partir desses campos.
  */
+/** M-042 F2a I3 · qual dos 3 modos de preço a proposta exibe. */
+export type ModoPreco = 'fechado' | 'itens' | 'sem'
+
 export type Proposta = {
   id: string
   cliente_id: string | null
@@ -18,6 +21,8 @@ export type Proposta = {
   validade: string | null // 'YYYY-MM-DD'
   foto_path: string | null // bucket 'publico'
   resolvida: boolean // M-037: arquivada em "Acompanhar" (reversível)
+  modo_preco: ModoPreco | null // I3: null = proposta antiga (app infere 'fechado')
+  condicoes: string | null // I4: condições daquela proposta (texto livre)
   criado_em: string
 }
 
@@ -27,9 +32,12 @@ export type CamposProposta = {
   valor: number | null
   validade: string | null
   foto_path: string | null
+  modo_preco: ModoPreco
+  condicoes: string | null
 }
 
-const COLUNAS = 'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, criado_em'
+const COLUNAS =
+  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, criado_em'
 
 export function usePropostas(usuariaId: string | undefined) {
   const [propostas, setPropostas] = useState<Proposta[]>([])
@@ -89,6 +97,8 @@ export function usePropostas(usuariaId: string | undefined) {
           valor: campos.valor,
           validade: campos.validade,
           foto_path: campos.foto_path,
+          modo_preco: campos.modo_preco,
+          condicoes: campos.condicoes,
         })
         .select(COLUNAS)
         .single()
@@ -118,6 +128,8 @@ export function usePropostas(usuariaId: string | undefined) {
           valor: campos.valor,
           validade: campos.validade,
           foto_path: campos.foto_path,
+          modo_preco: campos.modo_preco,
+          condicoes: campos.condicoes,
         })
         .eq('id', id)
         .select(COLUNAS)

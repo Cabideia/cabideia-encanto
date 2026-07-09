@@ -6,8 +6,12 @@ import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
-import { usePropostas, type CamposProposta } from '../hooks/usePropostas'
+import { usePropostas, type CamposProposta, type ModoPreco } from '../hooks/usePropostas'
 import { usePedidos } from '../hooks/usePedidos'
+import { useAcervo } from '../hooks/useAcervo'
+import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
+import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
+import { usePropostaItens } from '../hooks/usePropostaItens'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
 import { comprimirImagem } from '../lib/imagem'
@@ -54,6 +58,16 @@ export function PropostaForm() {
   // M-039/M-042 · o pedido que nasceu desta proposta (base do "Virar/Ver pedido").
   const { pedidoDaProposta } = usePedidos(sessao?.user.id)
 
+  // M-042 F2a · Fotos de referência multi-origem (proposta_referencias). O hook é
+  // enxuto (só ids + ordem); aqui cruzamos com trabalhos/inspirações p/ as imagens.
+  const { trabalhos } = useAcervo(sessao?.user.id)
+  const { inspiracoes } = useInspiracoes(sessao?.user.id)
+  const { referencias, remover: removerReferencia } = usePropostaReferencias(sessao?.user.id, id)
+
+  // M-042 F2a I3 · itens do cardápio ofertados (snapshot). Gerenciados ao vivo,
+  // como as referências — não passam pelo salvar() do form.
+  const { itens: itensProposta, remover: removerItem } = usePropostaItens(sessao?.user.id, id)
+
   const proposta = edicao && id ? buscarProposta(id) : undefined
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
   const cliente = clienteIdAtivo ? buscarCliente(clienteIdAtivo) : undefined
@@ -64,6 +78,10 @@ export function PropostaForm() {
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
+  const [modoPreco, setModoPreco] = useState<ModoPreco>('fechado') // I3
+  const [condicoes, setCondicoes] = useState('') // I4
+  const [condicoesPadrao, setCondicoesPadrao] = useState<string | null>(null)
+  const [salvandoPadrao, setSalvandoPadrao] = useState(false)
 
   // Foto: caminho já salvo + blob novo a subir (compressão no cliente).
   const [fotoPath, setFotoPath] = useState<string | null>(null)
@@ -97,19 +115,23 @@ export function PropostaForm() {
     perfilCarregado.current = true
     supabase
       .from('perfis')
-      .select('nome_negocio, logo_path')
+      .select('nome_negocio, logo_path, condicoes_padrao')
       .eq('id', sessao.user.id)
       .maybeSingle()
       .then(async ({ data }) => {
         if (!data) return
         setNomeNegocio(data.nome_negocio ?? '')
+        setCondicoesPadrao(data.condicoes_padrao ?? null)
+        // I4: nova proposta NASCE com o padrão do perfil (só se ainda vazia).
+        if (!edicao && data.condicoes_padrao)
+          setCondicoes((atual) => atual || data.condicoes_padrao)
         if (data.logo_path) {
           const { data: arquivo } = await supabase.storage.from('publico').download(data.logo_path)
           const bmp = await bitmapDeBlob(arquivo ?? null)
           if (bmp) setLogoBitmap(bmp)
         }
       })
-  }, [sessao])
+  }, [sessao, edicao])
 
   // Pré-preenche no modo edição (uma vez, quando a proposta carrega).
   useEffect(() => {
@@ -119,6 +141,10 @@ export function PropostaForm() {
     setDescricao(proposta.descricao ?? '')
     setValor(proposta.valor != null ? String(proposta.valor).replace('.', ',') : '')
     setValidade(proposta.validade ?? '')
+    // Propostas antigas (modo_preco null) caem em 'fechado' — mesma exibição de antes.
+    setModoPreco(proposta.modo_preco ?? 'fechado')
+    // I4: na edição, mostra só o que foi salvo (proposta antiga sem condições fica vazia).
+    setCondicoes(proposta.condicoes ?? '')
     setFotoPath(proposta.foto_path)
     if (proposta.foto_path) {
       supabase.storage
@@ -130,7 +156,10 @@ export function PropostaForm() {
   }, [edicao, proposta])
 
   const valorNum = precoParaNumero(valor)
-  const valorTexto = valorNum != null ? formatarReal(valorNum) : 'A combinar'
+  // No cartão, só o modo "valor fechado" mostra o número; itens/sem-preço mostram
+  // "A combinar" (o detalhamento de itens no cartão/página é F2b).
+  const valorTexto =
+    modoPreco === 'fechado' && valorNum != null ? formatarReal(valorNum) : 'A combinar'
   const validadeTexto = validade ? `Válido até ${formatarDataNumerica(validade)}` : ''
 
   // Redesenha o cartão sempre que algo muda (e quando as fontes carregam).
@@ -175,7 +204,35 @@ export function PropostaForm() {
   }
 
   function campos(caminhoFoto: string | null): CamposProposta {
-    return { titulo, descricao, valor: valorNum, validade: validade || null, foto_path: caminhoFoto }
+    // Decisão A do I3: guardamos o valor digitado independentemente do modo —
+    // alternar não apaga dado; `modo_preco` só decide o que exibir.
+    return {
+      titulo,
+      descricao,
+      valor: valorNum,
+      validade: validade || null,
+      foto_path: caminhoFoto,
+      modo_preco: modoPreco,
+      condicoes: condicoes.trim() || null,
+    }
+  }
+
+  // I4 · Grava as condições atuais como padrão do perfil (vale p/ próximas propostas).
+  async function salvarComoPadrao() {
+    if (!sessao || !condicoes.trim()) return
+    setSalvandoPadrao(true)
+    const texto = condicoes.trim()
+    const { error } = await supabase
+      .from('perfis')
+      .update({ condicoes_padrao: texto })
+      .eq('id', sessao.user.id)
+    setSalvandoPadrao(false)
+    if (error) {
+      avisar('Não consegui salvar o padrão. Tente de novo.')
+      return
+    }
+    setCondicoesPadrao(texto)
+    avisar('Condições salvas como padrão ✓')
   }
 
   /** Garante que a foto nova (se houver) esteja no storage; devolve o caminho. */
@@ -294,6 +351,18 @@ export function PropostaForm() {
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagemWhats())}`, '_blank', 'noopener')
   }
 
+  // Tira só a referência da proposta — nunca apaga o trabalho/inspiração.
+  async function aoRemoverReferencia(refId: string) {
+    const erro = await removerReferencia(refId)
+    if (erro) avisar(erro)
+  }
+
+  // Tira o item da proposta (não mexe no cardápio).
+  async function aoRemoverItem(itemId: string) {
+    const erro = await removerItem(itemId)
+    if (erro) avisar(erro)
+  }
+
   async function confirmarExcluir() {
     if (!proposta) return
     const erro = await excluir(proposta)
@@ -353,6 +422,100 @@ export function PropostaForm() {
           </button>
         )}
 
+        {/* M-042 F2a · Fotos de referência (proposta_referencias). Só na edição:
+            a proposta precisa existir (FK) antes de anexar. Tocar abre a origem;
+            o × tira só a referência — nunca apaga o trabalho/inspiração. */}
+        {edicao && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
+            {referencias.length > 0 && (
+              <div className="grade-fotos" style={{ alignItems: 'start', marginBottom: 12 }}>
+                {referencias.map((r) => {
+                  if (r.origem === 'trabalho') {
+                    const t = trabalhos.find((x) => x.id === r.trabalho_id)
+                    if (!t) return null
+                    return (
+                      <div className="foto-item" key={r.id}>
+                        <div
+                          className="acervo-img-wrap"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navegar(`/acervo?t=${t.id}`)}
+                          onKeyDown={(e) => e.key === 'Enter' && navegar(`/acervo?t=${t.id}`)}
+                        >
+                          <img src={t.url} alt={t.descricao ?? ''} loading="lazy" />
+                          {t.codigo_num != null && (
+                            <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
+                          )}
+                          <button
+                            className="foto-remover"
+                            onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                            aria-label="Tirar esta foto da proposta"
+                          >
+                            <Icone nome="fechar" size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  const insp = inspiracoes.find((x) => x.id === r.inspiracao_id)
+                  if (!insp) return null
+                  return (
+                    <div className="foto-item" key={r.id}>
+                      <div
+                        className="acervo-img-wrap"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navegar(`/inspiracoes/${insp.id}`)}
+                        onKeyDown={(e) => e.key === 'Enter' && navegar(`/inspiracoes/${insp.id}`)}
+                      >
+                        {insp.fotoUrl ? (
+                          <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
+                        ) : (
+                          <div className="insp-link-capa">
+                            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
+                            <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
+                          </div>
+                        )}
+                        {insp.codigo_num != null && (
+                          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>I-{insp.codigo_num}</span>
+                        )}
+                        <button
+                          className="foto-remover"
+                          onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                          aria-label="Tirar esta foto da proposta"
+                        >
+                          <Icone nome="fechar" size={15} />
+                        </button>
+                      </div>
+                      {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={() => navegar(`/propostas/${id}/referencias`)}
+            >
+              <Icone nome="imagem" size={16} />{' '}
+              {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
+            </button>
+            {/* M-042 F2a I2 · lote do M-040 no modo proposta: sobe novas inspirações
+                e elas voltam já anexadas em proposta_referencias. */}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+              onClick={() => navegar(`/inspiracoes/lote?proposta=${id}`)}
+            >
+              <Icone nome="camera" size={16} /> Incluir novas inspirações
+            </button>
+          </div>
+        )}
+
         {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
         <canvas ref={canvasRef} className="proposta-previa" aria-label="Prévia da proposta" />
 
@@ -396,24 +559,131 @@ export function PropostaForm() {
           />
         </div>
 
-        {/* Valor */}
+        {/* Preço em 3 modos (I3) — exclusivos na exibição; alternar não apaga dado. */}
         <div className="campo">
-          <label>Valor (R$)</label>
-          <input
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            placeholder="Ex.: 120,00"
-            inputMode="decimal"
-          />
-          <div className="apoio" style={{ marginTop: 6 }}>
-            No cartão: <b>{valorTexto}</b>
+          <label>Preço</label>
+          <div className="escolha" style={{ marginTop: 2 }}>
+            <button
+              type="button"
+              className={`filtro${modoPreco === 'fechado' ? ' ativo' : ''}`}
+              onClick={() => setModoPreco('fechado')}
+            >
+              Valor fechado
+            </button>
+            <button
+              type="button"
+              className={`filtro${modoPreco === 'itens' ? ' ativo' : ''}`}
+              onClick={() => setModoPreco('itens')}
+            >
+              Itens da tabela
+            </button>
+            <button
+              type="button"
+              className={`filtro${modoPreco === 'sem' ? ' ativo' : ''}`}
+              onClick={() => setModoPreco('sem')}
+            >
+              Sem preço
+            </button>
           </div>
         </div>
+
+        {modoPreco === 'fechado' && (
+          <div className="campo">
+            <label>Valor (R$)</label>
+            <input
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="Ex.: 120,00"
+              inputMode="decimal"
+            />
+            <div className="apoio" style={{ marginTop: 6 }}>
+              No cartão: <b>{valorTexto}</b>
+            </div>
+          </div>
+        )}
+
+        {modoPreco === 'itens' && (
+          <div className="campo">
+            <label>Itens da tabela</label>
+            {itensProposta.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {itensProposta.map((it) => (
+                  <div
+                    key={it.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 12px',
+                      border: '1px solid var(--linha)',
+                      borderRadius: 12,
+                      marginBottom: 8,
+                      background: 'var(--acucar)',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{it.nome_snapshot}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
+                      {it.preco_snapshot != null ? formatarReal(it.preco_snapshot) : 'sem preço'}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-icone"
+                      onClick={() => aoRemoverItem(it.id)}
+                      aria-label="Tirar este item da proposta"
+                    >
+                      <Icone nome="fechar" size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {edicao ? (
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => navegar(`/propostas/${id}/itens`)}
+              >
+                <Icone nome="precos" size={16} />{' '}
+                {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
+              </button>
+            ) : (
+              <p className="apoio">Salve a proposta para escolher os itens da tabela.</p>
+            )}
+          </div>
+        )}
+
+        {modoPreco === 'sem' && (
+          <p className="apoio" style={{ marginBottom: 4 }}>
+            Sem valor — a proposta mostra só o portfólio e o cardápio.
+          </p>
+        )}
 
         {/* Validade */}
         <div className="campo">
           <label>Validade (opcional)</label>
           <input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} />
+        </div>
+
+        {/* Condições (I4) — nasce do padrão do perfil; pode virar o novo padrão. */}
+        <div className="campo">
+          <label>Condições (opcional)</label>
+          <textarea
+            value={condicoes}
+            onChange={(e) => setCondicoes(e.target.value)}
+            placeholder="Ex.: 50% de entrada, 7 dias úteis de antecedência, Pix ou dinheiro"
+            maxLength={300}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+            <button
+              type="button"
+              className="tag-criar"
+              onClick={salvarComoPadrao}
+              disabled={salvandoPadrao || !condicoes.trim() || condicoes.trim() === (condicoesPadrao ?? '')}
+            >
+              {salvandoPadrao ? 'Salvando…' : 'Salvar como padrão'}
+            </button>
+          </div>
         </div>
 
         {/* Compartilhar / baixar (secundários) */}
