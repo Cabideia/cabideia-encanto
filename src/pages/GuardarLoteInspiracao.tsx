@@ -9,16 +9,24 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes } from '../hooks/useInspiracoes'
 import { usePedidos, tituloPedido } from '../hooks/usePedidos'
+import { usePropostas } from '../hooks/usePropostas'
+import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
 import { useAssinatura } from '../hooks/useAssinatura'
 import { comprimirImagem } from '../lib/imagem'
 
 /**
  * M-040 · Lote de inspirações de um PEDIDO (rota /inspiracoes/lote?pedido=<id>).
+ * M-042 F2a · Também serve a PROPOSTA (rota /inspiracoes/lote?proposta=<id>).
  *
- * A ponte pedido↔inspirações é uma TAG (tabela `tags`, a mesma do acervo):
- * a "tag deste pedido" vem sugerida do nome do pedido (editável), é criada/
- * reusada via criarTag (que normaliza igual às tags de hoje) e, ao guardar,
- * fica gravada em pedidos.tag_id — daí o "Ver inspirações do pedido".
+ * No PEDIDO, a ponte pedido↔inspirações é uma TAG (tabela `tags`, a mesma do
+ * acervo): a "tag deste pedido" vem sugerida do nome do pedido (editável), é
+ * criada/reusada via criarTag e fica gravada em pedidos.tag_id — daí o "Ver
+ * inspirações do pedido".
+ *
+ * Na PROPOSTA não há coluna de tag-ponte: o vínculo é a própria
+ * `proposta_referencias`. Então, ao guardar, as inspirações recém-criadas são
+ * inseridas como referência da proposta (retorno-à-proposta, análogo ao I6) e a
+ * tag vira só organização opcional do acervo (sem escrever na proposta).
  *
  * Mesmas regras do lote de trabalhos (M-028): compressão obrigatória em todas,
  * pré-checagem do limite de 150 (sobe só até o teto, nunca falha o lote) e
@@ -27,15 +35,31 @@ import { comprimirImagem } from '../lib/imagem'
 export function GuardarLoteInspiracao() {
   const [searchParams] = useSearchParams()
   const pedidoId = searchParams.get('pedido')
+  const propostaId = searchParams.get('proposta')
+  const modoProposta = !!propostaId
   const { sessao } = useSessao()
   const avisar = useAviso()
   const navegar = useNavigate()
 
   const { todasTags, subirImagem, criar, criarTag } = useInspiracoes(sessao?.user.id)
-  const { buscarPorId, atualizar, carregando } = usePedidos(sessao?.user.id)
+  const { buscarPorId, atualizar, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
+  const { buscarPorId: buscarProposta, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
+  const { adicionar: adicionarReferencias } = usePropostaReferencias(
+    sessao?.user.id,
+    propostaId ?? undefined
+  )
   const { total, limite, ilimitado, recarregar } = useAssinatura(sessao?.user.id)
 
   const pedido = pedidoId ? buscarPorId(pedidoId) : undefined
+  const proposta = propostaId ? buscarProposta(propostaId) : undefined
+  const carregando = modoProposta ? carregandoPropostas : carregandoPedidos
+  const alvoOk = modoProposta ? !!proposta : !!pedido
+  const tituloAlvo = modoProposta
+    ? proposta?.titulo?.trim() || 'esta proposta'
+    : pedido
+    ? tituloPedido(pedido)
+    : ''
+  const voltarAoAlvo = modoProposta ? `/propostas/${propostaId}` : `/pedidos/${pedidoId}`
 
   // A "tag deste pedido" (tag-ponte gravada em pedidos.tag_id) agora é escolhida
   // pelo mesmo autocomplete das outras tags — evita variações "naruto"/"Naruto"
@@ -82,8 +106,16 @@ export function GuardarLoteInspiracao() {
     setTagsSelecionadas((prev) => prev.filter((x) => x !== tagId))
   }
 
+  // Sugestão de um toque (modo proposta): usar o título da proposta como tag.
+  async function usarTituloComoTag() {
+    const t = proposta?.titulo?.trim()
+    if (!t) return
+    const tag = await criarTag(t)
+    if (tag) setTagPonte(tag)
+  }
+
   async function aoGuardar() {
-    if (!pedidoId) return
+    if (!pedidoId && !propostaId) return
     if (arquivos.length === 0) return avisar('Escolha ao menos uma foto.')
     if (restante <= 0) {
       setLimiteAberto(true)
@@ -104,6 +136,7 @@ export function GuardarLoteInspiracao() {
 
       let ok = 0
       let falhas = 0
+      const criadas: string[] = [] // ids das inspirações criadas (retorno-à-proposta)
       for (const arq of aSubir) {
         try {
           const { blob } = await comprimirImagem(arq)
@@ -120,7 +153,10 @@ export function GuardarLoteInspiracao() {
             tagIds,
           })
           if ('erro' in res) falhas++
-          else ok++
+          else {
+            ok++
+            criadas.push(res.id)
+          }
         } catch {
           falhas++
         }
@@ -133,8 +169,18 @@ export function GuardarLoteInspiracao() {
         return
       }
 
-      // Grava a ponte no pedido — é ela que liga "Ver inspirações do pedido".
-      if (tagPonte) await atualizar(pedidoId, { tag_id: tagPonte.id })
+      if (modoProposta) {
+        // Vínculo da proposta = referência (não há tag-ponte). Já retornam
+        // selecionadas em proposta_referencias, aparecendo em "Fotos de referência".
+        if (criadas.length > 0)
+          await adicionarReferencias(
+            propostaId!,
+            criadas.map((cid) => ({ origem: 'inspiracao' as const, id: cid }))
+          )
+      } else {
+        // Grava a ponte no pedido — é ela que liga "Ver inspirações do pedido".
+        if (tagPonte) await atualizar(pedidoId!, { tag_id: tagPonte.id })
+      }
 
       if (sobraram > 0) {
         avisar(
@@ -145,7 +191,7 @@ export function GuardarLoteInspiracao() {
       } else {
         avisar(`${ok} inspiraç${ok !== 1 ? 'ões guardadas' : 'ão guardada'} ✓`)
       }
-      navegar(`/pedidos/${pedidoId}`, { replace: true })
+      navegar(voltarAoAlvo, { replace: true })
     } finally {
       setSalvando(false)
     }
@@ -153,14 +199,14 @@ export function GuardarLoteInspiracao() {
 
   if (carregando) return null
 
-  if (!pedidoId || !pedido) {
+  if (!alvoOk) {
     return (
       <div className="tela">
-        <BarraTopo titulo="Inspirações do pedido" />
+        <BarraTopo titulo={modoProposta ? 'Inspirações da proposta' : 'Inspirações do pedido'} />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="busca" size={44} /></div>
-            <p>Este pedido não foi encontrado.</p>
+            <p>{modoProposta ? 'Esta proposta não foi encontrada.' : 'Este pedido não foi encontrado.'}</p>
           </div>
         </div>
       </div>
@@ -169,16 +215,25 @@ export function GuardarLoteInspiracao() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo="Inspirações do pedido" />
+      <BarraTopo titulo={modoProposta ? 'Inspirações da proposta' : 'Inspirações do pedido'} />
 
       <div className="conteudo">
         <input ref={inputCamera} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={adicionarDaCamera} />
         <input ref={inputGaleria} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: 'none' }} onChange={adicionarArquivos} />
 
         <p className="apoio" style={{ marginBottom: 12 }}>
-          Guarde prints e fotos de referência de “{tituloPedido(pedido)}”. Todas
-          entram na galeria de Inspirações com a tag do pedido — para achar em
-          segundos quando precisar.
+          {modoProposta ? (
+            <>
+              Guarde prints e fotos de referência de “{tituloAlvo}”. Elas entram
+              na galeria de Inspirações e já voltam anexadas a esta proposta.
+            </>
+          ) : (
+            <>
+              Guarde prints e fotos de referência de “{tituloAlvo}”. Todas entram
+              na galeria de Inspirações com a tag do pedido — para achar em
+              segundos quando precisar.
+            </>
+          )}
         </p>
 
         <div className="seletor-origem">
@@ -222,30 +277,40 @@ export function GuardarLoteInspiracao() {
         )}
 
         <div className="campo" style={{ marginTop: 14 }}>
-          <label>Tag deste pedido (vale para todas)</label>
+          <label>{modoProposta ? 'Tag destas fotos (opcional)' : 'Tag deste pedido (vale para todas)'}</label>
           {tagPonte ? (
             <div className="tags-area" style={{ padding: '0 0 2px' }}>
               <button
                 type="button"
                 className="tag-chip aplicada"
                 onClick={() => setTagPonte(null)}
-                title="Toque para trocar a tag deste pedido"
+                title="Toque para trocar a tag"
               >
                 {tagPonte.nome} <Icone nome="fechar" size={13} />
               </button>
             </div>
           ) : (
-            <SeletorTag
-              todasTags={todasTags}
-              selecionadas={[]}
-              onSelecionar={(tag) => setTagPonte(tag)}
-              onCriar={criarTag}
-              placeholder="ex.: naruto, casamento rústico"
-            />
+            <>
+              {modoProposta && proposta?.titulo?.trim() && (
+                <div className="tags-area" style={{ padding: '0 0 8px' }}>
+                  <button type="button" className="tag-criar" onClick={usarTituloComoTag}>
+                    Usar “{proposta.titulo.trim()}”
+                  </button>
+                </div>
+              )}
+              <SeletorTag
+                todasTags={todasTags}
+                selecionadas={[]}
+                onSelecionar={(tag) => setTagPonte(tag)}
+                onCriar={criarTag}
+                placeholder="ex.: naruto, casamento rústico"
+              />
+            </>
           )}
           <p className="apoio" style={{ marginTop: 6 }}>
-            É por essa tag que o pedido acha as inspirações depois. Pode encurtar
-            (ex.: só o tema da festa).
+            {modoProposta
+              ? 'Só para achar essas fotos depois na galeria de Inspirações. As fotos já ficam anexadas à proposta.'
+              : 'É por essa tag que o pedido acha as inspirações depois. Pode encurtar (ex.: só o tema da festa).'}
           </p>
         </div>
 
@@ -294,7 +359,7 @@ export function GuardarLoteInspiracao() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
-            onClick={() => navegar(`/pedidos/${pedidoId}`)}
+            onClick={() => navegar(voltarAoAlvo)}
             className="btn-secundario"
             style={{ flex: 1 }}
             disabled={salvando}
