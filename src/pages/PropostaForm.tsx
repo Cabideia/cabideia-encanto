@@ -273,6 +273,45 @@ export function PropostaForm() {
     }
   }
 
+  /**
+   * Rascunho automático (fix de fluxo, opção A): garante um `proposta_id` para
+   * gravar os filhos (fotos/inspirações/itens) SEM a dona salvar e reabrir. Na
+   * edição já existe; na criação, salva a proposta atual de forma transparente
+   * (com o que já foi digitado + a capa pendente) e devolve o id. O picker que
+   * abre em seguida volta para /propostas/:id, onde o form recarrega tudo.
+   */
+  async function garantirProposta(): Promise<string | null> {
+    if (id) return id
+    if (!clienteIdAtivo) {
+      avisar('Proposta sem cliente.')
+      return null
+    }
+    const foto = await garantirFoto()
+    if ('erro' in foto) {
+      avisar(foto.erro)
+      return null
+    }
+    const res = await criar(clienteIdAtivo, campos(foto.path))
+    if ('erro' in res) {
+      avisar(res.erro)
+      return null
+    }
+    return res.id
+  }
+
+  async function abrirPickerFotos() {
+    const pid = await garantirProposta()
+    if (pid) navegar(`/propostas/${pid}/referencias`)
+  }
+  async function abrirLoteInspiracoes() {
+    const pid = await garantirProposta()
+    if (pid) navegar(`/inspiracoes/lote?proposta=${pid}`)
+  }
+  async function abrirPickerItens() {
+    const pid = await garantirProposta()
+    if (pid) navegar(`/propostas/${pid}/itens`)
+  }
+
   const gerarPng = useCallback(async (): Promise<Blob | null> => {
     if (!canvasRef.current) return null
     try {
@@ -422,12 +461,12 @@ export function PropostaForm() {
           </button>
         )}
 
-        {/* M-042 F2a · Fotos de referência (proposta_referencias). Só na edição:
-            a proposta precisa existir (FK) antes de anexar. Tocar abre a origem;
-            o × tira só a referência — nunca apaga o trabalho/inspiração. */}
-        {edicao && (
-          <div style={{ marginBottom: 14 }}>
-            <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
+        {/* M-042 F2a · Fotos de referência (proposta_referencias). Visível já na
+            criação: ao tocar, o rascunho automático salva a proposta e abre o
+            picker (opção A). Tocar na miniatura abre a origem; o × tira só a
+            referência — nunca apaga o trabalho/inspiração. */}
+        <div style={{ marginBottom: 14 }}>
+          <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
             {referencias.length > 0 && (
               <div className="grade-fotos" style={{ alignItems: 'start', marginBottom: 12 }}>
                 {referencias.map((r) => {
@@ -498,7 +537,8 @@ export function PropostaForm() {
               type="button"
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center' }}
-              onClick={() => navegar(`/propostas/${id}/referencias`)}
+              onClick={abrirPickerFotos}
+              disabled={salvando || processandoFoto}
             >
               <Icone nome="imagem" size={16} />{' '}
               {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
@@ -509,12 +549,12 @@ export function PropostaForm() {
               type="button"
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-              onClick={() => navegar(`/inspiracoes/lote?proposta=${id}`)}
+              onClick={abrirLoteInspiracoes}
+              disabled={salvando || processandoFoto}
             >
               <Icone nome="camera" size={16} /> Incluir novas inspirações
             </button>
-          </div>
-        )}
+        </div>
 
         {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
         <canvas ref={canvasRef} className="proposta-previa" aria-label="Prévia da proposta" />
@@ -637,19 +677,16 @@ export function PropostaForm() {
                 ))}
               </div>
             )}
-            {edicao ? (
-              <button
-                type="button"
-                className="btn-secundario"
-                style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => navegar(`/propostas/${id}/itens`)}
-              >
-                <Icone nome="precos" size={16} />{' '}
-                {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
-              </button>
-            ) : (
-              <p className="apoio">Salve a proposta para escolher os itens da tabela.</p>
-            )}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={abrirPickerItens}
+              disabled={salvando || processandoFoto}
+            >
+              <Icone nome="precos" size={16} />{' '}
+              {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
+            </button>
           </div>
         )}
 
