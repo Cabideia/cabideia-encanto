@@ -192,10 +192,12 @@ export function PropostaForm() {
   }, [])
 
   const valorNum = precoParaNumero(valor)
-  // No cartão, só o modo "valor fechado" mostra o número; itens/sem-preço mostram
-  // "A combinar" (o detalhamento de itens no cartão/página é F2b).
+  // M2 · "Valor fechado" e "Itens da tabela" mostram o número quando houver
+  // (no modo itens o valor é o TOTAL — o que a cliente paga; os itens são o
+  // detalhamento). Sem número, ou no modo "Sem preço": "A combinar". O
+  // detalhamento dos itens no cartão/página é F2b.
   const valorTexto =
-    modoPreco === 'fechado' && valorNum != null ? formatarReal(valorNum) : 'A combinar'
+    modoPreco !== 'sem' && valorNum != null ? formatarReal(valorNum) : 'A combinar'
 
   // Veredito conservador de "rascunho vazio", atualizado a cada render p/ o
   // unmount ler. Só é vazio com TUDO ausente E os filhos já carregados (na
@@ -246,11 +248,12 @@ export function PropostaForm() {
     )
   }
 
-  // M3 · guarda de saída: intercepta a seta do app (aoVoltar) e o back nativo.
-  // Só arma a sentinela do back nativo quando há uma proposta real carregada
-  // (nunca na tela "não encontrada" nem durante o carregamento).
-  const { tentarSair, sair } = useGuardaSaida({
-    ativo: edicao && !!proposta,
+  // M3 · guarda de saída: intercepta a seta do app (aoVoltar) e o back nativo,
+  // com o MESMO comportamento — inclusive já na "Nova proposta" (título digitado
+  // é trabalho iniciado). Não arma na tela "não encontrada" nem enquanto uma
+  // proposta existente ainda carrega.
+  const { tentarSair, sair, navegarLimpo } = useGuardaSaida({
+    ativo: !edicao || !!proposta,
     temAlteracoes: haAlteracoes,
     aoPedirConfirmacao: () => setConfirmarSaida(true),
   })
@@ -364,7 +367,9 @@ export function PropostaForm() {
         return
       }
       avisar('Proposta salva ✓')
-      navegar(`/propostas/${res.id}`, { replace: true })
+      // B2 · troca "/nova" pela proposta real colapsando a sentinela (M3), para
+      // o "voltar" da proposta salva cair direto na origem, sem "/nova" fantasma.
+      navegarLimpo(() => navegar(`/propostas/${res.id}`, { replace: true }))
     }
   }
 
@@ -375,7 +380,7 @@ export function PropostaForm() {
    * (com o que já foi digitado + a capa pendente) e devolve o id. O picker que
    * abre em seguida volta para /propostas/:id, onde o form recarrega tudo.
    */
-  async function garantirProposta(): Promise<string | null> {
+  async function garantirProposta(): Promise<{ id: string; criou: boolean } | null> {
     if (!clienteIdAtivo) {
       avisar('Proposta sem cliente.')
       return null
@@ -395,7 +400,7 @@ export function PropostaForm() {
         avisar(erro)
         return null
       }
-      return id
+      return { id, criou: false }
     }
     const res = await criar(clienteIdAtivo, campos(foto.path))
     if ('erro' in res) {
@@ -404,31 +409,32 @@ export function PropostaForm() {
     }
     // Nasceu como rascunho: elegível a descarte se ficar vazio (opção A).
     rascunhosAbertos.add(res.id)
-    // B2 · Troca a entrada efêmera "/nova" pela proposta real. Assim o "voltar"
-    // do picker cai na proposta (não no form em branco) e o "voltar" da proposta
-    // vai direto à origem, sem telas intermediárias empilhadas.
-    navegar(`/propostas/${res.id}`, { replace: true })
-    return res.id
+    return { id: res.id, criou: true }
   }
 
-  async function abrirPickerFotos() {
+  /**
+   * Abre um filho (picker/lote) da proposta. B2 · via `navegarLimpo`, que colapsa
+   * a sentinela do aviso (M3) antes de navegar: na criação, troca a entrada
+   * "/nova" pela proposta real (replace) e empurra o filho — o "voltar" do filho
+   * cai na proposta, e o "voltar" da proposta vai direto à origem, sem telas
+   * empilhadas nem form em branco.
+   */
+  async function abrirFilho(destino: (pid: string) => string) {
     saindoParaFilho.current = true
-    const pid = await garantirProposta()
-    if (pid) navegar(`/propostas/${pid}/referencias`)
-    else saindoParaFilho.current = false
+    const res = await garantirProposta()
+    if (!res) {
+      saindoParaFilho.current = false
+      return
+    }
+    const { id: pid, criou } = res
+    navegarLimpo(() => {
+      if (criou) navegar(`/propostas/${pid}`, { replace: true })
+      navegar(destino(pid))
+    })
   }
-  async function abrirLoteInspiracoes() {
-    saindoParaFilho.current = true
-    const pid = await garantirProposta()
-    if (pid) navegar(`/inspiracoes/lote?proposta=${pid}`)
-    else saindoParaFilho.current = false
-  }
-  async function abrirPickerItens() {
-    saindoParaFilho.current = true
-    const pid = await garantirProposta()
-    if (pid) navegar(`/propostas/${pid}/itens`)
-    else saindoParaFilho.current = false
-  }
+  const abrirPickerFotos = () => abrirFilho((pid) => `/propostas/${pid}/referencias`)
+  const abrirLoteInspiracoes = () => abrirFilho((pid) => `/inspiracoes/lote?proposta=${pid}`)
+  const abrirPickerItens = () => abrirFilho((pid) => `/propostas/${pid}/itens`)
 
   const gerarPng = useCallback(async (): Promise<Blob | null> => {
     if (!canvasRef.current) return null
@@ -810,6 +816,22 @@ export function PropostaForm() {
               <Icone nome="precos" size={16} />{' '}
               {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
             </button>
+
+            {/* M2 · valor total opcional junto com os itens (reusa propostas.valor).
+                Os itens são o detalhamento; o total é o que a cliente paga. */}
+            <div style={{ marginTop: 14 }}>
+              <label>Valor total (R$) — opcional</label>
+              <input
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                placeholder="Ex.: 120,00"
+                inputMode="decimal"
+              />
+              <div className="apoio" style={{ marginTop: 6 }}>
+                No cartão: <b>{valorTexto}</b>
+                {valorNum == null && ' (preencha para mostrar o total)'}
+              </div>
+            </div>
           </div>
         )}
 
