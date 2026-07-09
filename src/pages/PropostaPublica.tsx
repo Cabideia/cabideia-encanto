@@ -22,10 +22,12 @@ import { Icone } from '../components/Icone'
  */
 type ModoPreco = 'fechado' | 'itens' | 'sem'
 
-// A RPC devolve cada foto de referência com só o essencial para exibir:
-// caminho público resolvido (ou url do link) + origem (trabalho/inspiração).
+// A RPC devolve cada foto de referência com o essencial para triagem: caminho
+// público resolvido (ou url do link), origem e o CÓDIGO curto (A-{n}/I-{n}) —
+// a cliente responde referenciando o código. Sem legenda (decisão da Josiane).
 type FotoPublica = {
   origem: 'trabalho' | 'inspiracao'
+  codigo: string | null // "A-12" (trabalho) / "I-7" (inspiração)
   url: string | null // imagem (público) já resolvida
   link: string | null // inspiração-link sem imagem
 }
@@ -77,11 +79,15 @@ export function PropostaPublica() {
       aplicarTema(linha.tema, false)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fotos: FotoPublica[] = ((linha.fotos ?? []) as any[]).map((r) => ({
-        origem: r.origem,
-        url: r.foto_publica_path ? urlPublica(r.foto_publica_path) : null,
-        link: !r.foto_publica_path && r.url ? r.url : null,
-      }))
+      const fotos: FotoPublica[] = ((linha.fotos ?? []) as any[]).map((r) => {
+        const prefixo = r.origem === 'trabalho' ? 'A' : 'I'
+        return {
+          origem: r.origem,
+          codigo: r.codigo_num != null ? `${prefixo}-${r.codigo_num}` : null,
+          url: r.foto_publica_path ? urlPublica(r.foto_publica_path) : null,
+          link: !r.foto_publica_path && r.url ? r.url : null,
+        }
+      })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const itens: ItemPublico[] = ((linha.itens ?? []) as any[]).map((it) => ({
@@ -245,6 +251,9 @@ export function PropostaPublica() {
             <div className="secao" style={{ marginTop: 18 }}>
               <span className="confeito" /><h2>Referências</h2>
             </div>
+            <p className="apoio" style={{ textAlign: 'center', marginTop: 4 }}>
+              Cada foto tem um código (ex.: <b>I-12</b>). É só me dizer qual você gostou.
+            </p>
             <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
               {dados.fotos.map((f, i) => (
                 <div key={i} className="foto-item">
@@ -262,6 +271,9 @@ export function PropostaPublica() {
                         <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
                         <span className="insp-link-dominio">{f.link ? dominioDe(f.link) : 'link'}</span>
                       </a>
+                    )}
+                    {f.codigo && (
+                      <span className="cod-selo" aria-label={`Código ${f.codigo}`}>{f.codigo}</span>
                     )}
                   </div>
                 </div>

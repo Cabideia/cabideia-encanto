@@ -36,8 +36,13 @@ alter table public.proposta_referencias
 -- Colunas do retorno (nesta ordem — o front consome por nome):
 --   titulo, descricao, condicoes, valor, modo_preco, validade,
 --   negocio, whatsapp, logo_path, tema, foto_path (capa),
---   itens  jsonb → [{ nome, preco }]                         (tabela de preços)
---   fotos  jsonb → [{ foto_publica_path, url, origem }]      (referências)
+--   itens  jsonb → [{ nome, preco }]                              (tabela de preços)
+--   fotos  jsonb → [{ foto_publica_path, url, origem, codigo_num }] (referências)
+--
+-- Decisão da Josiane (m042_f2b_rpc_codigo_fotos): a página pública mostra o
+-- CÓDIGO de cada foto (A-{n} trabalho · I-{n} inspiração), sem legenda — a
+-- proposta é triagem (a cliente responde "quero a I-12"); a nota da inspiração
+-- é privada. Por isso `codigo_num` entra no jsonb; nota/descrição não.
 create or replace function public.proposta_publica(p_token text)
 returns table (
   titulo text,
@@ -77,7 +82,8 @@ begin
     coalesce((select jsonb_agg(jsonb_build_object(
         'foto_publica_path', coalesce(pr.foto_publica_path, t.foto_publica_path, t.foto_path),
         'url', i.url,
-        'origem', case when pr.trabalho_id is not null then 'trabalho' else 'inspiracao' end)
+        'origem', case when pr.trabalho_id is not null then 'trabalho' else 'inspiracao' end,
+        'codigo_num', coalesce(t.codigo_num, i.codigo_num))
         order by pr.ordem)
       from proposta_referencias pr
       left join trabalhos   t on t.id = pr.trabalho_id
