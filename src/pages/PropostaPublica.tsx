@@ -22,11 +22,10 @@ import { Icone } from '../components/Icone'
  */
 type ModoPreco = 'fechado' | 'itens' | 'sem'
 
-type ReferenciaPublica = {
-  id: string
+// A RPC devolve cada foto de referência com só o essencial para exibir:
+// caminho público resolvido (ou url do link) + origem (trabalho/inspiração).
+type FotoPublica = {
   origem: 'trabalho' | 'inspiracao'
-  codigo: string | null // "A-12" / "I-7"
-  descricao: string | null
   url: string | null // imagem (público) já resolvida
   link: string | null // inspiração-link sem imagem
 }
@@ -44,7 +43,7 @@ type DadosProposta = {
   negocio: string | null
   whatsapp: string | null
   logoUrl: string | null
-  referencias: ReferenciaPublica[]
+  fotos: FotoPublica[]
   itens: ItemPublico[]
 }
 
@@ -78,17 +77,11 @@ export function PropostaPublica() {
       aplicarTema(linha.tema, false)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const referencias: ReferenciaPublica[] = ((linha.referencias ?? []) as any[]).map((r) => {
-        const prefixo = r.origem === 'trabalho' ? 'A' : 'I'
-        return {
-          id: r.id,
-          origem: r.origem,
-          codigo: r.codigo_num != null ? `${prefixo}-${r.codigo_num}` : null,
-          descricao: r.descricao ?? null,
-          url: r.foto_publica_path ? urlPublica(r.foto_publica_path) : null,
-          link: !r.foto_publica_path && r.url ? r.url : null,
-        }
-      })
+      const fotos: FotoPublica[] = ((linha.fotos ?? []) as any[]).map((r) => ({
+        origem: r.origem,
+        url: r.foto_publica_path ? urlPublica(r.foto_publica_path) : null,
+        link: !r.foto_publica_path && r.url ? r.url : null,
+      }))
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const itens: ItemPublico[] = ((linha.itens ?? []) as any[]).map((it) => ({
@@ -107,7 +100,7 @@ export function PropostaPublica() {
         negocio: linha.negocio ?? null,
         whatsapp: linha.whatsapp ?? null,
         logoUrl: linha.logo_path ? urlPublica(linha.logo_path) : null,
-        referencias,
+        fotos,
         itens,
       })
       setEstado('ok')
@@ -247,34 +240,30 @@ export function PropostaPublica() {
         </div>
 
         {/* Galeria das fotos de referência */}
-        {dados.referencias.length > 0 && (
+        {dados.fotos.length > 0 && (
           <>
             <div className="secao" style={{ marginTop: 18 }}>
               <span className="confeito" /><h2>Referências</h2>
             </div>
             <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
-              {dados.referencias.map((r) => (
-                <div key={r.id} className="foto-item">
+              {dados.fotos.map((f, i) => (
+                <div key={i} className="foto-item">
                   <div className="acervo-img-wrap">
-                    {r.url ? (
-                      <img src={r.url} alt={r.descricao ?? ''} loading="lazy" />
+                    {f.url ? (
+                      <img src={f.url} alt="" loading="lazy" />
                     ) : (
                       <a
                         className="insp-link-capa"
-                        href={r.link ?? '#'}
+                        href={f.link ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ textDecoration: 'none' }}
                       >
                         <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
-                        <span className="insp-link-dominio">{r.link ? dominioDe(r.link) : 'link'}</span>
+                        <span className="insp-link-dominio">{f.link ? dominioDe(f.link) : 'link'}</span>
                       </a>
                     )}
-                    {r.codigo && (
-                      <span className="cod-selo" aria-label={`Código ${r.codigo}`}>{r.codigo}</span>
-                    )}
                   </div>
-                  {r.descricao && <div className="foto-legenda">{r.descricao}</div>}
                 </div>
               ))}
             </div>

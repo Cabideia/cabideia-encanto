@@ -1,111 +1,89 @@
 -- ============================================================
--- M-042 · F2b · RPC de leitura pública + coluna da foto pública
--- ⚠️ PENDENTE — NÃO aplicada. Aguarda DUPLO CRIVO (Decisão #28: qualquer
---    schema PARA no DDL). Este arquivo é a PROPOSTA de DDL para a gestão
---    aplicar. Precisa entrar ANTES do front deste PR ir ao ar (o front
---    chama a RPC e lê `foto_publica_path`).
+-- M-042 · F2b · Leitura pública SÓ pela RPC + coluna da foto pública
+-- JÁ APLICADA em produção pela gestão (com correção de segurança, duplo crivo).
+-- Este arquivo existe para PARIDADE de histórico — NÃO reaplicar.
+-- Reflete exatamente os objetos em produção (introspecção do schema).
 -- ------------------------------------------------------------
--- Fecha os dois furos que a migração já aplicada (token + policies) deixou
--- em aberto para a página pública funcionar de ponta a ponta:
+-- Correção de segurança (fecha o vazamento apontado na revisão): a leitura
+-- anônima direta das tabelas foi FECHADA. Só a RPC SECURITY DEFINER dá acesso
+-- público, filtrando pelo token específico — igual à `selecao_publica`.
 --
---   1. proposta_referencias.foto_publica_path — as fotos de referência vêm de
---      trabalhos (bucket privado `acervo`, com cópia de vitrine opcional em
---      `foto_publica_path`) e de inspirações (bucket privado `inspiracoes`).
---      A cliente anônima não enxerga bucket privado. Espelhamos o mecanismo
---      do M-022 (selecao_itens.foto_publica_path): guardamos o caminho de uma
---      CÓPIA pública, gerada no cliente ao compartilhar. Trabalho já publicado
---      na vitrine reusa `trabalhos.foto_publica_path` (sem duplicar storage);
---      só inspiração e trabalho fora da vitrine geram cópia nova.
---
---   2. proposta_publica(p_token) — leitura anônima SECURITY DEFINER. Filtra
---      pelo token específico e checa resolvida=false (defesa em profundidade,
---      além da RLS). Não abre as tabelas de trabalhos/inspirações/perfis ao
---      anon: devolve só o necessário já montado, resolvendo o caminho público
---      das fotos. Mesmo desenho da `selecao_publica`.
+--   1. REVOKE SELECT + policies de leitura pública REMOVIDAS — o anônimo não lê
+--      mais propostas/proposta_referencias/proposta_itens direto (não dá para
+--      enumerar propostas ativas). A escrita segue restrita à dona (dona_*).
+--   2. proposta_referencias.foto_publica_path — caminho da CÓPIA pública da
+--      foto (bucket privado → público), gerada no cliente ao compartilhar
+--      (mesmo mecanismo do M-022 / selecao_itens.foto_publica_path).
+--   3. proposta_publica(p_token) — leitura anônima montada: filtra por token,
+--      checa resolvida=false e devolve só o necessário, resolvendo o caminho
+--      público das fotos.
 -- ============================================================
 
--- ---------- 1 · Caminho da cópia pública nas referências ----------
+-- ---------- 1 · Fecha a leitura anônima direta ----------
+revoke select on public.propostas            from anon;
+revoke select on public.proposta_referencias from anon;
+revoke select on public.proposta_itens       from anon;
+
+drop policy if exists proposta_publica_leitura on public.propostas;
+drop policy if exists proposta_ref_publica     on public.proposta_referencias;
+drop policy if exists proposta_itens_publica   on public.proposta_itens;
+
+-- ---------- 2 · Caminho da cópia pública nas referências ----------
 alter table public.proposta_referencias
   add column if not exists foto_publica_path text;
 
--- ---------- 2 · Leitura pública da proposta (anônima, por token) ----------
+-- ---------- 3 · Leitura pública da proposta (anônima, por token) ----------
+-- Colunas do retorno (nesta ordem — o front consome por nome):
+--   titulo, descricao, condicoes, valor, modo_preco, validade,
+--   negocio, whatsapp, logo_path, tema, foto_path (capa),
+--   itens  jsonb → [{ nome, preco }]                         (tabela de preços)
+--   fotos  jsonb → [{ foto_publica_path, url, origem }]      (referências)
 create or replace function public.proposta_publica(p_token text)
 returns table (
   titulo text,
   descricao text,
-  valor numeric,
-  validade date,
   condicoes text,
+  valor numeric,
   modo_preco text,
-  foto_path text,
+  validade date,
   negocio text,
   whatsapp text,
   logo_path text,
   tema text,
-  referencias jsonb,
-  itens jsonb
+  foto_path text,
+  itens jsonb,
+  fotos jsonb
 )
 language plpgsql security definer set search_path = public as $$
 declare prop record;
 begin
-  select pr.id, pr.titulo, pr.descricao, pr.valor, pr.validade, pr.condicoes,
-         pr.modo_preco, pr.foto_path, pr.usuaria_id
+  select p.id, p.titulo, p.descricao, p.condicoes, p.valor, p.modo_preco,
+         p.validade, p.foto_path, p.usuaria_id
     into prop
-  from propostas pr
-  where pr.token = p_token and pr.resolvida = false;
+  from propostas p
+  where p.token = p_token and p.resolvida = false;
 
   if prop.id is null then
-    return; -- token inexistente ou proposta resolvida (link fechado)
+    return; -- token inexistente ou proposta encerrada
   end if;
 
   return query
-  select
-    prop.titulo,
-    prop.descricao,
-    prop.valor,
-    prop.validade,
-    prop.condicoes,
-    prop.modo_preco,
-    prop.foto_path,
-    pf.nome_negocio,
-    pf.whatsapp,
-    pf.logo_path,
-    pf.tema,
-    -- Referências (galeria de fotos): trabalho (A-{n}) ou inspiração (I-{n}).
-    -- Caminho público = cópia gerada na proposta (r.foto_publica_path) OU a
-    -- cópia de vitrine do trabalho (t.foto_publica_path). Inspiração-link (sem
-    -- imagem) entra só com `url`.
-    coalesce(
-      (select jsonb_agg(
-        jsonb_build_object(
-          'id', r.id,
-          'origem', case when r.trabalho_id is not null then 'trabalho' else 'inspiracao' end,
-          'codigo_num', coalesce(t.codigo_num, i.codigo_num),
-          'descricao', coalesce(t.descricao, i.nota),
-          'foto_publica_path', coalesce(r.foto_publica_path, t.foto_publica_path),
-          'url', i.url
-        ) order by r.ordem
-      )
-      from proposta_referencias r
-      left join trabalhos   t on t.id = r.trabalho_id
-      left join inspiracoes i on i.id = r.inspiracao_id
-      where r.proposta_id = prop.id),
-      '[]'::jsonb
-    ) as referencias,
-    -- Itens da tabela de preços ofertados (snapshot de nome/preço).
-    coalesce(
-      (select jsonb_agg(
-        jsonb_build_object(
-          'nome', it.nome_snapshot,
-          'preco', it.preco_snapshot
-        ) order by it.ordem
-      )
-      from proposta_itens it
-      where it.proposta_id = prop.id),
-      '[]'::jsonb
-    ) as itens
-  from perfis pf
-  where pf.id = prop.usuaria_id;
+  select prop.titulo, prop.descricao, prop.condicoes, prop.valor, prop.modo_preco,
+    prop.validade, perf.nome_negocio, perf.whatsapp, perf.logo_path,
+    coalesce(perf.tema, 'oficina'), prop.foto_path,
+    coalesce((select jsonb_agg(jsonb_build_object(
+        'nome', pi.nome_snapshot, 'preco', pi.preco_snapshot) order by pi.ordem)
+      from proposta_itens pi where pi.proposta_id = prop.id), '[]'::jsonb),
+    coalesce((select jsonb_agg(jsonb_build_object(
+        'foto_publica_path', coalesce(pr.foto_publica_path, t.foto_publica_path, t.foto_path),
+        'url', i.url,
+        'origem', case when pr.trabalho_id is not null then 'trabalho' else 'inspiracao' end)
+        order by pr.ordem)
+      from proposta_referencias pr
+      left join trabalhos   t on t.id = pr.trabalho_id
+      left join inspiracoes i on i.id = pr.inspiracao_id
+      where pr.proposta_id = prop.id), '[]'::jsonb)
+  from perfis perf where perf.id = prop.usuaria_id;
 end $$;
 
 grant execute on function public.proposta_publica(text) to anon, authenticated;

@@ -22,39 +22,12 @@ alter table public.propostas add column if not exists token text;
 create unique index if not exists propostas_token_key
   on public.propostas (token);
 
--- ---------- 2 · Leitura pública (anônima) por token + não-resolvida ----------
--- Em propostas e nas duas tabelas-filhas exibidas na página. A condição é a
--- mesma em todas: `token não-nulo E resolvida=false` (a de referências/itens
--- é derivada da proposta-mãe, no padrão já usado nas policies da dona). São
--- policies de SELECT — a escrita continua restrita à dona (dona_*).
---
--- Observação de segurança: a leitura da página passa pela RPC SECURITY
--- DEFINER `proposta_publica` (ver migração _rpc), que filtra pelo token
--- específico. Estas policies são a camada de RLS (defesa em profundidade);
--- o anônimo nunca faz select direto nas tabelas pela aplicação.
-
-create policy proposta_publica_leitura on public.propostas
-  for select
-  using (token is not null and resolvida = false);
-
-create policy proposta_ref_publica on public.proposta_referencias
-  for select
-  using (
-    exists (
-      select 1 from public.propostas p
-      where p.id = proposta_referencias.proposta_id
-        and p.token is not null
-        and p.resolvida = false
-    )
-  );
-
-create policy proposta_itens_publica on public.proposta_itens
-  for select
-  using (
-    exists (
-      select 1 from public.propostas p
-      where p.id = proposta_itens.proposta_id
-        and p.token is not null
-        and p.resolvida = false
-    )
-  );
+-- ---------- 2 · Leitura pública SÓ pela RPC (sem select anônimo direto) ----------
+-- ATENÇÃO: a primeira versão desta fase criou policies de SELECT público
+-- (`token não-nulo E resolvida=false`) em propostas/proposta_referencias/
+-- proposta_itens. Elas foram REMOVIDAS na correção de segurança (ver a
+-- migração _rpc): deixavam o anônimo enumerar propostas ativas direto. O
+-- acesso público passou a ser EXCLUSIVAMENTE pela RPC SECURITY DEFINER
+-- `proposta_publica`, que filtra pelo token específico — mesmo modelo da
+-- seleção. Nada de policy de leitura pública aqui; a escrita segue restrita
+-- à dona (policies dona_*).
