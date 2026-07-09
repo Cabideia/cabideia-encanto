@@ -751,3 +751,11 @@ img.logo-redonda { object-fit: cover; }
   text-decoration: underline; text-underline-offset: 2px;
 }
 .legal-consentimento a:active { color: var(--framboesa); }
+
+/* Selo de versão discreto (rodapé do login e das Configurações). Bem apagado
+   de propósito — informa sem competir com a UI principal. */
+.versao-app {
+  text-align: center; font-size: 11px; letter-spacing: .3px;
+  color: var(--cacau-claro); opacity: .6; margin-top: 16px;
+  font-variant-numeric: tabular-nums;
+}

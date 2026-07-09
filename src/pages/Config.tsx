@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { SeletorTema } from '../components/SeletorTema'
+import { VersaoApp } from '../components/VersaoApp'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
 import { useAssinatura } from '../hooks/useAssinatura'
@@ -155,6 +156,9 @@ export function Config() {
           <span className="legal-links-sep" aria-hidden>·</span>
           <Link to="/termos">Termos de Uso</Link>
         </nav>
+
+        {/* Versão do bundle carregado — confirma no device que o deploy subiu. */}
+        <VersaoApp />
       </div>
 
       {/* M-033 · Confirmação por digitação. O botão de exclusão só habilita

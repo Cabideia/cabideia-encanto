@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
 import { Icone } from '../components/Icone'
+import { VersaoApp } from '../components/VersaoApp'
 
 /**
  * Login com Google (M-001).
@@ -104,6 +105,8 @@ export function Entrar() {
           Ao entrar, você concorda com os <Link to="/termos">Termos de Uso</Link> e a{' '}
           <Link to="/privacidade">Política de Privacidade</Link>.
         </p>
+        {/* Versão pública — dá para conferir o deploy sem nem entrar (item 4). */}
+        <VersaoApp />
       </div>
     </div>
   )
