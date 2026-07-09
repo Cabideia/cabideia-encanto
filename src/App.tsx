@@ -18,6 +18,7 @@ import { PedidoDetalhe } from './pages/PedidoDetalhe'
 import { PedidoReferencias } from './pages/PedidoReferencias'
 import { PropostaForm } from './pages/PropostaForm'
 import { PropostaReferencias } from './pages/PropostaReferencias'
+import { PropostaItens } from './pages/PropostaItens'
 import { Clientes } from './pages/Clientes'
 import { ClienteDetalhe } from './pages/ClienteDetalhe'
 import { Inspiracoes } from './pages/Inspiracoes'
@@ -98,6 +99,7 @@ export function App() {
           <Route path="/clientes/:clienteId/propostas/nova" element={<Privada><PropostaForm /></Privada>} />
           <Route path="/propostas/:id" element={<Privada><PropostaForm /></Privada>} />
           <Route path="/propostas/:id/referencias" element={<Privada><PropostaReferencias /></Privada>} />
+          <Route path="/propostas/:id/itens" element={<Privada><PropostaItens /></Privada>} />
           <Route path="/inspiracoes" element={<Privada><Inspiracoes /></Privada>} />
           <Route path="/inspiracoes/nova" element={<Privada><InspiracaoForm /></Privada>} />
           <Route path="/inspiracoes/lote" element={<Privada><GuardarLoteInspiracao /></Privada>} />

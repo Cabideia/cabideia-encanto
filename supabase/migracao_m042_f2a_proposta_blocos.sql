@@ -94,3 +94,11 @@ create policy dona_proposta_itens on public.proposta_itens
 -- condicoes na proposta (o texto daquela proposta específica).
 alter table public.perfis    add column if not exists condicoes_padrao text;
 alter table public.propostas add column if not exists condicoes        text;
+
+-- ---------- 4 · Modo de preço (I3) ----------
+-- Sinaliza qual dos 3 modos a proposta exibe: valor fechado, itens do cardápio
+-- ou sem preço. Nulável (propostas antigas caem em 'fechado' por inferência no
+-- app). É só um seletor de exibição — valor e itens podem coexistir no banco;
+-- alternar o modo NÃO apaga dado.
+alter table public.propostas add column if not exists modo_preco text
+  check (modo_preco is null or modo_preco in ('fechado','itens','sem'));

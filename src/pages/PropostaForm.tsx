@@ -6,11 +6,12 @@ import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
-import { usePropostas, type CamposProposta } from '../hooks/usePropostas'
+import { usePropostas, type CamposProposta, type ModoPreco } from '../hooks/usePropostas'
 import { usePedidos } from '../hooks/usePedidos'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
+import { usePropostaItens } from '../hooks/usePropostaItens'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
 import { comprimirImagem } from '../lib/imagem'
@@ -63,6 +64,10 @@ export function PropostaForm() {
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
   const { referencias, remover: removerReferencia } = usePropostaReferencias(sessao?.user.id, id)
 
+  // M-042 F2a I3 · itens do cardápio ofertados (snapshot). Gerenciados ao vivo,
+  // como as referências — não passam pelo salvar() do form.
+  const { itens: itensProposta, remover: removerItem } = usePropostaItens(sessao?.user.id, id)
+
   const proposta = edicao && id ? buscarProposta(id) : undefined
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
   const cliente = clienteIdAtivo ? buscarCliente(clienteIdAtivo) : undefined
@@ -73,6 +78,7 @@ export function PropostaForm() {
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
+  const [modoPreco, setModoPreco] = useState<ModoPreco>('fechado') // I3
 
   // Foto: caminho já salvo + blob novo a subir (compressão no cliente).
   const [fotoPath, setFotoPath] = useState<string | null>(null)
@@ -128,6 +134,8 @@ export function PropostaForm() {
     setDescricao(proposta.descricao ?? '')
     setValor(proposta.valor != null ? String(proposta.valor).replace('.', ',') : '')
     setValidade(proposta.validade ?? '')
+    // Propostas antigas (modo_preco null) caem em 'fechado' — mesma exibição de antes.
+    setModoPreco(proposta.modo_preco ?? 'fechado')
     setFotoPath(proposta.foto_path)
     if (proposta.foto_path) {
       supabase.storage
@@ -139,7 +147,10 @@ export function PropostaForm() {
   }, [edicao, proposta])
 
   const valorNum = precoParaNumero(valor)
-  const valorTexto = valorNum != null ? formatarReal(valorNum) : 'A combinar'
+  // No cartão, só o modo "valor fechado" mostra o número; itens/sem-preço mostram
+  // "A combinar" (o detalhamento de itens no cartão/página é F2b).
+  const valorTexto =
+    modoPreco === 'fechado' && valorNum != null ? formatarReal(valorNum) : 'A combinar'
   const validadeTexto = validade ? `Válido até ${formatarDataNumerica(validade)}` : ''
 
   // Redesenha o cartão sempre que algo muda (e quando as fontes carregam).
@@ -184,7 +195,16 @@ export function PropostaForm() {
   }
 
   function campos(caminhoFoto: string | null): CamposProposta {
-    return { titulo, descricao, valor: valorNum, validade: validade || null, foto_path: caminhoFoto }
+    // Decisão A do I3: guardamos o valor digitado independentemente do modo —
+    // alternar não apaga dado; `modo_preco` só decide o que exibir.
+    return {
+      titulo,
+      descricao,
+      valor: valorNum,
+      validade: validade || null,
+      foto_path: caminhoFoto,
+      modo_preco: modoPreco,
+    }
   }
 
   /** Garante que a foto nova (se houver) esteja no storage; devolve o caminho. */
@@ -306,6 +326,12 @@ export function PropostaForm() {
   // Tira só a referência da proposta — nunca apaga o trabalho/inspiração.
   async function aoRemoverReferencia(refId: string) {
     const erro = await removerReferencia(refId)
+    if (erro) avisar(erro)
+  }
+
+  // Tira o item da proposta (não mexe no cardápio).
+  async function aoRemoverItem(itemId: string) {
+    const erro = await removerItem(itemId)
     if (erro) avisar(erro)
   }
 
@@ -505,19 +531,105 @@ export function PropostaForm() {
           />
         </div>
 
-        {/* Valor */}
+        {/* Preço em 3 modos (I3) — exclusivos na exibição; alternar não apaga dado. */}
         <div className="campo">
-          <label>Valor (R$)</label>
-          <input
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            placeholder="Ex.: 120,00"
-            inputMode="decimal"
-          />
-          <div className="apoio" style={{ marginTop: 6 }}>
-            No cartão: <b>{valorTexto}</b>
+          <label>Preço</label>
+          <div className="escolha" style={{ marginTop: 2 }}>
+            <button
+              type="button"
+              className={`filtro${modoPreco === 'fechado' ? ' ativo' : ''}`}
+              onClick={() => setModoPreco('fechado')}
+            >
+              Valor fechado
+            </button>
+            <button
+              type="button"
+              className={`filtro${modoPreco === 'itens' ? ' ativo' : ''}`}
+              onClick={() => setModoPreco('itens')}
+            >
+              Itens da tabela
+            </button>
+            <button
+              type="button"
+              className={`filtro${modoPreco === 'sem' ? ' ativo' : ''}`}
+              onClick={() => setModoPreco('sem')}
+            >
+              Sem preço
+            </button>
           </div>
         </div>
+
+        {modoPreco === 'fechado' && (
+          <div className="campo">
+            <label>Valor (R$)</label>
+            <input
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="Ex.: 120,00"
+              inputMode="decimal"
+            />
+            <div className="apoio" style={{ marginTop: 6 }}>
+              No cartão: <b>{valorTexto}</b>
+            </div>
+          </div>
+        )}
+
+        {modoPreco === 'itens' && (
+          <div className="campo">
+            <label>Itens da tabela</label>
+            {itensProposta.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {itensProposta.map((it) => (
+                  <div
+                    key={it.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 12px',
+                      border: '1px solid var(--linha)',
+                      borderRadius: 12,
+                      marginBottom: 8,
+                      background: 'var(--acucar)',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{it.nome_snapshot}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
+                      {it.preco_snapshot != null ? formatarReal(it.preco_snapshot) : 'sem preço'}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-icone"
+                      onClick={() => aoRemoverItem(it.id)}
+                      aria-label="Tirar este item da proposta"
+                    >
+                      <Icone nome="fechar" size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {edicao ? (
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => navegar(`/propostas/${id}/itens`)}
+              >
+                <Icone nome="precos" size={16} />{' '}
+                {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
+              </button>
+            ) : (
+              <p className="apoio">Salve a proposta para escolher os itens da tabela.</p>
+            )}
+          </div>
+        )}
+
+        {modoPreco === 'sem' && (
+          <p className="apoio" style={{ marginBottom: 4 }}>
+            Sem valor — a proposta mostra só o portfólio e o cardápio.
+          </p>
+        )}
 
         {/* Validade */}
         <div className="campo">
