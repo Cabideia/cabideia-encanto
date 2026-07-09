@@ -79,6 +79,9 @@ export function PropostaForm() {
   const [valor, setValor] = useState('')
   const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
   const [modoPreco, setModoPreco] = useState<ModoPreco>('fechado') // I3
+  const [condicoes, setCondicoes] = useState('') // I4
+  const [condicoesPadrao, setCondicoesPadrao] = useState<string | null>(null)
+  const [salvandoPadrao, setSalvandoPadrao] = useState(false)
 
   // Foto: caminho já salvo + blob novo a subir (compressão no cliente).
   const [fotoPath, setFotoPath] = useState<string | null>(null)
@@ -112,19 +115,23 @@ export function PropostaForm() {
     perfilCarregado.current = true
     supabase
       .from('perfis')
-      .select('nome_negocio, logo_path')
+      .select('nome_negocio, logo_path, condicoes_padrao')
       .eq('id', sessao.user.id)
       .maybeSingle()
       .then(async ({ data }) => {
         if (!data) return
         setNomeNegocio(data.nome_negocio ?? '')
+        setCondicoesPadrao(data.condicoes_padrao ?? null)
+        // I4: nova proposta NASCE com o padrão do perfil (só se ainda vazia).
+        if (!edicao && data.condicoes_padrao)
+          setCondicoes((atual) => atual || data.condicoes_padrao)
         if (data.logo_path) {
           const { data: arquivo } = await supabase.storage.from('publico').download(data.logo_path)
           const bmp = await bitmapDeBlob(arquivo ?? null)
           if (bmp) setLogoBitmap(bmp)
         }
       })
-  }, [sessao])
+  }, [sessao, edicao])
 
   // Pré-preenche no modo edição (uma vez, quando a proposta carrega).
   useEffect(() => {
@@ -136,6 +143,8 @@ export function PropostaForm() {
     setValidade(proposta.validade ?? '')
     // Propostas antigas (modo_preco null) caem em 'fechado' — mesma exibição de antes.
     setModoPreco(proposta.modo_preco ?? 'fechado')
+    // I4: na edição, mostra só o que foi salvo (proposta antiga sem condições fica vazia).
+    setCondicoes(proposta.condicoes ?? '')
     setFotoPath(proposta.foto_path)
     if (proposta.foto_path) {
       supabase.storage
@@ -204,7 +213,26 @@ export function PropostaForm() {
       validade: validade || null,
       foto_path: caminhoFoto,
       modo_preco: modoPreco,
+      condicoes: condicoes.trim() || null,
     }
+  }
+
+  // I4 · Grava as condições atuais como padrão do perfil (vale p/ próximas propostas).
+  async function salvarComoPadrao() {
+    if (!sessao || !condicoes.trim()) return
+    setSalvandoPadrao(true)
+    const texto = condicoes.trim()
+    const { error } = await supabase
+      .from('perfis')
+      .update({ condicoes_padrao: texto })
+      .eq('id', sessao.user.id)
+    setSalvandoPadrao(false)
+    if (error) {
+      avisar('Não consegui salvar o padrão. Tente de novo.')
+      return
+    }
+    setCondicoesPadrao(texto)
+    avisar('Condições salvas como padrão ✓')
   }
 
   /** Garante que a foto nova (se houver) esteja no storage; devolve o caminho. */
@@ -635,6 +663,27 @@ export function PropostaForm() {
         <div className="campo">
           <label>Validade (opcional)</label>
           <input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} />
+        </div>
+
+        {/* Condições (I4) — nasce do padrão do perfil; pode virar o novo padrão. */}
+        <div className="campo">
+          <label>Condições (opcional)</label>
+          <textarea
+            value={condicoes}
+            onChange={(e) => setCondicoes(e.target.value)}
+            placeholder="Ex.: 50% de entrada, 7 dias úteis de antecedência, Pix ou dinheiro"
+            maxLength={300}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+            <button
+              type="button"
+              className="tag-criar"
+              onClick={salvarComoPadrao}
+              disabled={salvandoPadrao || !condicoes.trim() || condicoes.trim() === (condicoesPadrao ?? '')}
+            >
+              {salvandoPadrao ? 'Salvando…' : 'Salvar como padrão'}
+            </button>
+          </div>
         </div>
 
         {/* Compartilhar / baixar (secundários) */}
