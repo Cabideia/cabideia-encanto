@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
+import { SeletorTag } from '../components/SeletorTag'
 import { useAviso } from '../components/Toast'
 import { compartilharImagem, compartilharImagens } from '../lib/compartilhar'
 import { comprimirImagem } from '../lib/imagem'
@@ -45,7 +46,6 @@ function PainelTrabalho({
   onAtualizar,
 }: PainelProps) {
   const avisar = useAviso()
-  const [texto, setTexto] = useState('')
   const [compartilhando, setCompartilhando] = useState(false)
 
   // M-026 · edição inline (legenda + troca de foto). Tags já são editáveis abaixo.
@@ -113,26 +113,6 @@ function PainelTrabalho({
     } finally {
       setCompartilhando(false)
     }
-  }
-
-  const disponiveis = todasTags.filter(
-    (t) => !trabalho.tags.some((tg) => tg.id === t.id)
-  )
-  const sugestoes = disponiveis.filter(
-    (t) => !texto || t.nome.includes(texto.toLowerCase())
-  )
-  const podeCriar =
-    !!texto.trim() && !todasTags.some((t) => t.nome === texto.trim().toLowerCase())
-
-  async function adicionar(tagId: string) {
-    await onAtribuirTag(trabalho.id, tagId)
-    setTexto('')
-  }
-  async function criarEAdicionar() {
-    if (!texto.trim()) return
-    const tag = await onCriarTag(texto)
-    if (tag) await onAtribuirTag(trabalho.id, tag.id)
-    setTexto('')
   }
 
   return (
@@ -255,34 +235,13 @@ function PainelTrabalho({
         )}
 
         <div className="painel-secao">Adicionar tag</div>
-        <input
-          className="painel-input"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              if (sugestoes.length > 0) adicionar(sugestoes[0].id)
-              else if (podeCriar) criarEAdicionar()
-            }
-          }}
-          placeholder="Digite para buscar ou criar…"
-          autoCapitalize="none"
+        <SeletorTag
+          todasTags={todasTags}
+          selecionadas={trabalho.tags.map((t) => t.id)}
+          onSelecionar={(tag) => onAtribuirTag(trabalho.id, tag.id)}
+          onCriar={onCriarTag}
+          inputClassName="painel-input"
         />
-        {(sugestoes.length > 0 || podeCriar) && (
-          <div className="tags-area" style={{ paddingTop: 8 }}>
-            {sugestoes.map((t) => (
-              <button key={t.id} type="button" className="tag-chip" onClick={() => adicionar(t.id)}>
-                <Icone nome="mais" size={13} /> {t.nome}
-              </button>
-            ))}
-            {podeCriar && (
-              <button type="button" className="tag-criar" onClick={criarEAdicionar}>
-                Criar “{texto.trim()}”
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )

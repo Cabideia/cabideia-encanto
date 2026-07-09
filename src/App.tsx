@@ -15,6 +15,7 @@ import { VitrinePublica } from './pages/VitrinePublica'
 import { Pedidos } from './pages/Pedidos'
 import { PedidoForm } from './pages/PedidoForm'
 import { PedidoDetalhe } from './pages/PedidoDetalhe'
+import { PedidoReferencias } from './pages/PedidoReferencias'
 import { PropostaForm } from './pages/PropostaForm'
 import { Clientes } from './pages/Clientes'
 import { ClienteDetalhe } from './pages/ClienteDetalhe'
@@ -90,6 +91,7 @@ export function App() {
           <Route path="/pedidos/:id" element={<Privada><PedidoDetalhe /></Privada>} />
           <Route path="/pedidos/:id/editar" element={<Privada><PedidoForm /></Privada>} />
           <Route path="/pedidos/:id/fotos" element={<Privada><GuardarLotePedido /></Privada>} />
+          <Route path="/pedidos/:id/referencias" element={<Privada><PedidoReferencias /></Privada>} />
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
           <Route path="/clientes/:id" element={<Privada><ClienteDetalhe /></Privada>} />
           <Route path="/clientes/:clienteId/propostas/nova" element={<Privada><PropostaForm /></Privada>} />

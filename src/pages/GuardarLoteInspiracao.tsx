@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
+import { SeletorTag } from '../components/SeletorTag'
+import type { Tag } from '../hooks/useAcervo'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes } from '../hooks/useInspiracoes'
@@ -35,8 +37,10 @@ export function GuardarLoteInspiracao() {
 
   const pedido = pedidoId ? buscarPorId(pedidoId) : undefined
 
-  const [tagTexto, setTagTexto] = useState('')
-  const [tagTocada, setTagTocada] = useState(false)
+  // A "tag deste pedido" (tag-ponte gravada em pedidos.tag_id) agora é escolhida
+  // pelo mesmo autocomplete das outras tags — evita variações "naruto"/"Naruto"
+  // poluírem o vocabulário. O vínculo tag_id em si não muda: é uma tag só.
+  const [tagPonte, setTagPonte] = useState<Tag | null>(null)
   const [nota, setNota] = useState('')
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([])
   const [arquivos, setArquivos] = useState<File[]>([])
@@ -47,12 +51,6 @@ export function GuardarLoteInspiracao() {
 
   const inputCamera = useRef<HTMLInputElement>(null)
   const inputGaleria = useRef<HTMLInputElement>(null)
-
-  // A tag sugerida é o nome do pedido, já na forma das tags (minúsculas).
-  useEffect(() => {
-    if (pedido && !tagTocada && !tagTexto)
-      setTagTexto(tituloPedido(pedido).trim().toLowerCase())
-  }, [pedido, tagTocada, tagTexto])
 
   // Limpa as URLs de preview ao desmontar.
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
@@ -77,10 +75,11 @@ export function GuardarLoteInspiracao() {
     setPreviews((prev) => prev.filter((_, idx) => idx !== i))
   }
 
-  function toggleTag(tagId: string) {
-    setTagsSelecionadas((prev) =>
-      prev.includes(tagId) ? prev.filter((x) => x !== tagId) : [...prev, tagId]
-    )
+  function adicionarTag(tagId: string) {
+    setTagsSelecionadas((prev) => (prev.includes(tagId) ? prev : [...prev, tagId]))
+  }
+  function removerTag(tagId: string) {
+    setTagsSelecionadas((prev) => prev.filter((x) => x !== tagId))
   }
 
   async function aoGuardar() {
@@ -92,8 +91,8 @@ export function GuardarLoteInspiracao() {
     }
     setSalvando(true)
     try {
-      // Cria/reusa a tag-ponte antes do lote (criarTag deduplica e normaliza).
-      const tagPonte = tagTexto.trim() ? await criarTag(tagTexto) : null
+      // A tag-ponte já foi criada/escolhida no autocomplete (criarTag deduplica
+      // e normaliza); aqui só a colocamos na frente das outras, sem repetir.
       const tagIds = [
         ...(tagPonte ? [tagPonte.id] : []),
         ...tagsSelecionadas.filter((t) => t !== tagPonte?.id),
@@ -224,36 +223,60 @@ export function GuardarLoteInspiracao() {
 
         <div className="campo" style={{ marginTop: 14 }}>
           <label>Tag deste pedido (vale para todas)</label>
-          <input
-            value={tagTexto}
-            onChange={(e) => { setTagTocada(true); setTagTexto(e.target.value) }}
-            placeholder="Ex.: unicórnio"
-            autoCapitalize="none"
-            maxLength={40}
-          />
+          {tagPonte ? (
+            <div className="tags-area" style={{ padding: '0 0 2px' }}>
+              <button
+                type="button"
+                className="tag-chip aplicada"
+                onClick={() => setTagPonte(null)}
+                title="Toque para trocar a tag deste pedido"
+              >
+                {tagPonte.nome} <Icone nome="fechar" size={13} />
+              </button>
+            </div>
+          ) : (
+            <SeletorTag
+              todasTags={todasTags}
+              selecionadas={[]}
+              onSelecionar={(tag) => setTagPonte(tag)}
+              onCriar={criarTag}
+              placeholder="ex.: naruto, casamento rústico"
+            />
+          )}
           <p className="apoio" style={{ marginTop: 6 }}>
             É por essa tag que o pedido acha as inspirações depois. Pode encurtar
             (ex.: só o tema da festa).
           </p>
         </div>
 
-        {todasTags.length > 0 && (
-          <div className="campo">
-            <label>Outras tags (opcional)</label>
-            <div className="tags-area" style={{ padding: '0 0 2px' }}>
-              {todasTags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className={`tag-chip${tagsSelecionadas.includes(tag.id) ? ' selecionada' : ''}`}
-                  onClick={() => toggleTag(tag.id)}
-                >
-                  {tagsSelecionadas.includes(tag.id) && <Icone nome="ok" size={13} strokeWidth={3} style={{ marginRight: 4 }} />}{tag.nome}
-                </button>
-              ))}
+        <div className="campo">
+          <label>Outras tags (opcional)</label>
+          {tagsSelecionadas.length > 0 && (
+            <div className="tags-area" style={{ padding: '0 0 8px' }}>
+              {tagsSelecionadas.map((tagId) => {
+                const tag = todasTags.find((t) => t.id === tagId)
+                if (!tag) return null
+                return (
+                  <button
+                    key={tagId}
+                    type="button"
+                    className="tag-chip aplicada"
+                    onClick={() => removerTag(tagId)}
+                    title="Toque para tirar esta tag"
+                  >
+                    {tag.nome} <Icone nome="fechar" size={13} />
+                  </button>
+                )
+              })}
             </div>
-          </div>
-        )}
+          )}
+          <SeletorTag
+            todasTags={todasTags}
+            selecionadas={tagsSelecionadas}
+            onSelecionar={(tag) => adicionarTag(tag.id)}
+            onCriar={criarTag}
+          />
+        </div>
 
         <div className="campo">
           <label>Nota (opcional, vale para todas)</label>
