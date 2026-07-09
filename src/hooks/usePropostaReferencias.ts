@@ -124,11 +124,69 @@ export function usePropostaReferencias(
 
   // ── Remove uma referência (atualização otimista) ──
   async function remover(id: string): Promise<string | null> {
+    // F2b · limpa a cópia pública gerada para o link (se houver) antes de apagar
+    // a linha. Só a cópia gerada por nós vive em `foto_publica_path` da própria
+    // referência — a cópia de vitrine do trabalho nunca é gravada aqui.
+    const { data: alvo } = await supabase
+      .from('proposta_referencias')
+      .select('foto_publica_path')
+      .eq('id', id)
+      .maybeSingle()
     const { error } = await supabase.from('proposta_referencias').delete().eq('id', id)
     if (error) return 'Falha ao remover: ' + error.message
+    const copia = (alvo as { foto_publica_path: string | null } | null)?.foto_publica_path
+    if (copia) await supabase.storage.from('publico').remove([copia])
     setReferencias((prev) => prev.filter((r) => r.id !== id))
     return null
   }
 
-  return { referencias, carregando, salvando, listar: carregar, adicionar, remover }
+  /**
+   * F2b · Copia uma imagem de um bucket privado para o público, para aparecer no
+   * link público da proposta (a cliente anônima não enxerga bucket privado).
+   * Espelha `copiarParaPublico` do M-022. Devolve o caminho público (ou null).
+   */
+  async function copiarParaPublico(bucket: string, pathPrivado: string): Promise<string | null> {
+    if (!usuariaId) return null
+    const { data, error } = await supabase.storage.from(bucket).download(pathPrivado)
+    if (error || !data) return null
+    const novo = `${usuariaId}/prop/${crypto.randomUUID()}.jpg`
+    const { error: upErro } = await supabase.storage
+      .from('publico')
+      .upload(novo, data, { contentType: 'image/jpeg', upsert: false })
+    if (upErro) return null
+    return novo
+  }
+
+  /**
+   * F2b · Garante que TODA referência com imagem tenha um caminho público antes
+   * de o link ser compartilhado (idempotente — só age no que falta):
+   *   · trabalho já na vitrine  → reusa `trabalhos.foto_publica_path` (sem cópia);
+   *   · trabalho fora da vitrine → copia de `acervo` p/ público;
+   *   · inspiração com imagem   → copia de `inspiracoes` p/ público;
+   *   · inspiração-link          → nada (aparece pelo `url`).
+   * A cópia nova é gravada em `proposta_referencias.foto_publica_path`.
+   */
+  async function garantirFotosPublicas(propostaId: string): Promise<void> {
+    const { data } = await supabase
+      .from('proposta_referencias')
+      .select(
+        'id, foto_publica_path, trabalho_id, inspiracao_id, trabalhos(foto_path, foto_publica_path), inspiracoes(foto_path)'
+      )
+      .eq('proposta_id', propostaId)
+    for (const linha of (data ?? []) as unknown[]) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = linha as any
+      if (r.foto_publica_path) continue // já tem cópia própria
+      let novo: string | null = null
+      if (r.trabalho_id) {
+        if (r.trabalhos?.foto_publica_path) continue // reusa a cópia de vitrine
+        if (r.trabalhos?.foto_path) novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
+      } else if (r.inspiracao_id && r.inspiracoes?.foto_path) {
+        novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
+      }
+      if (novo) await supabase.from('proposta_referencias').update({ foto_publica_path: novo }).eq('id', r.id)
+    }
+  }
+
+  return { referencias, carregando, salvando, listar: carregar, adicionar, remover, garantirFotosPublicas }
 }

@@ -23,6 +23,7 @@ export type Proposta = {
   resolvida: boolean // M-037: arquivada em "Acompanhar" (reversível)
   modo_preco: ModoPreco | null // I3: null = proposta antiga (app infere 'fechado')
   condicoes: string | null // I4: condições daquela proposta (texto livre)
+  token: string | null // F2b: chave do link público (nasce só ao compartilhar)
   criado_em: string
 }
 
@@ -37,7 +38,20 @@ export type CamposProposta = {
 }
 
 const COLUNAS =
-  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, criado_em'
+  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, criado_em'
+
+/**
+ * F2b · Token aleatório forte e legível em URL (sem caracteres ambíguos).
+ * Mesmo alfabeto do link de seleção (M-022) — chave do link público da proposta.
+ */
+function gerarToken(): string {
+  const alfabeto = 'abcdefghijkmnpqrstuvwxyz23456789' // sem l/o/0/1
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  let s = ''
+  for (const b of bytes) s += alfabeto[b % alfabeto.length]
+  return s
+}
 
 export function usePropostas(usuariaId: string | undefined) {
   const [propostas, setPropostas] = useState<Proposta[]>([])
@@ -156,13 +170,46 @@ export function usePropostas(usuariaId: string | undefined) {
     return null
   }
 
+  /**
+   * F2b · Garante o token do link público: reusa se já existe, cria e grava se
+   * não (decisão B — sem expiração; o que fecha o link é `resolvida`). Devolve
+   * o token, ou null se falhar.
+   */
+  async function garantirToken(id: string): Promise<string | null> {
+    const atual = propostas.find((p) => p.id === id)
+    if (atual?.token) return atual.token
+    const token = gerarToken()
+    const { data, error } = await supabase
+      .from('propostas')
+      .update({ token })
+      .eq('id', id)
+      .select('token')
+      .single()
+    if (error || !data) return null
+    const tk = (data as { token: string }).token
+    setPropostas((prev) => prev.map((p) => (p.id === id ? { ...p, token: tk } : p)))
+    return tk
+  }
+
   async function excluir(proposta: Proposta): Promise<string | null> {
+    // F2b · reúne as cópias públicas geradas para o link (nas referências) antes
+    // do cascade, para removê-las do storage junto com a capa.
+    const { data: refs } = await supabase
+      .from('proposta_referencias')
+      .select('foto_publica_path')
+      .eq('proposta_id', proposta.id)
+    const copias = (refs ?? [])
+      .map((r) => (r as { foto_publica_path: string | null }).foto_publica_path)
+      .filter((p): p is string => !!p)
+
     const { error } = await supabase.from('propostas').delete().eq('id', proposta.id)
     if (error) return 'Falha ao excluir: ' + error.message
-    if (proposta.foto_path) await supabase.storage.from('publico').remove([proposta.foto_path])
+    const aRemover = [...copias]
+    if (proposta.foto_path) aRemover.push(proposta.foto_path)
+    if (aRemover.length) await supabase.storage.from('publico').remove(aRemover)
     setPropostas((prev) => prev.filter((p) => p.id !== proposta.id))
     return null
   }
 
-  return { propostas, carregando, salvando, listar, porCliente, buscarPorId, subirFoto, criar, atualizar, marcarResolvida, excluir }
+  return { propostas, carregando, salvando, listar, porCliente, buscarPorId, subirFoto, criar, atualizar, marcarResolvida, garantirToken, excluir }
 }

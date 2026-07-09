@@ -62,6 +62,7 @@ export function PropostaForm() {
     subirFoto,
     criar,
     atualizar,
+    garantirToken,
     excluir,
   } = usePropostas(sessao?.user.id)
 
@@ -72,7 +73,7 @@ export function PropostaForm() {
   // enxuto (só ids + ordem); aqui cruzamos com trabalhos/inspirações p/ as imagens.
   const { trabalhos } = useAcervo(sessao?.user.id)
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
-  const { referencias, carregando: carregandoRefs, remover: removerReferencia } =
+  const { referencias, carregando: carregandoRefs, remover: removerReferencia, garantirFotosPublicas } =
     usePropostaReferencias(sessao?.user.id, id)
 
   // M-042 F2a I3 · itens do cardápio ofertados (snapshot). Gerenciados ao vivo,
@@ -457,7 +458,9 @@ export function PropostaForm() {
     setTimeout(() => URL.revokeObjectURL(url), 4000)
   }
 
-  function mensagemWhats(): string {
+  // F2b · o link é o conteúdo principal (o PNG virou capa opcional, D3-A). A
+  // mensagem inclui o link da página pública quando ele já existe.
+  function mensagemWhats(link?: string): string {
     const nome = cliente?.nome?.split(' ')[0]
     return [
       nome ? `Oi, ${nome}! 💛` : 'Oi! 💛',
@@ -465,35 +468,52 @@ export function PropostaForm() {
       descricao.trim(),
       `Valor: ${valorTexto}`,
       validadeTexto,
-      'Já te envio a imagem!',
+      link ? `Veja tudo aqui: ${link}` : null,
     ]
       .filter(Boolean)
       .join('\n')
   }
 
-  /** CTA primário: gera o cartão e compartilha (imagem no WhatsApp pelo celular). */
+  /** URL da página pública da proposta (mesmo domínio do link de seleção). */
+  function linkProposta(token: string): string {
+    return `https://cabideia.com.br/encanto/proposta/${token}`
+  }
+
+  /**
+   * F2b · CTA primário — Compartilhar no WhatsApp mandando o LINK (resolve o B3:
+   * o PNG saía incompleto). Persiste a proposta (rascunho, se preciso), gera/reusa
+   * o token, garante as cópias públicas das fotos e abre o WhatsApp com o texto
+   * pronto + o link. Não exige foto (o link mostra tudo).
+   */
   async function compartilhar() {
-    if (semFoto) {
-      avisar('Adicione uma foto à proposta.')
-      return
-    }
+    saindoParaFilho.current = true // persistir aqui não pode descartar o rascunho
     setCompartilhando(true)
+    let idCriado: string | null = null // proposta recém-criada a adotar (replace)
     try {
-      const blob = await gerarPng()
-      if (!blob) return
-      const arquivo = new File([blob], 'proposta.png', { type: 'image/png' })
-      if (navigator.canShare?.({ files: [arquivo] })) {
-        try {
-          await navigator.share({ files: [arquivo], title: 'Proposta', text: mensagemWhats() })
-        } catch {
-          /* usuária cancelou */
-        }
-      } else {
-        baixar(blob)
-        avisar('Imagem baixada ✓ — agora é só anexar no WhatsApp')
+      const res = await garantirProposta()
+      if (!res) return
+      if (res.criou) idCriado = res.id
+      const token = await garantirToken(res.id)
+      if (!token) {
+        avisar('Não consegui gerar o link. Tente de novo.')
+        return
       }
+      // Cópias públicas das fotos de referência (idempotente; melhor esforço).
+      await garantirFotosPublicas(res.id)
+      const texto = mensagemWhats(linkProposta(token))
+      const numero = (cliente?.whatsapp ?? '').replace(/\D/g, '')
+      const alvo = numero
+        ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
+        : `https://wa.me/?text=${encodeURIComponent(texto)}`
+      window.open(alvo, '_blank', 'noopener')
     } finally {
       setCompartilhando(false)
+      // Criação: colapsa a "/nova" pela proposta real (edição), como abrirFilho —
+      // adota o rascunho SEMPRE que foi criado, mesmo se algo acima falhou (não
+      // deixa órfão nem gera duplicata no próximo "Salvar"). Em edição, libera a
+      // guarda do rascunho.
+      if (idCriado) navegarLimpo(() => navegar(`/propostas/${idCriado}`, { replace: true }))
+      else saindoParaFilho.current = false
     }
   }
 
@@ -511,7 +531,9 @@ export function PropostaForm() {
   function abrirWhatsAppCliente() {
     const numero = (cliente?.whatsapp ?? '').replace(/\D/g, '')
     if (!numero) return
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagemWhats())}`, '_blank', 'noopener')
+    // Se a proposta já tem link (token), manda junto; senão, só a conversa.
+    const texto = mensagemWhats(proposta?.token ? linkProposta(proposta.token) : undefined)
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
   }
 
   // Tira só a referência da proposta — nunca apaga o trabalho/inspiração.
@@ -837,7 +859,7 @@ export function PropostaForm() {
 
         {modoPreco === 'sem' && (
           <p className="apoio" style={{ marginBottom: 4 }}>
-            Sem valor — a proposta mostra só o portfólio e o cardápio.
+            Sem valor — a proposta mostra só o portfólio e a tabela de preços.
           </p>
         )}
 
@@ -868,15 +890,16 @@ export function PropostaForm() {
           </div>
         </div>
 
-        {/* Compartilhar / baixar (secundários) */}
+        {/* F2b · CTA de compartilhamento manda o LINK (o PNG virou capa opcional).
+            Não exige foto — a página pública mostra tudo. */}
         <button
           type="button"
           className="btn-secundario"
           style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
           onClick={compartilhar}
-          disabled={semFoto || compartilhando}
+          disabled={compartilhando || salvando || processandoFoto}
         >
-          {compartilhando ? 'Gerando…' : <><Icone nome="compartilhar" size={16} /> Compartilhar no WhatsApp</>}
+          {compartilhando ? 'Preparando o link…' : <><Icone nome="compartilhar" size={16} /> Compartilhar no WhatsApp</>}
         </button>
         <button
           type="button"
@@ -885,7 +908,7 @@ export function PropostaForm() {
           onClick={baixarImagem}
           disabled={semFoto}
         >
-          <Icone nome="baixar" size={16} /> Baixar imagem
+          <Icone nome="baixar" size={16} /> Baixar imagem (capa)
         </button>
         {cliente?.whatsapp && (
           <button

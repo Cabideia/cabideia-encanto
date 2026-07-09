@@ -10,6 +10,7 @@ import { GuardarLotePedido } from './pages/GuardarLotePedido'
 import { MinhasTags } from './pages/MinhasTags'
 import { Acompanhar } from './pages/Acompanhar'
 import { SelecaoPublica } from './pages/SelecaoPublica'
+import { PropostaPublica } from './pages/PropostaPublica'
 import { Vitrine } from './pages/Vitrine'
 import { VitrinePublica } from './pages/VitrinePublica'
 import { Pedidos } from './pages/Pedidos'
@@ -116,6 +117,8 @@ export function App() {
           <Route path="/excluir-conta" element={<ExcluirConta />} />
           {/* Página pública de uma seleção (sem login) */}
           <Route path="/s/:token" element={<SelecaoPublica />} />
+          {/* M-042 F2b · Página pública de uma proposta (sem login) */}
+          <Route path="/proposta/:token" element={<PropostaPublica />} />
           <Route path="/:arroba" element={<Coringa />} />
         </Routes>
       </ToastProvider>

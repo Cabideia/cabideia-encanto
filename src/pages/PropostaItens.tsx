@@ -55,7 +55,7 @@ export function PropostaItens() {
     setNovoNome('')
     setNovoPreco('')
     setCriando(false)
-    avisar('Item criado no cardápio ✓')
+    avisar('Item criado na tabela de preços ✓')
   }
 
   // Ids do cardápio já ofertados nesta proposta somem da grade (a remoção fica no form).
@@ -135,7 +135,7 @@ export function PropostaItens() {
               background: 'var(--acucar)',
             }}
           >
-            <label>Novo item do cardápio</label>
+            <label>Novo item da tabela de preços</label>
             <input
               value={novoNome}
               onChange={(e) => setNovoNome(e.target.value)}
@@ -175,7 +175,7 @@ export function PropostaItens() {
               </button>
             </div>
             <p className="apoio" style={{ marginTop: 8, marginBottom: 0 }}>
-              O item fica salvo no seu Cardápio e já entra nesta proposta.
+              O item fica salvo na sua Tabela de preços e já entra nesta proposta.
             </p>
           </div>
         ) : (
@@ -185,27 +185,27 @@ export function PropostaItens() {
             style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}
             onClick={() => setCriando(true)}
           >
-            <Icone nome="mais" size={16} /> Criar item do cardápio
+            <Icone nome="mais" size={16} /> Criar item da tabela de preços
           </button>
         )}
 
         {cardapio.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="precos" size={44} /></div>
-            <p>Você ainda não tem itens no Cardápio. Crie um aqui em cima, ou cadastre no Cardápio.</p>
+            <p>Você ainda não tem itens na Tabela de preços. Crie um aqui em cima, ou cadastre na Tabela de preços.</p>
             <button
               type="button"
               className="btn-secundario"
               style={{ marginTop: 12 }}
               onClick={() => navegar('/cardapio')}
             >
-              <Icone nome="precos" size={16} /> Ir ao Cardápio
+              <Icone nome="precos" size={16} /> Ir à Tabela de preços
             </button>
           </div>
         ) : disponiveis.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="ok" size={44} /></div>
-            <p>Todos os itens do seu cardápio já estão nesta proposta.</p>
+            <p>Todos os itens da sua tabela de preços já estão nesta proposta.</p>
           </div>
         ) : (
           <>
