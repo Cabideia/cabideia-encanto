@@ -212,7 +212,7 @@ export function PropostaReferencias() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
-            onClick={() => navegar(`/propostas/${id}`)}
+            onClick={() => navegar(`/propostas/${id}`, { replace: true })}
             className="btn-secundario"
             style={{ flex: 1 }}
             disabled={salvando}

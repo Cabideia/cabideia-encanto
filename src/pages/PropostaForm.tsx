@@ -18,6 +18,15 @@ import { comprimirImagem } from '../lib/imagem'
 import { supabase } from '../lib/supabase'
 import { cartaoParaPng, desenharProposta } from '../lib/proposta'
 
+/**
+ * Rascunhos automáticos (opção A) criados NESTA sessão de navegação — ids de
+ * propostas que nasceram só para permitir anexar filhos na criação. Só esses
+ * podem ser descartados se ficarem vazios; propostas abertas direto da ficha
+ * nunca entram aqui (segurança: nunca apagamos trabalho real da dona). O Set
+ * zera num reload da página (aí preservamos por precaução).
+ */
+const rascunhosAbertos = new Set<string>()
+
 /** Carrega um Blob como ImageBitmap (null em caso de falha — o cartão segue sem ele). */
 async function bitmapDeBlob(blob: Blob | null): Promise<ImageBitmap | null> {
   if (!blob) return null
@@ -62,11 +71,13 @@ export function PropostaForm() {
   // enxuto (só ids + ordem); aqui cruzamos com trabalhos/inspirações p/ as imagens.
   const { trabalhos } = useAcervo(sessao?.user.id)
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
-  const { referencias, remover: removerReferencia } = usePropostaReferencias(sessao?.user.id, id)
+  const { referencias, carregando: carregandoRefs, remover: removerReferencia } =
+    usePropostaReferencias(sessao?.user.id, id)
 
   // M-042 F2a I3 · itens do cardápio ofertados (snapshot). Gerenciados ao vivo,
   // como as referências — não passam pelo salvar() do form.
-  const { itens: itensProposta, remover: removerItem } = usePropostaItens(sessao?.user.id, id)
+  const { itens: itensProposta, carregando: carregandoItensProp, remover: removerItem } =
+    usePropostaItens(sessao?.user.id, id)
 
   const proposta = edicao && id ? buscarProposta(id) : undefined
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
@@ -99,6 +110,10 @@ export function PropostaForm() {
   const inputFoto = useRef<HTMLInputElement>(null)
   const prefilled = useRef(false)
   const perfilCarregado = useRef(false)
+  // Limpeza do rascunho vazio (opção A): refs lidos no unmount, sempre atuais.
+  const idRef = useRef<string | undefined>(id)
+  const saindoParaFilho = useRef(false) // indo a um picker/lote → NÃO limpar
+  const rascunhoVazioRef = useRef(false)
 
   // Garante as fontes (Fraunces / Nunito Sans) antes de desenhar texto no canvas.
   useEffect(() => {
@@ -155,11 +170,49 @@ export function PropostaForm() {
     }
   }, [edicao, proposta])
 
+  // Descarta o rascunho automático se a dona sair da tela (unmount) sem NADA
+  // nele. Só age em rascunhos criados nesta navegação (nunca em propostas
+  // abertas da ficha) e nunca quando estamos indo a um picker/lote.
+  useEffect(() => {
+    return () => {
+      const rid = idRef.current
+      if (
+        rid &&
+        rascunhosAbertos.has(rid) &&
+        !saindoParaFilho.current &&
+        rascunhoVazioRef.current
+      ) {
+        rascunhosAbertos.delete(rid)
+        // Sem foto/filhos: é só a linha da proposta (fire-and-forget).
+        supabase.from('propostas').delete().eq('id', rid)
+      }
+    }
+  }, [])
+
   const valorNum = precoParaNumero(valor)
   // No cartão, só o modo "valor fechado" mostra o número; itens/sem-preço mostram
   // "A combinar" (o detalhamento de itens no cartão/página é F2b).
   const valorTexto =
     modoPreco === 'fechado' && valorNum != null ? formatarReal(valorNum) : 'A combinar'
+
+  // Veredito conservador de "rascunho vazio", atualizado a cada render p/ o
+  // unmount ler. Só é vazio com TUDO ausente E os filhos já carregados (na
+  // dúvida — ainda carregando —, NÃO é vazio, então preserva). Condições que
+  // apenas repetem o padrão do perfil (auto-preenchimento do I4) não contam
+  // como conteúdo digitado.
+  idRef.current = id
+  rascunhoVazioRef.current =
+    !carregandoRefs &&
+    !carregandoItensProp &&
+    referencias.length === 0 &&
+    itensProposta.length === 0 &&
+    !titulo.trim() &&
+    !descricao.trim() &&
+    valorNum == null &&
+    !validade &&
+    !fotoPath &&
+    !blobNovo.current &&
+    (condicoes.trim() === '' || condicoes.trim() === (condicoesPadrao ?? '').trim())
   const validadeTexto = validade ? `Válido até ${formatarDataNumerica(validade)}` : ''
 
   // Redesenha o cartão sempre que algo muda (e quando as fontes carregam).
@@ -261,6 +314,8 @@ export function PropostaForm() {
         avisar(erro)
         return
       }
+      // Save explícito: deixa de ser rascunho descartável (é decisão da dona).
+      rascunhosAbertos.delete(id)
       avisar('Proposta salva ✓')
     } else {
       const res = await criar(clienteIdAtivo, campos(foto.path))
@@ -271,6 +326,53 @@ export function PropostaForm() {
       avisar('Proposta salva ✓')
       navegar(`/propostas/${res.id}`, { replace: true })
     }
+  }
+
+  /**
+   * Rascunho automático (fix de fluxo, opção A): garante um `proposta_id` para
+   * gravar os filhos (fotos/inspirações/itens) SEM a dona salvar e reabrir. Na
+   * edição já existe; na criação, salva a proposta atual de forma transparente
+   * (com o que já foi digitado + a capa pendente) e devolve o id. O picker que
+   * abre em seguida volta para /propostas/:id, onde o form recarrega tudo.
+   */
+  async function garantirProposta(): Promise<string | null> {
+    if (id) return id
+    if (!clienteIdAtivo) {
+      avisar('Proposta sem cliente.')
+      return null
+    }
+    const foto = await garantirFoto()
+    if ('erro' in foto) {
+      avisar(foto.erro)
+      return null
+    }
+    const res = await criar(clienteIdAtivo, campos(foto.path))
+    if ('erro' in res) {
+      avisar(res.erro)
+      return null
+    }
+    // Nasceu como rascunho: elegível a descarte se ficar vazio (opção A).
+    rascunhosAbertos.add(res.id)
+    return res.id
+  }
+
+  async function abrirPickerFotos() {
+    saindoParaFilho.current = true
+    const pid = await garantirProposta()
+    if (pid) navegar(`/propostas/${pid}/referencias`)
+    else saindoParaFilho.current = false
+  }
+  async function abrirLoteInspiracoes() {
+    saindoParaFilho.current = true
+    const pid = await garantirProposta()
+    if (pid) navegar(`/inspiracoes/lote?proposta=${pid}`)
+    else saindoParaFilho.current = false
+  }
+  async function abrirPickerItens() {
+    saindoParaFilho.current = true
+    const pid = await garantirProposta()
+    if (pid) navegar(`/propostas/${pid}/itens`)
+    else saindoParaFilho.current = false
   }
 
   const gerarPng = useCallback(async (): Promise<Blob | null> => {
@@ -365,12 +467,15 @@ export function PropostaForm() {
 
   async function confirmarExcluir() {
     if (!proposta) return
+    saindoParaFilho.current = true // já estamos apagando; unmount não repete
     const erro = await excluir(proposta)
     if (erro) {
+      saindoParaFilho.current = false
       avisar(erro)
       setAExcluir(false)
       return
     }
+    if (id) rascunhosAbertos.delete(id)
     avisar('Proposta excluída')
     navegar(clienteIdAtivo ? `/clientes/${clienteIdAtivo}` : '/clientes', { replace: true })
   }
@@ -412,22 +517,23 @@ export function PropostaForm() {
             type="button"
             className="btn-secundario"
             style={{ width: '100%', justifyContent: 'center', marginBottom: 14 }}
-            onClick={() =>
-              pedidoDaEdicao
-                ? navegar(`/pedidos/${pedidoDaEdicao.id}`)
-                : navegar(`/pedidos/novo?proposta=${id}`)
-            }
+            onClick={() => {
+              saindoParaFilho.current = true // sair para o pedido não descarta
+              navegar(
+                pedidoDaEdicao ? `/pedidos/${pedidoDaEdicao.id}` : `/pedidos/novo?proposta=${id}`
+              )
+            }}
           >
             <Icone nome="pedidos" size={16} /> {pedidoDaEdicao ? 'Ver pedido' : 'Virar pedido'}
           </button>
         )}
 
-        {/* M-042 F2a · Fotos de referência (proposta_referencias). Só na edição:
-            a proposta precisa existir (FK) antes de anexar. Tocar abre a origem;
-            o × tira só a referência — nunca apaga o trabalho/inspiração. */}
-        {edicao && (
-          <div style={{ marginBottom: 14 }}>
-            <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
+        {/* M-042 F2a · Fotos de referência (proposta_referencias). Visível já na
+            criação: ao tocar, o rascunho automático salva a proposta e abre o
+            picker (opção A). Tocar na miniatura abre a origem; o × tira só a
+            referência — nunca apaga o trabalho/inspiração. */}
+        <div style={{ marginBottom: 14 }}>
+          <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
             {referencias.length > 0 && (
               <div className="grade-fotos" style={{ alignItems: 'start', marginBottom: 12 }}>
                 {referencias.map((r) => {
@@ -498,7 +604,8 @@ export function PropostaForm() {
               type="button"
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center' }}
-              onClick={() => navegar(`/propostas/${id}/referencias`)}
+              onClick={abrirPickerFotos}
+              disabled={salvando || processandoFoto}
             >
               <Icone nome="imagem" size={16} />{' '}
               {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
@@ -509,12 +616,12 @@ export function PropostaForm() {
               type="button"
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-              onClick={() => navegar(`/inspiracoes/lote?proposta=${id}`)}
+              onClick={abrirLoteInspiracoes}
+              disabled={salvando || processandoFoto}
             >
               <Icone nome="camera" size={16} /> Incluir novas inspirações
             </button>
-          </div>
-        )}
+        </div>
 
         {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
         <canvas ref={canvasRef} className="proposta-previa" aria-label="Prévia da proposta" />
@@ -637,19 +744,16 @@ export function PropostaForm() {
                 ))}
               </div>
             )}
-            {edicao ? (
-              <button
-                type="button"
-                className="btn-secundario"
-                style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => navegar(`/propostas/${id}/itens`)}
-              >
-                <Icone nome="precos" size={16} />{' '}
-                {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
-              </button>
-            ) : (
-              <p className="apoio">Salve a proposta para escolher os itens da tabela.</p>
-            )}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={abrirPickerItens}
+              disabled={salvando || processandoFoto}
+            >
+              <Icone nome="precos" size={16} />{' '}
+              {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
+            </button>
           </div>
         )}
 
