@@ -21,11 +21,42 @@ export function PropostaItens() {
   const navegar = useNavigate()
 
   const { buscarPorId, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
-  const { itens: cardapio, carregando: carregandoCardapio } = useCardapio(sessao?.user.id)
+  const {
+    itens: cardapio,
+    carregando: carregandoCardapio,
+    criar: criarItemCardapio,
+    salvando: salvandoCardapio,
+  } = useCardapio(sessao?.user.id)
   const { itens: jaNaProposta, carregando: carregandoItens, salvando, adicionar } =
     usePropostaItens(sessao?.user.id, id)
 
   const proposta = id ? buscarPorId(id) : undefined
+
+  // M1 · criar um item do cardápio SEM sair do seletor (cenário: a dona percebe
+  // na hora que faltou lançar o preço do brigadeiro). Reusa o CRUD real de
+  // cardapio_itens — o item nasce no cardápio e já entra marcado para ir junto.
+  const [criando, setCriando] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoPreco, setNovoPreco] = useState('')
+
+  async function criarItem() {
+    const nome = novoNome.trim()
+    if (!nome) return avisar('Dê um nome ao item.')
+    const res = await criarItemCardapio({
+      nome,
+      preco_base: novoPreco,
+      unidade: '',
+      detalhes: '',
+      na_vitrine: false,
+      preco_sob_consulta: false,
+    })
+    if ('erro' in res) return avisar(res.erro)
+    setMarcados((prev) => new Set(prev).add(res.item.id)) // já vai junto ao "Adicionar"
+    setNovoNome('')
+    setNovoPreco('')
+    setCriando(false)
+    avisar('Item criado no cardápio ✓')
+  }
 
   // Ids do cardápio já ofertados nesta proposta somem da grade (a remoção fica no form).
   const jaTem = useMemo(() => {
@@ -63,7 +94,9 @@ export function PropostaItens() {
     const erro = await adicionar(id, novos)
     if (erro) return avisar(erro)
     avisar(novos.length === 1 ? 'Item adicionado ✓' : `${novos.length} itens adicionados ✓`)
-    navegar(`/propostas/${id}`, { replace: true })
+    // B2 · volta POPANDO o histórico (não empurra outra /propostas/:id): o form
+    // remonta e relê os itens, sem deixar telas empilhadas na saída da proposta.
+    navegar(-1)
   }
 
   if (carregandoPropostas || carregandoCardapio || carregandoItens) return null
@@ -89,10 +122,77 @@ export function PropostaItens() {
       <BarraTopo titulo="Escolher itens" />
 
       <div className="conteudo" style={{ paddingBottom: 96 }}>
+        {/* M1 · criar item do cardápio sem sair. Fica no topo, disponível em
+            qualquer estado (inclusive com o cardápio vazio). */}
+        {criando ? (
+          <div
+            className="campo"
+            style={{
+              border: '1px solid var(--linha)',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 12,
+              background: 'var(--acucar)',
+            }}
+          >
+            <label>Novo item do cardápio</label>
+            <input
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              placeholder="Ex.: Brigadeiro"
+              maxLength={80}
+              autoFocus
+            />
+            <input
+              value={novoPreco}
+              onChange={(e) => setNovoPreco(e.target.value)}
+              placeholder="Preço (ex.: 3,50) — opcional"
+              inputMode="decimal"
+              style={{ marginTop: 8 }}
+            />
+            <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setCriando(false)
+                  setNovoNome('')
+                  setNovoPreco('')
+                }}
+                disabled={salvandoCardapio}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cta"
+                style={{ flex: 1 }}
+                onClick={criarItem}
+                disabled={salvandoCardapio || !novoNome.trim()}
+              >
+                {salvandoCardapio ? 'Criando…' : 'Criar item'}
+              </button>
+            </div>
+            <p className="apoio" style={{ marginTop: 8, marginBottom: 0 }}>
+              O item fica salvo no seu Cardápio e já entra nesta proposta.
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}
+            onClick={() => setCriando(true)}
+          >
+            <Icone nome="mais" size={16} /> Criar item do cardápio
+          </button>
+        )}
+
         {cardapio.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="precos" size={44} /></div>
-            <p>Você ainda não tem itens no Cardápio. Cadastre lá para trazer aqui.</p>
+            <p>Você ainda não tem itens no Cardápio. Crie um aqui em cima, ou cadastre no Cardápio.</p>
             <button
               type="button"
               className="btn-secundario"
@@ -175,7 +275,7 @@ export function PropostaItens() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
-            onClick={() => navegar(`/propostas/${id}`, { replace: true })}
+            onClick={() => navegar(-1)}
             className="btn-secundario"
             style={{ flex: 1 }}
             disabled={salvando}

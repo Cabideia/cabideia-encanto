@@ -4,16 +4,18 @@ import { Icone } from './Icone'
 type Props = {
   titulo: string
   voltar?: boolean
+  /** Handler custom da seta de voltar (ex.: confirmar saída). Padrão: histórico. */
+  aoVoltar?: () => void
   acao?: React.ReactNode
 }
 
 /** Padrão 1 do design system: barra superior igual em todas as telas. */
-export function BarraTopo({ titulo, voltar = true, acao }: Props) {
+export function BarraTopo({ titulo, voltar = true, aoVoltar, acao }: Props) {
   const navegar = useNavigate()
   return (
     <div className="barra">
       {voltar ? (
-        <button className="btn-icone" onClick={() => navegar(-1)} aria-label="Voltar">
+        <button className="btn-icone" onClick={aoVoltar ?? (() => navegar(-1))} aria-label="Voltar">
           <Icone nome="setaEsq" />
         </button>
       ) : (

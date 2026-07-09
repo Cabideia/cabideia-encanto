@@ -59,7 +59,6 @@ export function GuardarLoteInspiracao() {
     : pedido
     ? tituloPedido(pedido)
     : ''
-  const voltarAoAlvo = modoProposta ? `/propostas/${propostaId}` : `/pedidos/${pedidoId}`
 
   // A "tag deste pedido" (tag-ponte gravada em pedidos.tag_id) agora é escolhida
   // pelo mesmo autocomplete das outras tags — evita variações "naruto"/"Naruto"
@@ -191,7 +190,9 @@ export function GuardarLoteInspiracao() {
       } else {
         avisar(`${ok} inspiraç${ok !== 1 ? 'ões guardadas' : 'ão guardada'} ✓`)
       }
-      navegar(voltarAoAlvo, { replace: true })
+      // B2 · volta POPANDO ao alvo que abriu este lote (proposta ou pedido),
+      // sem empurrar outra entrada por cima — evita telas empilhadas na saída.
+      navegar(-1)
     } finally {
       setSalvando(false)
     }
@@ -359,7 +360,7 @@ export function GuardarLoteInspiracao() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
-            onClick={() => navegar(voltarAoAlvo)}
+            onClick={() => navegar(-1)}
             className="btn-secundario"
             style={{ flex: 1 }}
             disabled={salvando}
