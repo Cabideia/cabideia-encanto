@@ -12,6 +12,7 @@ import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
 import { usePropostaItens } from '../hooks/usePropostaItens'
+import { useGuardaSaida } from '../hooks/useGuardaSaida'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
 import { comprimirImagem } from '../lib/imagem'
@@ -105,6 +106,7 @@ export function PropostaForm() {
   const [processandoFoto, setProcessandoFoto] = useState(false)
   const [compartilhando, setCompartilhando] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
+  const [confirmarSaida, setConfirmarSaida] = useState(false) // M3
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputFoto = useRef<HTMLInputElement>(null)
@@ -214,6 +216,44 @@ export function PropostaForm() {
     !blobNovo.current &&
     (condicoes.trim() === '' || condicoes.trim() === (condicoesPadrao ?? '').trim())
   const validadeTexto = validade ? `Válido até ${formatarDataNumerica(validade)}` : ''
+
+  // M3 · Há conteúdo NÃO salvo? Fotos/itens são gravados ao vivo — não entram
+  // aqui; só os campos do form (que dependem do "Salvar") e a capa pendente. Em
+  // criação pura (sem registro ainda) qualquer conteúdo conta; já com registro,
+  // comparamos com o que está salvo. Condições que só repetem o padrão do perfil
+  // não contam (auto-preenchimento do I4). Rascunho vazio abandonado NÃO é
+  // "alteração": sai em silêncio (e a limpeza automática o descarta).
+  function haAlteracoes(): boolean {
+    if (blobNovo.current) return true // capa nova ainda não subiu
+    const tituloN = titulo.trim() || null
+    const descricaoN = descricao.trim() || null
+    const condicoesN = condicoes.trim() || null
+    const validadeN = validade || null
+    if (!proposta) {
+      // Criação pura: sem registro salvo, qualquer conteúdo digitado é "não salvo".
+      const condProprias = condicoesN != null && condicoesN !== (condicoesPadrao ?? '').trim()
+      return (
+        !!tituloN || !!descricaoN || valorNum != null || !!validadeN || !!fotoPath || condProprias
+      )
+    }
+    return (
+      tituloN !== (proposta.titulo ?? null) ||
+      descricaoN !== (proposta.descricao ?? null) ||
+      valorNum !== (proposta.valor ?? null) ||
+      validadeN !== (proposta.validade ?? null) ||
+      modoPreco !== (proposta.modo_preco ?? 'fechado') ||
+      condicoesN !== (proposta.condicoes ?? null)
+    )
+  }
+
+  // M3 · guarda de saída: intercepta a seta do app (aoVoltar) e o back nativo.
+  // Só arma a sentinela do back nativo quando há uma proposta real carregada
+  // (nunca na tela "não encontrada" nem durante o carregamento).
+  const { tentarSair, sair } = useGuardaSaida({
+    ativo: edicao && !!proposta,
+    temAlteracoes: haAlteracoes,
+    aoPedirConfirmacao: () => setConfirmarSaida(true),
+  })
 
   // Redesenha o cartão sempre que algo muda (e quando as fontes carregam).
   useEffect(() => {
@@ -336,7 +376,6 @@ export function PropostaForm() {
    * abre em seguida volta para /propostas/:id, onde o form recarrega tudo.
    */
   async function garantirProposta(): Promise<string | null> {
-    if (id) return id
     if (!clienteIdAtivo) {
       avisar('Proposta sem cliente.')
       return null
@@ -346,6 +385,18 @@ export function PropostaForm() {
       avisar(foto.erro)
       return null
     }
+    // B1 · Já existe: PERSISTE o estado atual do form (modo_preco, título, valor…)
+    // antes de abrir o picker. Sem isso, ao voltar o form remonta e relê valores
+    // velhos do banco — o modo escolhido reverte para "fechado" e os itens já
+    // lançados ficam ocultos.
+    if (id) {
+      const erro = await atualizar(id, campos(foto.path), proposta?.foto_path ?? null)
+      if (erro) {
+        avisar(erro)
+        return null
+      }
+      return id
+    }
     const res = await criar(clienteIdAtivo, campos(foto.path))
     if ('erro' in res) {
       avisar(res.erro)
@@ -353,6 +404,10 @@ export function PropostaForm() {
     }
     // Nasceu como rascunho: elegível a descarte se ficar vazio (opção A).
     rascunhosAbertos.add(res.id)
+    // B2 · Troca a entrada efêmera "/nova" pela proposta real. Assim o "voltar"
+    // do picker cai na proposta (não no form em branco) e o "voltar" da proposta
+    // vai direto à origem, sem telas intermediárias empilhadas.
+    navegar(`/propostas/${res.id}`, { replace: true })
     return res.id
   }
 
@@ -501,6 +556,7 @@ export function PropostaForm() {
     <div className="tela">
       <BarraTopo
         titulo={edicao ? 'Proposta' : 'Nova proposta'}
+        aoVoltar={tentarSair}
         acao={
           edicao ? (
             <button className="btn-icone" onClick={() => setAExcluir(true)} aria-label="Excluir proposta">
@@ -839,6 +895,20 @@ export function PropostaForm() {
           rotuloConfirmar="Excluir proposta"
           onConfirmar={confirmarExcluir}
           onCancelar={() => setAExcluir(false)}
+        />
+      )}
+
+      {/* M3 · aviso "sair sem salvar" quando há conteúdo não salvo no form. */}
+      {confirmarSaida && (
+        <Confirmar
+          titulo="Sair sem salvar?"
+          descricao="Você tem alterações que ainda não foram salvas nesta proposta."
+          rotuloConfirmar="Sair sem salvar"
+          onConfirmar={() => {
+            setConfirmarSaida(false)
+            sair()
+          }}
+          onCancelar={() => setConfirmarSaida(false)}
         />
       )}
     </div>

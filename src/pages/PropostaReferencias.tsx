@@ -72,7 +72,8 @@ export function PropostaReferencias() {
     avisar(
       itens.length === 1 ? 'Referência adicionada ✓' : `${itens.length} referências adicionadas ✓`
     )
-    navegar(`/propostas/${id}`, { replace: true })
+    // B2 · volta POPANDO o histórico (não empurra outra /propostas/:id).
+    navegar(-1)
   }
 
   if (carregandoPropostas || carregandoAcervo || carregandoRefs) return null
@@ -212,7 +213,7 @@ export function PropostaReferencias() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
-            onClick={() => navegar(`/propostas/${id}`, { replace: true })}
+            onClick={() => navegar(-1)}
             className="btn-secundario"
             style={{ flex: 1 }}
             disabled={salvando}
