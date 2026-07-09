@@ -8,6 +8,9 @@ import { useSessao } from '../hooks/useSessao'
 import { useClientes } from '../hooks/useClientes'
 import { usePropostas, type CamposProposta } from '../hooks/usePropostas'
 import { usePedidos } from '../hooks/usePedidos'
+import { useAcervo } from '../hooks/useAcervo'
+import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
+import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
 import { comprimirImagem } from '../lib/imagem'
@@ -53,6 +56,12 @@ export function PropostaForm() {
 
   // M-039/M-042 · o pedido que nasceu desta proposta (base do "Virar/Ver pedido").
   const { pedidoDaProposta } = usePedidos(sessao?.user.id)
+
+  // M-042 F2a · Fotos de referência multi-origem (proposta_referencias). O hook é
+  // enxuto (só ids + ordem); aqui cruzamos com trabalhos/inspirações p/ as imagens.
+  const { trabalhos } = useAcervo(sessao?.user.id)
+  const { inspiracoes } = useInspiracoes(sessao?.user.id)
+  const { referencias, remover: removerReferencia } = usePropostaReferencias(sessao?.user.id, id)
 
   const proposta = edicao && id ? buscarProposta(id) : undefined
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
@@ -294,6 +303,12 @@ export function PropostaForm() {
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagemWhats())}`, '_blank', 'noopener')
   }
 
+  // Tira só a referência da proposta — nunca apaga o trabalho/inspiração.
+  async function aoRemoverReferencia(refId: string) {
+    const erro = await removerReferencia(refId)
+    if (erro) avisar(erro)
+  }
+
   async function confirmarExcluir() {
     if (!proposta) return
     const erro = await excluir(proposta)
@@ -351,6 +366,90 @@ export function PropostaForm() {
           >
             <Icone nome="pedidos" size={16} /> {pedidoDaEdicao ? 'Ver pedido' : 'Virar pedido'}
           </button>
+        )}
+
+        {/* M-042 F2a · Fotos de referência (proposta_referencias). Só na edição:
+            a proposta precisa existir (FK) antes de anexar. Tocar abre a origem;
+            o × tira só a referência — nunca apaga o trabalho/inspiração. */}
+        {edicao && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
+            {referencias.length > 0 && (
+              <div className="grade-fotos" style={{ alignItems: 'start', marginBottom: 12 }}>
+                {referencias.map((r) => {
+                  if (r.origem === 'trabalho') {
+                    const t = trabalhos.find((x) => x.id === r.trabalho_id)
+                    if (!t) return null
+                    return (
+                      <div className="foto-item" key={r.id}>
+                        <div
+                          className="acervo-img-wrap"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navegar(`/acervo?t=${t.id}`)}
+                          onKeyDown={(e) => e.key === 'Enter' && navegar(`/acervo?t=${t.id}`)}
+                        >
+                          <img src={t.url} alt={t.descricao ?? ''} loading="lazy" />
+                          {t.codigo_num != null && (
+                            <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
+                          )}
+                          <button
+                            className="foto-remover"
+                            onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                            aria-label="Tirar esta foto da proposta"
+                          >
+                            <Icone nome="fechar" size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  const insp = inspiracoes.find((x) => x.id === r.inspiracao_id)
+                  if (!insp) return null
+                  return (
+                    <div className="foto-item" key={r.id}>
+                      <div
+                        className="acervo-img-wrap"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navegar(`/inspiracoes/${insp.id}`)}
+                        onKeyDown={(e) => e.key === 'Enter' && navegar(`/inspiracoes/${insp.id}`)}
+                      >
+                        {insp.fotoUrl ? (
+                          <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
+                        ) : (
+                          <div className="insp-link-capa">
+                            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
+                            <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
+                          </div>
+                        )}
+                        {insp.codigo_num != null && (
+                          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>I-{insp.codigo_num}</span>
+                        )}
+                        <button
+                          className="foto-remover"
+                          onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                          aria-label="Tirar esta foto da proposta"
+                        >
+                          <Icone nome="fechar" size={15} />
+                        </button>
+                      </div>
+                      {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={() => navegar(`/propostas/${id}/referencias`)}
+            >
+              <Icone nome="imagem" size={16} />{' '}
+              {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
+            </button>
+          </div>
         )}
 
         {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
