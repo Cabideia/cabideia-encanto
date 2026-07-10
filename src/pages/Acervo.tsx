@@ -10,7 +10,6 @@ import { comprimirImagem } from '../lib/imagem'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo, type Tag, type Trabalho } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
-import { useSelecoes, type ItemSelecao } from '../hooks/useSelecoes'
 import { useAssinatura } from '../hooks/useAssinatura'
 
 const AVISO_CURADORIA_TRAVADA =
@@ -436,7 +435,6 @@ export function Acervo() {
     removerTag,
   } = useAcervo(sessao?.user.id)
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
-  const { criar: criarSelecao } = useSelecoes(sessao?.user.id)
   const { total, limite, ilimitado, emExcedente } = useAssinatura(sessao?.user.id)
   const [params, setParams] = useSearchParams()
 
@@ -446,16 +444,13 @@ export function Acervo() {
 
   const [aApagar, setAApagar] = useState<Trabalho | null>(null)
 
-  // Modo seleção (M-020 · M-022 estendido: duas origens)
+  // Modo seleção — hoje serve só para baixar/compartilhar fotos em lote (M-035).
+  // O link público de seleção (M-022) foi retirado na unificação (M-042 F2c):
+  // todo envio à cliente passa a ser via Proposta. A infra de seleções fica.
   const [modoSelecao, setModoSelecao] = useState(false)
   const [abaSelecao, setAbaSelecao] = useState<'trabalhos' | 'inspiracoes'>('trabalhos')
   // Chaves prefixadas: 't:<id>' (trabalho) · 'i:<id>' (inspiração).
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
-  const [formSelecao, setFormSelecao] = useState(false)
-  const [tituloSel, setTituloSel] = useState('')
-  const [msgSel, setMsgSel] = useState('')
-  const [criandoLink, setCriandoLink] = useState(false)
-  const [linkPronto, setLinkPronto] = useState<string | null>(null)
   const [salvandoFotos, setSalvandoFotos] = useState(false)
 
   const filtrados = trabalhos.filter((t) => {
@@ -496,10 +491,6 @@ export function Acervo() {
   function sairSelecao() {
     setModoSelecao(false)
     setMarcados(new Set())
-    setFormSelecao(false)
-    setTituloSel('')
-    setMsgSel('')
-    setLinkPronto(null)
   }
   // Entrar no modo seleção já marcando um item (vindo do long-press na grade).
   function iniciarSelecaoCom(chave: string) {
@@ -551,41 +542,6 @@ export function Acervo() {
       else if (res === 'falhou') avisar('Não consegui baixar as fotos. Tente de novo.')
     } finally {
       setSalvandoFotos(false)
-    }
-  }
-
-  async function gerarLink() {
-    // Monta os itens das duas origens, na ordem em que foram marcados.
-    const itens: ItemSelecao[] = Array.from(marcados).map((chave) => {
-      const id = chave.slice(2)
-      if (chave.startsWith('i:')) {
-        const insp = inspiracoes.find((i) => i.id === id)
-        return { origem: 'inspiracao', id, fotoPathPrivado: insp?.foto_path ?? null }
-      }
-      return { origem: 'trabalho', id }
-    })
-    setCriandoLink(true)
-    const res = await criarSelecao(itens, tituloSel, msgSel)
-    setCriandoLink(false)
-    if ('erro' in res) {
-      avisar(res.erro)
-      return
-    }
-    setLinkPronto(`https://cabideia.com.br/encanto/s/${res.token}`)
-  }
-
-  async function enviarLink() {
-    if (!linkPronto) return
-    const texto = `${msgSel ? msgSel + ' ' : ''}${linkPronto}`
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: tituloSel || 'Seleção', text: texto, url: linkPronto })
-      } catch {
-        /* cancelou */
-      }
-    } else {
-      navigator.clipboard?.writeText(linkPronto)
-      avisar('Link copiado ✓')
     }
   }
 
@@ -662,7 +618,7 @@ export function Acervo() {
               )}
             </div>
 
-            {/* Entrar no modo seleção para montar um link / baixar fotos (M-036).
+            {/* Entrar no modo seleção para baixar/compartilhar fotos em lote (M-035).
                 Também dá pra segurar uma foto na grade para entrar já marcando. */}
             {trabalhos.length > 0 && (
               <div style={{ marginTop: 10 }}>
@@ -684,8 +640,8 @@ export function Acervo() {
         {modoSelecao && (
           <>
             <p className="apoio" style={{ marginTop: 4, marginBottom: 8 }}>
-              Toque nos itens que quer mandar para a cliente — de Meus Trabalhos e de
-              Inspirações. Depois, crie o link.
+              Toque nas fotos que quer salvar no celular ou compartilhar — de Meus
+              Trabalhos e de Inspirações.
             </p>
             <div className="escolha" style={{ marginBottom: 4 }}>
               <button
@@ -806,8 +762,8 @@ export function Acervo() {
         </div>
       )}
 
-      {/* Barra inferior do modo seleção — dois caminhos (M-036):
-          link de seleção (M-022) e baixar/compartilhar as fotos (M-035). */}
+      {/* Barra inferior do modo seleção — baixar/compartilhar as fotos em lote
+          (M-035). O link público de seleção (M-022) saiu na unificação (F2c). */}
       {modoSelecao && (
         <div
           className="barra-selecao"
@@ -816,102 +772,15 @@ export function Acervo() {
           <span className="barra-selecao-conta">
             {qtdMarcados} selecionado{qtdMarcados !== 1 ? 's' : ''}
           </span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="cta"
-              style={{ flex: 1, height: 48 }}
-              disabled={qtdMarcados === 0}
-              onClick={() => setFormSelecao(true)}
-            >
-              <Icone nome="link" size={18} /> Compartilhar link
-            </button>
-          </div>
           <button
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', height: 48 }}
+            className="cta"
+            style={{ width: '100%', height: 48 }}
             disabled={qtdFotosMarcadas === 0 || salvandoFotos}
             onClick={salvarFotosSelecionadas}
             title="Salvar nas Fotos ou enviar pro WhatsApp/Instagram"
           >
             <Icone nome="compartilhar" size={18} /> {salvandoFotos ? 'Abrindo…' : rotuloFotos}
           </button>
-        </div>
-      )}
-
-      {/* Modal: dados da seleção + link gerado */}
-      {formSelecao && (
-        <div className="painel-overlay" onClick={() => !criandoLink && setFormSelecao(false)}>
-          <div className="painel" onClick={(e) => e.stopPropagation()}>
-            <div className="painel-puxador" />
-            {linkPronto ? (
-              <>
-                <div className="form-acervo-titulo" style={{ textAlign: 'center' }}>
-                  Link pronto!
-                </div>
-                <p className="apoio" style={{ textAlign: 'center', marginBottom: 12 }}>
-                  {qtdMarcados} {qtdMarcados !== 1 ? 'itens' : 'item'} · vale por 30 dias
-                </p>
-                <div className="link-vitrine" style={{ wordBreak: 'break-all' }}>
-                  <Icone nome="link" size={16} /> {linkPronto}
-                </div>
-                <button className="cta" style={{ marginTop: 14 }} onClick={enviarLink}>
-                  <Icone nome="enviar" size={18} /> Enviar pra cliente
-                </button>
-                <button
-                  className="btn-secundario"
-                  style={{ width: '100%', marginTop: 10, justifyContent: 'center' }}
-                  onClick={sairSelecao}
-                >
-                  Concluir
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="form-acervo-titulo">Montar a seleção</div>
-                <p className="apoio" style={{ marginBottom: 12 }}>
-                  {qtdMarcados} {qtdMarcados !== 1 ? 'itens escolhidos' : 'item escolhido'}.
-                </p>
-                <div className="campo">
-                  <label>Título (a cliente vê)</label>
-                  <input
-                    value={tituloSel}
-                    onChange={(e) => setTituloSel(e.target.value)}
-                    placeholder="Ex.: Opções de bolo de menina"
-                    maxLength={60}
-                  />
-                </div>
-                <div className="campo">
-                  <label>Mensagem (opcional)</label>
-                  <input
-                    value={msgSel}
-                    onChange={(e) => setMsgSel(e.target.value)}
-                    placeholder="Ex.: Maria, separei essas ideias pra você 💕"
-                    maxLength={120}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                  <button
-                    type="button"
-                    className="btn-secundario"
-                    style={{ flex: 1 }}
-                    onClick={() => setFormSelecao(false)}
-                    disabled={criandoLink}
-                  >
-                    Voltar
-                  </button>
-                  <button
-                    type="button"
-                    className="cta"
-                    style={{ flex: 2, height: 48 }}
-                    onClick={gerarLink}
-                    disabled={criandoLink}
-                  >
-                    {criandoLink ? 'Criando…' : 'Gerar link'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
         </div>
       )}
 
