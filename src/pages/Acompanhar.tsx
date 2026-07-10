@@ -146,7 +146,7 @@ export function Acompanhar() {
                 <p>
                   {verResolvidos
                     ? 'Nenhum link resolvido por aqui.'
-                    : 'Você ainda não criou links. Em “Meus trabalhos”, toque em Selecionar para montar um.'}
+                    : 'Aqui ficam os links de seleção que você já enviou — eles valem 30 dias. Para enviar algo novo à cliente, crie uma proposta.'}
                 </p>
               </div>
             ) : (

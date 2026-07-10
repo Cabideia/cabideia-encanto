@@ -25,9 +25,23 @@ export function ClienteDetalhe() {
   const pedidosCliente = id ? porCliente(id) : []
   const propostasCliente = id ? propostasPorCliente(id) : []
 
+  // D5 · Ficha enxuta: por padrão só o que está "vivo" — pedidos em andamento
+  // (a_fazer/em_producao) e propostas ativas (resolvida=false). O restante
+  // (entregues/cancelados · propostas resolvidas) fica atrás de "Ver histórico".
+  const pedidosAtivos = pedidosCliente.filter(
+    (p) => p.status === 'a_fazer' || p.status === 'em_producao'
+  )
+  const pedidosHistorico = pedidosCliente.filter(
+    (p) => p.status === 'entregue' || p.status === 'cancelado'
+  )
+  const propostasAtivas = propostasCliente.filter((p) => !p.resolvida)
+  const propostasHistorico = propostasCliente.filter((p) => p.resolvida)
+
   const [editando, setEditando] = useState(false)
   const [form, setForm] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
   const [aExcluir, setAExcluir] = useState(false)
+  const [verHistPedidos, setVerHistPedidos] = useState(false)
+  const [verHistPropostas, setVerHistPropostas] = useState(false)
 
   // Preenche o formulário quando a cliente carrega/muda.
   useEffect(() => {
@@ -85,6 +99,81 @@ export function ClienteDetalhe() {
     }
     avisar('Cliente excluída')
     navegar('/clientes', { replace: true })
+  }
+
+  function cartaoPedido(p: (typeof pedidosCliente)[number]) {
+    const info = STATUS_INFO[p.status]
+    return (
+      <div
+        key={p.id}
+        className="card card-toque"
+        onClick={() => navegar(`/pedidos/${p.id}`)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && navegar(`/pedidos/${p.id}`)}
+      >
+        <div className="card-linha" style={{ alignItems: 'flex-start' }}>
+          <div className="card-info">
+            <div className="card-nome" style={{ whiteSpace: 'normal' }}>{tituloPedido(p)}</div>
+            {p.data_entrega && <div className="apoio">{rotuloEntrega(p.data_entrega)}</div>}
+          </div>
+          <span className={`chip ${info.chip}`}>{info.rotulo}</span>
+        </div>
+      </div>
+    )
+  }
+
+  function cartaoProposta(p: (typeof propostasCliente)[number]) {
+    const pedido = pedidoDaProposta(p.id) // M-039 · vínculo derivado, sem coluna nova
+    return (
+      <div
+        key={p.id}
+        className="card card-toque"
+        onClick={() => navegar(`/propostas/${p.id}`)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && navegar(`/propostas/${p.id}`)}
+      >
+        <div className="card-linha" style={{ alignItems: 'flex-start' }}>
+          <div className="card-info">
+            <div className="card-nome" style={{ whiteSpace: 'normal' }}>
+              {p.titulo || 'Proposta'}
+            </div>
+            <div className="apoio">
+              {p.valor != null ? formatarReal(p.valor) : 'Valor a combinar'}
+              {p.validade ? ` · vale até ${formatarDataNumerica(p.validade)}` : ''}
+            </div>
+          </div>
+          <span aria-hidden>›</span>
+        </div>
+        {pedido && (
+          <button
+            type="button"
+            className="chip entregue"
+            style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', gap: 4, marginTop: 10 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              navegar(`/pedidos/${pedido.id}`)
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+            aria-label="Virou pedido — abrir o pedido"
+          >
+            <Icone nome="ok" size={13} strokeWidth={3} /> Virou pedido
+          </button>
+        )}
+        <button
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            navegar(pedido ? `/pedidos/${pedido.id}` : `/pedidos/novo?proposta=${p.id}`)
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <Icone nome="pedidos" size={16} /> {pedido ? 'Ver pedido' : 'Virar pedido'}
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -164,101 +253,80 @@ export function ClienteDetalhe() {
               </>
             )}
 
-            {/* Pedidos desta cliente (M-002) */}
-            <div className="secao"><span className="confeito" /><h2>Pedidos</h2></div>
-            {pedidosCliente.length === 0 ? (
+            {/* Pedidos desta cliente (M-002) — só em andamento; resto no histórico */}
+            <div className="secao" style={{ justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="confeito" /><h2>Pedidos</h2>
+              </span>
+              {pedidosAtivos.length > 0 && (
+                <span className="apoio">
+                  {pedidosAtivos.length} em andamento
+                </span>
+              )}
+            </div>
+            {pedidosAtivos.length === 0 ? (
               <div className="card">
                 <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
-                  Os pedidos desta cliente aparecerão aqui.
+                  {pedidosHistorico.length > 0
+                    ? 'Nenhum pedido em andamento.'
+                    : 'Os pedidos desta cliente aparecerão aqui.'}
                 </p>
               </div>
             ) : (
-              pedidosCliente.map((p) => {
-                const info = STATUS_INFO[p.status]
-                return (
-                  <div
-                    key={p.id}
-                    className="card card-toque"
-                    onClick={() => navegar(`/pedidos/${p.id}`)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && navegar(`/pedidos/${p.id}`)}
-                  >
-                    <div className="card-linha" style={{ alignItems: 'flex-start' }}>
-                      <div className="card-info">
-                        <div className="card-nome" style={{ whiteSpace: 'normal' }}>{tituloPedido(p)}</div>
-                        {p.data_entrega && (
-                          <div className="apoio">{rotuloEntrega(p.data_entrega)}</div>
-                        )}
-                      </div>
-                      <span className={`chip ${info.chip}`}>{info.rotulo}</span>
-                    </div>
-                  </div>
-                )
-              })
+              pedidosAtivos.map(cartaoPedido)
+            )}
+            {pedidosHistorico.length > 0 && (
+              <>
+                {verHistPedidos && pedidosHistorico.map(cartaoPedido)}
+                <button
+                  type="button"
+                  className="btn-secundario"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+                  onClick={() => setVerHistPedidos((v) => !v)}
+                >
+                  {verHistPedidos
+                    ? 'Ocultar histórico'
+                    : `Ver histórico (${pedidosHistorico.length})`}
+                </button>
+              </>
             )}
 
-            {/* Propostas desta cliente (M-021 repensado) */}
-            <div className="secao"><span className="confeito" /><h2>Propostas</h2></div>
-            {propostasCliente.length === 0 ? (
+            {/* Propostas desta cliente (M-021 repensado) — só ativas; resto no histórico */}
+            <div className="secao" style={{ justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="confeito" /><h2>Propostas</h2>
+              </span>
+              {propostasAtivas.length > 0 && (
+                <span className="apoio">
+                  {propostasAtivas.length} ativa{propostasAtivas.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {propostasAtivas.length === 0 ? (
               <div className="card">
                 <p className="apoio" style={{ textAlign: 'center', padding: '8px 0' }}>
-                  Crie uma proposta encantadora para enviar no WhatsApp.
+                  {propostasHistorico.length > 0
+                    ? 'Nenhuma proposta ativa.'
+                    : 'Crie uma proposta encantadora para enviar no WhatsApp.'}
                 </p>
               </div>
             ) : (
-              propostasCliente.map((p) => {
-                const pedido = pedidoDaProposta(p.id) // M-039 · vínculo derivado, sem coluna nova
-                return (
-                  <div
-                    key={p.id}
-                    className="card card-toque"
-                    onClick={() => navegar(`/propostas/${p.id}`)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && navegar(`/propostas/${p.id}`)}
-                  >
-                    <div className="card-linha" style={{ alignItems: 'flex-start' }}>
-                      <div className="card-info">
-                        <div className="card-nome" style={{ whiteSpace: 'normal' }}>
-                          {p.titulo || 'Proposta'}
-                        </div>
-                        <div className="apoio">
-                          {p.valor != null ? formatarReal(p.valor) : 'Valor a combinar'}
-                          {p.validade ? ` · vale até ${formatarDataNumerica(p.validade)}` : ''}
-                        </div>
-                      </div>
-                      <span aria-hidden>›</span>
-                    </div>
-                    {pedido && (
-                      <button
-                        type="button"
-                        className="chip entregue"
-                        style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', gap: 4, marginTop: 10 }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          navegar(`/pedidos/${pedido.id}`)
-                        }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        aria-label="Virou pedido — abrir o pedido"
-                      >
-                        <Icone nome="ok" size={13} strokeWidth={3} /> Virou pedido
-                      </button>
-                    )}
-                    <button
-                      className="btn-secundario"
-                      style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navegar(pedido ? `/pedidos/${pedido.id}` : `/pedidos/novo?proposta=${p.id}`)
-                      }}
-                      onKeyDown={(e) => e.stopPropagation()}
-                    >
-                      <Icone nome="pedidos" size={16} /> {pedido ? 'Ver pedido' : 'Virar pedido'}
-                    </button>
-                  </div>
-                )
-              })
+              propostasAtivas.map(cartaoProposta)
+            )}
+            {propostasHistorico.length > 0 && (
+              <>
+                {verHistPropostas && propostasHistorico.map(cartaoProposta)}
+                <button
+                  type="button"
+                  className="btn-secundario"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+                  onClick={() => setVerHistPropostas((v) => !v)}
+                >
+                  {verHistPropostas
+                    ? 'Ocultar histórico'
+                    : `Ver histórico (${propostasHistorico.length})`}
+                </button>
+              </>
             )}
 
             <button
