@@ -107,6 +107,8 @@ body{
   height:42px;padding:0 18px;border-radius:var(--raio-pill);cursor:pointer;
   border:1.5px solid var(--framboesa);background:transparent;color:var(--framboesa);
   font-family:var(--fonte-texto);font-size:var(--t-base);font-weight:700;text-decoration:none;
+  /* UX-013 — em botões lado a lado (flex:1), permite encolher e não vazar o rótulo */
+  min-width:0;
 }
 .btn-secundario:active{background:var(--framboesa-suave)}
 
@@ -366,10 +368,41 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   justify-content: center;
 }
 .foto-legenda {
+  display: block; width: 100%; text-align: left;
+  border: none; font: inherit; cursor: pointer;
   padding: 6px 8px;
   font-size: 12px;
   color: var(--cacau, #5b4636);
   background: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* UX-014 — placeholder discreto quando não há legenda (convida à edição) */
+.foto-legenda.vazia { color: var(--cacau-claro); font-style: italic; font-weight: 600; }
+
+/* UX-009 — card da vitrine pública é um botão (só imagem); toque amplia. */
+.foto-item-toque {
+  border: none; padding: 0; font: inherit; cursor: pointer;
+  text-align: left; width: 100%; display: block;
+}
+
+/* UX-009 — lightbox: foto ampliada com a legenda em overlay. */
+.lightbox-overlay {
+  position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.82);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.lightbox-fechar {
+  position: absolute; top: 14px; right: 14px; width: 40px; height: 40px;
+  border-radius: 50%; border: none; background: rgba(255,255,255,.16);
+  color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.lightbox-quadro {
+  max-width: 100%; max-height: 86dvh; display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden; background: #000;
+}
+.lightbox-quadro img { max-width: 100%; max-height: 74dvh; object-fit: contain; display: block; }
+.lightbox-legenda {
+  padding: 12px 16px; color: #fff; background: rgba(0,0,0,.60);
+  font-size: var(--t-base); line-height: 1.4; text-align: center;
 }
 
 /* ============================================================
@@ -402,11 +435,14 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 .acervo-img-wrap img {
   width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block;
 }
+/* UX-014 — sacola no canto INFERIOR DIREITO (deixa o código A-{n} livre no topo).
+   Só o ícone; colorido quando ativo (.ativa). Absorve o UX-010. */
 .foto-vitrine-btn {
-  position: absolute; top: 6px; left: 6px; width: 28px; height: 28px;
+  position: absolute; bottom: 6px; right: 6px; width: 28px; height: 28px;
   border-radius: 50%; border: none; background: rgba(255,255,255,.80);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  font-size: 13px; opacity: .55; transition: opacity .15s, background .15s;
+  font-size: 13px; opacity: .70; transition: opacity .15s, background .15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
 }
 .foto-vitrine-btn.ativa {
   background: var(--framboesa); opacity: 1; box-shadow: 0 2px 6px rgba(194,71,107,.35);
@@ -417,14 +453,6 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   font-size: 11px; font-weight: 700; text-align: left; cursor: pointer;
 }
 .acervo-selo-tags:active { background: var(--neutro-suave); }
-
-/* Rótulo "na vitrine" — comunica o estado do 🛍️ sem depender só da cor */
-.rotulo-vitrine {
-  display: flex; align-items: center; gap: 4px;
-  padding: 5px 8px 0;
-  font-size: 11px; font-weight: 800; color: var(--framboesa);
-  background: var(--acucar);
-}
 
 /* -- Tags (chip reutilizado no painel, no formulário e nos sugeridos) -- */
 .tags-area { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
@@ -531,7 +559,9 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   text-align: center; margin-bottom: 12px;
 }
 .recorte-palco { width: 100%; display: flex; justify-content: center; }
-.recorte-canvas-wrap { position: relative; line-height: 0; touch-action: none; }
+/* UX-012b — overflow:hidden confina a sombra do overlay À FOTO: escurece só a
+   área fora da moldura, sem vazar para o modal nem para os botões. */
+.recorte-canvas-wrap { position: relative; line-height: 0; touch-action: none; overflow: hidden; border-radius: 10px; }
 .recorte-canvas { display: block; border-radius: 10px; max-width: 100%; background: #000; }
 .recorte-moldura {
   position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.42);
@@ -541,10 +571,12 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   position: absolute; width: 22px; height: 22px; background: var(--framboesa);
   border: 2px solid #fff; border-radius: 50%; touch-action: none;
 }
-.recorte-canto.nw { left: -11px; top: -11px; cursor: nwse-resize; }
-.recorte-canto.ne { right: -11px; top: -11px; cursor: nesw-resize; }
-.recorte-canto.sw { left: -11px; bottom: -11px; cursor: nesw-resize; }
-.recorte-canto.se { right: -11px; bottom: -11px; cursor: nwse-resize; }
+/* Alças por DENTRO da moldura — com a sombra confinada (overflow:hidden), alças
+   fora da foto seriam recortadas quando a moldura abre no máximo (UX-012a). */
+.recorte-canto.nw { left: 4px; top: 4px; cursor: nwse-resize; }
+.recorte-canto.ne { right: 4px; top: 4px; cursor: nesw-resize; }
+.recorte-canto.sw { left: 4px; bottom: 4px; cursor: nesw-resize; }
+.recorte-canto.se { right: 4px; bottom: 4px; cursor: nwse-resize; }
 .recorte-controles { margin-top: 12px; }
 .recorte-props { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .recorte-botoes { display: flex; gap: 10px; margin-top: 16px; }

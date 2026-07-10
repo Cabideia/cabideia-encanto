@@ -195,7 +195,7 @@ function PainelTrabalho({
                 disabled={compartilhando}
               >
                 <Icone nome="compartilhar" size={16} />{' '}
-                {compartilhando ? 'Abrindo…' : 'Baixar / compartilhar foto'}
+                {compartilhando ? 'Abrindo…' : 'Compartilhar'}
               </button>
             </div>
 
@@ -355,18 +355,23 @@ function CartaoTrabalho({
         )}
       </div>
 
-      {!modoSelecao && trabalho.na_vitrine && (
-        <div className="rotulo-vitrine"><Icone nome="vitrine" size={13} /> na vitrine</div>
-      )}
-
-      {!modoSelecao && trabalho.descricao && (
-        <div className="foto-legenda">{trabalho.descricao}</div>
-      )}
-
-      {!modoSelecao && trabalho.tags.length > 0 && (
-        <button className="acervo-selo-tags" onClick={onAbrir} type="button">
-          <Icone nome="tags" size={13} /> {trabalho.tags.length} tag{trabalho.tags.length !== 1 ? 's' : ''}
-        </button>
+      {/* UX-014 — padrão único dos cards: LEGENDA + TAGS sempre presentes.
+          Sem legenda → placeholder discreto que convida à edição; sem tags → "0 tags".
+          O estado de vitrine agora é só o ícone de sacola (canto inferior direito
+          da imagem), sem o texto "na vitrine" — absorve o UX-010. */}
+      {!modoSelecao && (
+        <>
+          <button
+            type="button"
+            className={`foto-legenda${trabalho.descricao ? '' : ' vazia'}`}
+            onClick={onAbrir}
+          >
+            {trabalho.descricao || 'Edite a legenda'}
+          </button>
+          <button className="acervo-selo-tags" onClick={onAbrir} type="button">
+            <Icone nome="tags" size={13} /> {trabalho.tags.length} tag{trabalho.tags.length !== 1 ? 's' : ''}
+          </button>
+        </>
       )}
     </div>
   )
