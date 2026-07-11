@@ -11,6 +11,7 @@ import { MinhasTags } from './pages/MinhasTags'
 import { Acompanhar } from './pages/Acompanhar'
 import { SelecaoPublica } from './pages/SelecaoPublica'
 import { PropostaPublica } from './pages/PropostaPublica'
+import { PedidoPublico } from './pages/PedidoPublico'
 import { Vitrine } from './pages/Vitrine'
 import { VitrinePublica } from './pages/VitrinePublica'
 import { Pedidos } from './pages/Pedidos'
@@ -119,6 +120,8 @@ export function App() {
           <Route path="/s/:token" element={<SelecaoPublica />} />
           {/* M-042 F2b · Página pública de uma proposta (sem login) */}
           <Route path="/proposta/:token" element={<PropostaPublica />} />
+          {/* M-047 · Página pública de um pedido (sem login) */}
+          <Route path="/pedido/:token" element={<PedidoPublico />} />
           <Route path="/:arroba" element={<Coringa />} />
         </Routes>
       </ToastProvider>
