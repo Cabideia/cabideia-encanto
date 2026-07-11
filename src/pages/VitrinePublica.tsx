@@ -29,6 +29,7 @@ type FotoPublica = {
   id: string
   url: string
   descricao: string | null
+  codigo_num: number | null
   tags: { id: string; nome: string }[]
 }
 
@@ -95,6 +96,7 @@ export function VitrinePublica() {
           ((t ?? []) as any[]).map((x) => ({
             id: x.id,
             descricao: x.descricao,
+            codigo_num: x.codigo_num ?? null,
             url: urlPublica(x.foto_publica_path),
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             tags: ((x.tags ?? []) as any[]).map((tg) => ({ id: tg.id, nome: tg.nome })),
@@ -278,6 +280,13 @@ export function VitrinePublica() {
                     aria-label={f.descricao ? `Ver legenda: ${f.descricao}` : 'Ampliar foto'}
                   >
                     <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
+                    {/* UX-015 — código A-{n} para a cliente sinalizar ("gostei da A-3").
+                        Mesmo selo da triagem pública (F2b). */}
+                    {f.codigo_num != null && (
+                      <span className="cod-selo" aria-label={`Código A-${f.codigo_num}`}>
+                        A-{f.codigo_num}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
