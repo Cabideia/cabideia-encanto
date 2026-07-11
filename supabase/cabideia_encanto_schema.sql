@@ -252,8 +252,9 @@ end $$;
 -- Vitrine pública com o corte server-side (a cliente é anônima): devolve os
 -- trabalhos na vitrine já cortados por slots_vitrine_publica e ordenados por
 -- criado_em desc. Preserva o shape (foto_publica_path, descricao) e as tags.
+-- UX-015: inclui codigo_num (A-{n}) para o selo na vitrine pública.
 create function vitrine_publica(arroba text)
-returns table (id uuid, foto_publica_path text, descricao text, tags jsonb)
+returns table (id uuid, foto_publica_path text, descricao text, tags jsonb, codigo_num integer)
 language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
 declare dona uuid; n int;
@@ -272,7 +273,8 @@ begin
             from trabalho_tags wt join tags tg on tg.id = wt.tag_id
             where wt.trabalho_id = t.id),
            '[]'::jsonb
-         ) as tags
+         ) as tags,
+         t.codigo_num
   from trabalhos t
   where t.usuaria_id = dona and t.na_vitrine = true and t.foto_publica_path is not null
   order by t.criado_em desc

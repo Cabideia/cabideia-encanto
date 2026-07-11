@@ -29,6 +29,7 @@ type FotoPublica = {
   id: string
   url: string
   descricao: string | null
+  codigo_num: number | null
   tags: { id: string; nome: string }[]
 }
 
@@ -63,6 +64,10 @@ export function VitrinePublica() {
   const [cardapio, setCardapio] = useState<ItemCardapioPublico[]>([])
   const [carregando, setCarregando] = useState(true)
   const [tagFiltro, setTagFiltro] = useState<string | null>(null)
+  // UX-011 — abas da vitrine pública (Vitrine | Tabela de preços)
+  const [aba, setAba] = useState<'vitrine' | 'precos'>('vitrine')
+  // UX-009 — legenda em overlay: toque na foto amplia e mostra a legenda
+  const [ampliada, setAmpliada] = useState<FotoPublica | null>(null)
 
   useEffect(() => {
     if (!usuaria) {
@@ -91,6 +96,7 @@ export function VitrinePublica() {
           ((t ?? []) as any[]).map((x) => ({
             id: x.id,
             descricao: x.descricao,
+            codigo_num: x.codigo_num ?? null,
             url: urlPublica(x.foto_publica_path),
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             tags: ((x.tags ?? []) as any[]).map((tg) => ({ id: tg.id, nome: tg.nome })),
@@ -217,63 +223,95 @@ export function VitrinePublica() {
           </div>
         </div>
 
-        {/* Filtro por tag (só aparece se houver tags nas fotos publicadas) */}
-        {tagsDisponiveis.length > 0 && (
-          <div className="filtros">
+        {/* UX-011 — abas da vitrine pública. Só aparecem quando existe tabela de
+            preços (sem itens não faz sentido uma aba vazia na página pública da
+            dona). Usam .escolha/.filtro, que já herdam os tokens dos 3 temas (M-030). */}
+        {cardapio.length > 0 && (
+          <div className="escolha" style={{ marginTop: 16, justifyContent: 'center' }}>
             <button
-              className={`filtro${!tagFiltro ? ' ativo' : ''}`}
-              onClick={() => setTagFiltro(null)}
+              type="button"
+              className={`filtro${aba === 'vitrine' ? ' ativo' : ''}`}
+              onClick={() => setAba('vitrine')}
             >
-              Tudo
+              <Icone nome="vitrine" size={15} /> Vitrine
             </button>
-            {tagsDisponiveis.map((tag) => (
-              <button
-                key={tag.id}
-                className={`filtro${tagFiltro === tag.id ? ' ativo' : ''}`}
-                onClick={() => setTagFiltro(tagFiltro === tag.id ? null : tag.id)}
-              >
-                {tag.nome}
-              </button>
-            ))}
+            <button
+              type="button"
+              className={`filtro${aba === 'precos' ? ' ativo' : ''}`}
+              onClick={() => setAba('precos')}
+            >
+              <Icone nome="precos" size={15} /> Tabela de preços
+            </button>
           </div>
         )}
 
-        {fotosFiltradas.length > 0 ? (
-          <div className="grade-fotos" style={{ marginTop: 16 }}>
-            {fotosFiltradas.map((f) => (
-              <div key={f.id} className="foto-item">
-                <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
-                {f.descricao && <div className="foto-legenda">{f.descricao}</div>}
+        {aba === 'vitrine' || cardapio.length === 0 ? (
+          <>
+            {/* Filtro por tag (só aparece se houver tags nas fotos publicadas) */}
+            {tagsDisponiveis.length > 0 && (
+              <div className="filtros">
+                <button
+                  className={`filtro${!tagFiltro ? ' ativo' : ''}`}
+                  onClick={() => setTagFiltro(null)}
+                >
+                  Tudo
+                </button>
+                {tagsDisponiveis.map((tag) => (
+                  <button
+                    key={tag.id}
+                    className={`filtro${tagFiltro === tag.id ? ' ativo' : ''}`}
+                    onClick={() => setTagFiltro(tagFiltro === tag.id ? null : tag.id)}
+                  >
+                    {tag.nome}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* UX-009 — cards só com a imagem; a legenda vira overlay ao tocar. */}
+            {fotosFiltradas.length > 0 ? (
+              <div className="grade-fotos" style={{ marginTop: 16 }}>
+                {fotosFiltradas.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className="foto-item foto-item-toque"
+                    onClick={() => setAmpliada(f)}
+                    aria-label={f.descricao ? `Ver legenda: ${f.descricao}` : 'Ampliar foto'}
+                  >
+                    <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
+                    {/* UX-015 — código A-{n} para a cliente sinalizar ("gostei da A-3").
+                        Mesmo selo da triagem pública (F2b). */}
+                    {f.codigo_num != null && (
+                      <span className="cod-selo" aria-label={`Código A-${f.codigo_num}`}>
+                        A-{f.codigo_num}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
+                {tagFiltro ? 'Nenhuma foto nesta categoria.' : 'Vitrine ainda sem fotos.'}
+              </p>
+            )}
+          </>
+        ) : (
+          /* Aba Tabela de preços */
+          <div style={{ marginTop: 16 }}>
+            {cardapio.map((item) => (
+              <div key={item.id} className="card">
+                <div className="card-linha">
+                  <div className="card-info">
+                    <div className="card-nome">{item.nome}</div>
+                    {item.detalhes && (
+                      <div className="apoio" style={{ marginTop: 2 }}>{item.detalhes}</div>
+                    )}
+                  </div>
+                  <div className="cardapio-preco">{precoVitrine(item)}</div>
+                </div>
               </div>
             ))}
-          </div>
-        ) : (
-          <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
-            {tagFiltro ? 'Nenhuma foto nesta categoria.' : 'Vitrine ainda sem fotos.'}
-          </p>
-        )}
-
-        {/* Cardápio público — só aparece se houver ao menos 1 item na vitrine */}
-        {cardapio.length > 0 && (
-          <div style={{ marginTop: 28 }}>
-            <div className="nome-negocio" style={{ textAlign: 'center', fontSize: 'var(--t-card)' }}>
-              Tabela de preços
-            </div>
-            <div style={{ marginTop: 12 }}>
-              {cardapio.map((item) => (
-                <div key={item.id} className="card">
-                  <div className="card-linha">
-                    <div className="card-info">
-                      <div className="card-nome">{item.nome}</div>
-                      {item.detalhes && (
-                        <div className="apoio" style={{ marginTop: 2 }}>{item.detalhes}</div>
-                      )}
-                    </div>
-                    <div className="cardapio-preco">{precoVitrine(item)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -287,6 +325,31 @@ export function VitrinePublica() {
           <button className="cta" onClick={abrirWhatsApp}>
             <Icone nome="whatsapp" /> Pedir pelo WhatsApp
           </button>
+        </div>
+      )}
+
+      {/* UX-009 — foto ampliada com a legenda em overlay (toque para fechar). */}
+      {ampliada && (
+        <div
+          className="lightbox-overlay"
+          onClick={() => setAmpliada(null)}
+          role="dialog"
+          aria-label="Foto ampliada"
+        >
+          <button
+            type="button"
+            className="lightbox-fechar"
+            onClick={() => setAmpliada(null)}
+            aria-label="Fechar"
+          >
+            <Icone nome="fechar" size={18} />
+          </button>
+          <div className="lightbox-quadro" onClick={(e) => e.stopPropagation()}>
+            <img src={ampliada.url} alt={ampliada.descricao ?? ''} />
+            {ampliada.descricao && (
+              <div className="lightbox-legenda">{ampliada.descricao}</div>
+            )}
+          </div>
         </div>
       )}
     </div>

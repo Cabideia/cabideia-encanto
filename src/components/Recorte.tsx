@@ -117,13 +117,14 @@ export function Recorte({ arquivo, onConfirmar, onCancelar }: Props) {
   }
 
   function iniciarCaixa(lar: number, alt: number, prop: 'livre' | 'quadrado') {
+    // UX-012a — a moldura abre na MAIOR área possível (sem forçar ajuste):
+    // Quadrado = maior quadrado central que cabe na foto; Livre = foto inteira.
+    // A usuária só arrasta se quiser recortar mais.
     if (prop === 'quadrado') {
-      const lado = Math.round(Math.min(lar, alt) * 0.86)
+      const lado = Math.min(lar, alt)
       setCaixa({ x: Math.round((lar - lado) / 2), y: Math.round((alt - lado) / 2), w: lado, h: lado })
     } else {
-      const w = Math.round(lar * 0.86)
-      const h = Math.round(alt * 0.86)
-      setCaixa({ x: Math.round((lar - w) / 2), y: Math.round((alt - h) / 2), w, h })
+      setCaixa({ x: 0, y: 0, w: lar, h: alt })
     }
   }
 
