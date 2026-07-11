@@ -20,6 +20,7 @@ export type Pedido = {
   proposta_id: string | null // M-039 · proposta que virou este pedido
   link_inspiracao: string | null // M-040 · URL de inspiração da cliente
   tag_id: string | null // M-040 · tag-ponte p/ inspirações do pedido
+  token: string | null // M-047 · chave do link público (nasce só ao compartilhar)
   criado_em: string
 }
 
@@ -67,6 +68,19 @@ export const PAGAMENTO_CURTO: Record<StatusPagamento, string> = {
 export type JanelaEntrega = '7d' | 'mes'
 const DIAS_JANELA: Record<JanelaEntrega, number> = { '7d': 7, mes: 30 }
 
+/**
+ * M-047 · Token aleatório forte e legível em URL (sem caracteres ambíguos).
+ * Mesmo alfabeto do link da proposta (F2b) — chave do link público do pedido.
+ */
+function gerarToken(): string {
+  const alfabeto = 'abcdefghijkmnpqrstuvwxyz23456789' // sem l/o/0/1
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  let s = ''
+  for (const b of bytes) s += alfabeto[b % alfabeto.length]
+  return s
+}
+
 /** Data local (não-UTC) em 'YYYY-MM-DD' — evita o salto de fuso do toISOString. */
 function isoLocal(d: Date): string {
   const ano = d.getFullYear()
@@ -87,7 +101,7 @@ export function usePedidos(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, cliente_id, nome, tema, valor, data_entrega, status, status_pagamento, foto_referencia_path, inspiracao_id, trabalho_id, proposta_id, link_inspiracao, tag_id, criado_em, clientes(nome)'
+        'id, cliente_id, nome, tema, valor, data_entrega, status, status_pagamento, foto_referencia_path, inspiracao_id, trabalho_id, proposta_id, link_inspiracao, tag_id, token, criado_em, clientes(nome)'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -110,6 +124,7 @@ export function usePedidos(usuariaId: string | undefined) {
         proposta_id: p.proposta_id as string | null,
         link_inspiracao: p.link_inspiracao as string | null,
         tag_id: p.tag_id as string | null,
+        token: p.token as string | null,
         criado_em: p.criado_em as string,
       }))
     )
@@ -273,6 +288,27 @@ export function usePedidos(usuariaId: string | undefined) {
     return null
   }
 
+  /**
+   * M-047 · Garante o token do link público do pedido: reusa se já existe, cria
+   * e grava se não (sem expiração; o que fecha o link é o status 'cancelado').
+   * Devolve o token, ou null se falhar. Espelha `garantirToken` da proposta.
+   */
+  async function garantirToken(id: string): Promise<string | null> {
+    const atual = pedidos.find((p) => p.id === id)
+    if (atual?.token) return atual.token
+    const token = gerarToken()
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({ token })
+      .eq('id', id)
+      .select('token')
+      .single()
+    if (error || !data) return null
+    const tk = (data as { token: string }).token
+    setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, token: tk } : p)))
+    return tk
+  }
+
   // ── excluir() (a confirmação fica na UI) ──
   async function excluir(id: string): Promise<string | null> {
     const { error } = await supabase.from('pedidos').delete().eq('id', id)
@@ -299,6 +335,7 @@ export function usePedidos(usuariaId: string | undefined) {
     atualizar,
     mudarStatus,
     mudarStatusPagamento,
+    garantirToken,
     excluir,
   }
 }

@@ -19,7 +19,7 @@ import {
 } from '../hooks/usePedidos'
 import { formatarReal } from '../hooks/useCardapio'
 import { compartilharImagens } from '../lib/compartilhar'
-import { formatarDataLonga, rotuloEntrega } from '../lib/datas'
+import { formatarDataLonga, formatarDataNumerica, rotuloEntrega } from '../lib/datas'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 const ORDEM_PAGAMENTO: StatusPagamento[] = ['nao_pago', 'sinal', 'pago']
@@ -36,12 +36,13 @@ export function PedidoDetalhe() {
   const { sessao } = useSessao()
   const avisar = useAviso()
 
-  const { carregando, buscarPorId, mudarStatus, mudarStatusPagamento, urlReferencia, baixarReferencia } =
+  const { carregando, buscarPorId, mudarStatus, mudarStatusPagamento, garantirToken, urlReferencia, baixarReferencia } =
     usePedidos(sessao?.user.id)
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
   const { trabalhos, criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
   const { inspiracoes, buscarPorId: buscarInspiracao } = useInspiracoes(sessao?.user.id)
-  const { referencias, remover: removerReferencia } = usePedidoReferencias(sessao?.user.id, id)
+  const { referencias, remover: removerReferencia, garantirFotosPublicas } =
+    usePedidoReferencias(sessao?.user.id, id)
 
   const pedido = id ? buscarPorId(id) : undefined
   const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
@@ -54,6 +55,7 @@ export function PedidoDetalhe() {
   const [modalAcervo, setModalAcervo] = useState(false)
   const [enviandoAcervo, setEnviandoAcervo] = useState(false)
   const [compartilhandoFotos, setCompartilhandoFotos] = useState(false)
+  const [compartilhandoLink, setCompartilhandoLink] = useState(false)
 
   // Busca URL assinada da foto de referência (bucket privado).
   useEffect(() => {
@@ -141,6 +143,60 @@ export function PedidoDetalhe() {
     avisar(erro ?? 'Referência removida')
   }
 
+  // M-047 · URL da página pública do pedido (mesmo domínio da proposta F2b).
+  function linkPedido(token: string): string {
+    return `https://cabideia.com.br/encanto/pedido/${token}`
+  }
+
+  /** M-047 · Texto do WhatsApp (a usuária pode editar antes de enviar). */
+  function mensagemPedido(link: string): string {
+    const nome = cliente?.nome?.split(' ')[0]
+    const saudacao = nome ? `Oi ${nome}!` : 'Oi!'
+    const titulo = tituloPedido(pedido!)
+    const entrega = pedido!.data_entrega
+      ? `, com entrega em ${formatarDataNumerica(pedido!.data_entrega)}`
+      : ''
+    return (
+      `${saudacao} Aqui está o resumo do seu pedido '${titulo}'${entrega}: ${link}\n` +
+      'Qualquer ajuste é só me chamar por aqui 😊'
+    )
+  }
+
+  /**
+   * M-047 · Compartilhar com a cliente — gera/reusa o token, garante as cópias
+   * públicas das fotos de referência e abre o WhatsApp da cliente com o texto
+   * pronto + o link. Cliente sem telefone → share sheet padrão.
+   */
+  async function compartilharLink() {
+    if (compartilhandoLink) return
+    setCompartilhandoLink(true)
+    try {
+      const token = await garantirToken(pedido!.id)
+      if (!token) {
+        avisar('Não consegui gerar o link. Tente de novo.')
+        return
+      }
+      // Cópias públicas das fotos de referência (idempotente; melhor esforço).
+      await garantirFotosPublicas(pedido!.id)
+      const texto = mensagemPedido(linkPedido(token))
+      const numero = (cliente?.whatsapp ?? '').replace(/\D/g, '')
+      if (numero) {
+        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+      } else if (navigator.share) {
+        // Cliente sem WhatsApp: menu nativo de compartilhamento.
+        try {
+          await navigator.share({ text: texto })
+        } catch {
+          /* usuária cancelou o menu nativo */
+        }
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+      }
+    } finally {
+      setCompartilhandoLink(false)
+    }
+  }
+
   // M-035 · baixar/compartilhar o conjunto de fotos do pedido (Web Share).
   async function compartilharFotos() {
     if (compartilhandoFotos || vinculados.length === 0) return
@@ -225,6 +281,21 @@ export function PedidoDetalhe() {
             )}
           </div>
         )}
+
+        {/* M-047 · Compartilhar o pedido com a cliente como página-link pública.
+            Fica logo abaixo de "Abrir conversa no WhatsApp"; como o pedido pode
+            não ter cliente, mora fora do card da cliente para estar sempre
+            visível (decisão de design). O toque gera/reusa o token, garante as
+            cópias públicas das fotos e abre o WhatsApp com o texto + o link. */}
+        <button
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center' }}
+          onClick={compartilharLink}
+          disabled={compartilhandoLink}
+        >
+          <Icone nome="compartilhar" size={16} />{' '}
+          {compartilhandoLink ? 'Preparando o link…' : 'Compartilhar com a cliente'}
+        </button>
 
         {/* M-042 · atalho para a proposta que originou este pedido (M-039) */}
         {pedido.proposta_id && (
