@@ -176,8 +176,13 @@ export function PedidoDetalhe() {
         avisar('Não consegui gerar o link. Tente de novo.')
         return
       }
-      // Cópias públicas das fotos de referência (idempotente; melhor esforço).
-      await garantirFotosPublicas(pedido!.id)
+      // BUG-011 · cópias públicas das fotos de referência (idempotente). Se
+      // alguma falhar, aborta o envio — não manda um link com fotos quebradas.
+      const falhaFotos = await garantirFotosPublicas(pedido!.id)
+      if (falhaFotos) {
+        avisar(falhaFotos.erro)
+        return
+      }
       const texto = mensagemPedido(linkPedido(token))
       const numero = (cliente?.whatsapp ?? '').replace(/\D/g, '')
       if (numero) {
@@ -320,14 +325,12 @@ export function PedidoDetalhe() {
           </>
         )}
 
-        {/* M-042 · Referências do pedido (trabalhos/inspirações escolhidos).
-            A seção aparece se já há referências (qualquer pedido) ou se dá pra
-            adicionar (pedido avulso). Tocar abre a origem; o × tira só a
-            referência — nunca apaga o trabalho/inspiração. */}
-        {(referencias.length > 0 || !pedido.proposta_id) && (
-          <>
-            <div className="secao"><span className="confeito" /><h2>Referências</h2></div>
-            {referencias.length > 0 && (
+        {/* M-042/M-048 · Referências do pedido (trabalhos/inspirações escolhidos).
+            Seção sempre disponível — inclusive nos pedidos convertidos de
+            proposta, cujas referências vêm copiadas na conversão (M-048). Tocar
+            abre a origem; o × tira só a referência — nunca apaga o item. */}
+        <div className="secao"><span className="confeito" /><h2>Referências</h2></div>
+        {referencias.length > 0 && (
               <div className="grade-fotos" style={{ alignItems: 'start' }}>
                 {referencias.map((r) => {
                   if (r.origem === 'trabalho') {
@@ -393,18 +396,14 @@ export function PedidoDetalhe() {
                 })}
               </div>
             )}
-            {!pedido.proposta_id && (
-              <button
-                className="btn-secundario"
-                style={{ width: '100%', justifyContent: 'center', marginTop: referencias.length > 0 ? 12 : 0 }}
-                onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
-              >
-                <Icone nome="imagem" size={16} />{' '}
-                {referencias.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
-              </button>
-            )}
-          </>
-        )}
+        <button
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center', marginTop: referencias.length > 0 ? 12 : 0 }}
+          onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
+        >
+          <Icone nome="imagem" size={16} />{' '}
+          {referencias.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
+        </button>
 
         {/* Inspirações do pedido: anexo 1:1 (M-007), link da cliente e
             tag-ponte com a galeria (M-040) */}

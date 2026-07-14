@@ -124,6 +124,46 @@ export function usePedidoReferencias(
     }
   }
 
+  /**
+   * M-048 · Copia as referências de uma proposta para um pedido recém-criado na
+   * conversão (Decisão #32 = B1). Preserva as origens (trabalho/inspiração), a
+   * `ordem` e a cópia pública já gerada (`foto_publica_path`) — assim o que a
+   * proposta já subiu ao bucket público é reaproveitado (sem recopiar). Devolve
+   * erro (ou null); a conversão trata como não-fatal (o pedido já foi criado).
+   */
+  async function copiarDaProposta(
+    pedidoAlvo: string,
+    propostaId: string
+  ): Promise<string | null> {
+    if (!usuariaId) return 'Sessão expirada. Entre de novo.'
+    const { data, error } = await supabase
+      .from('proposta_referencias')
+      .select('trabalho_id, inspiracao_id, ordem, foto_publica_path')
+      .eq('proposta_id', propostaId)
+      .order('ordem', { ascending: true })
+    if (error) return 'Falha ao ler as referências da proposta: ' + error.message
+    if (!data || data.length === 0) return null
+    const linhas = data.map((linha) => {
+      const r = linha as {
+        trabalho_id: string | null
+        inspiracao_id: string | null
+        ordem: number
+        foto_publica_path: string | null
+      }
+      return {
+        pedido_id: pedidoAlvo,
+        trabalho_id: r.trabalho_id,
+        inspiracao_id: r.inspiracao_id,
+        ordem: r.ordem,
+        foto_publica_path: r.foto_publica_path,
+      }
+    })
+    const { error: insErro } = await supabase.from('pedido_referencias').insert(linhas)
+    if (insErro) return 'Falha ao copiar as referências: ' + insErro.message
+    if (pedidoAlvo === pedidoId) await carregar()
+    return null
+  }
+
   // ── Remove uma referência (atualização otimista) ──
   async function remover(id: string): Promise<string | null> {
     // M-047 · limpa a cópia pública gerada para o link (se houver) antes de
@@ -168,14 +208,21 @@ export function usePedidoReferencias(
    *   · inspiração-link          → nada (aparece pelo `url`).
    * A cópia nova é gravada em `pedido_referencias.foto_publica_path`. Espelha o
    * mecanismo da proposta (F2b).
+   *
+   * BUG-011 · deixa de ser "melhor esforço" silencioso: se alguma cópia que
+   * PRECISAVA subir falhou, devolve `{ erro }` para quem compartilha abortar o
+   * envio (senão a cliente abriria o link com fotos quebradas). Devolve `null`
+   * quando tudo o que precisava está pronto.
    */
-  async function garantirFotosPublicas(pedidoAlvo: string): Promise<void> {
-    const { data } = await supabase
+  async function garantirFotosPublicas(pedidoAlvo: string): Promise<{ erro: string } | null> {
+    const { data, error } = await supabase
       .from('pedido_referencias')
       .select(
         'id, foto_publica_path, trabalho_id, inspiracao_id, trabalhos(foto_path, foto_publica_path), inspiracoes(foto_path)'
       )
       .eq('pedido_id', pedidoAlvo)
+    if (error) return { erro: 'Não consegui preparar as fotos do link. Tente de novo.' }
+    let falhou = false
     for (const linha of (data ?? []) as unknown[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = linha as any
@@ -183,13 +230,24 @@ export function usePedidoReferencias(
       let novo: string | null = null
       if (r.trabalho_id) {
         if (r.trabalhos?.foto_publica_path) continue // reusa a cópia de vitrine
-        if (r.trabalhos?.foto_path) novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
+        if (r.trabalhos?.foto_path) {
+          novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
+          if (!novo) { falhou = true; continue }
+        }
       } else if (r.inspiracao_id && r.inspiracoes?.foto_path) {
         novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
+        if (!novo) { falhou = true; continue }
       }
-      if (novo) await supabase.from('pedido_referencias').update({ foto_publica_path: novo }).eq('id', r.id)
+      if (novo) {
+        const { error: upErro } = await supabase
+          .from('pedido_referencias')
+          .update({ foto_publica_path: novo })
+          .eq('id', r.id)
+        if (upErro) falhou = true
+      }
     }
+    return falhou ? { erro: 'Algumas fotos do pedido não subiram. Tente compartilhar de novo.' } : null
   }
 
-  return { referencias, carregando, salvando, listar: carregar, adicionar, remover, garantirFotosPublicas }
+  return { referencias, carregando, salvando, listar: carregar, adicionar, copiarDaProposta, remover, garantirFotosPublicas }
 }
