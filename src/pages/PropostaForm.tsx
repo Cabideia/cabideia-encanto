@@ -28,6 +28,28 @@ import { cartaoParaPng, desenharProposta } from '../lib/proposta'
  */
 const rascunhosAbertos = new Set<string>()
 
+/**
+ * BUG-012 · limite dos textos longos (descrição/condições). O banco aceita mais
+ * (text sem limite); o teto é só de UX. O contador fica âmbar perto do fim para
+ * a dona perceber antes de o campo parar de aceitar digitação.
+ */
+const LIMITE_TEXTO_LONGO = 2000
+const ALERTA_TEXTO_LONGO = 1800
+
+/** Contador {n}/{limite} exibido abaixo dos campos de texto longo. */
+function ContadorCaracteres({ atual }: { atual: number }) {
+  const pertoDoLimite = atual >= ALERTA_TEXTO_LONGO
+  return (
+    <div
+      className="apoio"
+      style={{ textAlign: 'right', marginTop: 4, ...(pertoDoLimite ? { color: 'var(--caramelo)' } : null) }}
+      aria-live={pertoDoLimite ? 'polite' : undefined}
+    >
+      {atual}/{LIMITE_TEXTO_LONGO}
+    </div>
+  )
+}
+
 /** Carrega um Blob como ImageBitmap (null em caso de falha — o cartão segue sem ele). */
 async function bitmapDeBlob(blob: Blob | null): Promise<ImageBitmap | null> {
   if (!blob) return null
@@ -746,8 +768,9 @@ export function PropostaForm() {
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Ex.: massa de baunilha, recheio de brigadeiro, topo personalizado…"
-            maxLength={200}
+            maxLength={LIMITE_TEXTO_LONGO}
           />
+          <ContadorCaracteres atual={descricao.length} />
         </div>
 
         {/* Preço em 3 modos (I3) — exclusivos na exibição; alternar não apaga dado. */}
@@ -876,8 +899,9 @@ export function PropostaForm() {
             value={condicoes}
             onChange={(e) => setCondicoes(e.target.value)}
             placeholder="Ex.: 50% de entrada, 7 dias úteis de antecedência, Pix ou dinheiro"
-            maxLength={300}
+            maxLength={LIMITE_TEXTO_LONGO}
           />
+          <ContadorCaracteres atual={condicoes.length} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
             <button
               type="button"
