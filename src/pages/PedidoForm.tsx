@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Confirmar } from '../components/Confirmar'
-import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
@@ -10,9 +9,8 @@ import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
 import { usePropostas } from '../hooks/usePropostas'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
-import { useAssinatura } from '../hooks/useAssinatura'
+import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
 import { useCardapio, textoItemCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
-import { supabase } from '../lib/supabase'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 
@@ -52,14 +50,15 @@ export function PedidoForm() {
     criar,
     atualizar,
     excluir,
-    subirReferencia,
   } = usePedidos(sessao?.user.id)
   const {
     carregando: carregandoPropostas,
     buscarPorId: buscarProposta,
     marcarResolvida,
   } = usePropostas(sessao?.user.id)
-  const { podeAdicionar } = useAssinatura(sessao?.user.id)
+  // M-048 · na conversão, copia as referências da proposta para o pedido novo.
+  // Sem pedido carregado aqui (o alvo é passado explícito em copiarDaProposta).
+  const { copiarDaProposta } = usePedidoReferencias(sessao?.user.id, undefined)
 
   // M-039 · modo conversão (?proposta=<id>) — só na criação.
   const propostaId = !edicao ? searchParams.get('proposta') : null
@@ -80,12 +79,11 @@ export function PedidoForm() {
   const [pickerTabela, setPickerTabela] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
   // I4 · a captura/troca/remoção da foto de referência saiu do formulário: a
-  // coluna é legado (só exibida, somente-leitura, no detalhe). fotoPath preserva
-  // o valor já salvo na edição; blobNovo só é usado pela conversão M-039, que
-  // ainda copia a foto da proposta como referência do pedido.
+  // coluna `foto_referencia_path` é legado (só exibida, somente-leitura, no
+  // detalhe). fotoPath preserva o valor já salvo na edição — não zera a coluna
+  // ao salvar. M-048 · a conversão não copia mais a capa da proposta para essa
+  // coluna: leva as referências de verdade (proposta_referencias → pedido).
   const [fotoPath, setFotoPath] = useState<string | null>(null) // referência já salva (legado)
-  const [blobNovo, setBlobNovo] = useState<Blob | null>(null) // cópia da proposta (conversão M-039)
-  const [limiteAberto, setLimiteAberto] = useState(false)
 
   // Atalho "novo cliente" — formulário completo num sheet por cima do pedido
   const [novoClienteAberto, setNovoClienteAberto] = useState(false)
@@ -176,16 +174,8 @@ export function PedidoForm() {
       data_entrega: '',
       status: 'a_fazer',
     }))
-    // A foto entra como "foto nova" (blob): ao salvar, sobe uma CÓPIA no acervo
-    // (arquivo novo em {uid}/referencias/ — nunca a mesma URL da proposta).
-    if (proposta.foto_path) {
-      supabase.storage
-        .from('publico')
-        .download(proposta.foto_path)
-        .then(({ data }) => {
-          if (data) setBlobNovo(data)
-        })
-    }
+    // M-048 · as referências vêm da coleção da proposta (proposta_referencias),
+    // copiadas ao salvar — não a capa avulsa da proposta na coluna legado.
   }, [conversao, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar])
 
   function abrirNovoCliente() {
@@ -223,32 +213,10 @@ export function PedidoForm() {
       avisar('Escolha a data de entrega.')
       return
     }
-    // Sobe a foto nova, se houver. Na conversão, se o limite de 150 estourar,
-    // o pedido é criado SEM a foto (a conversão nunca falha por causa dela —
-    // o gate server-side barraria o upload de qualquer forma).
-    let caminhoFoto = fotoPath
-    let fotoPulada = false
-    if (blobNovo) {
-      if (!podeAdicionar) {
-        if (!conversao) {
-          setLimiteAberto(true)
-          return
-        }
-        fotoPulada = true
-      } else {
-        const up = await subirReferencia(blobNovo)
-        if ('erro' in up) {
-          if (!conversao) {
-            avisar(up.erro)
-            return
-          }
-          fotoPulada = true
-        } else {
-          caminhoFoto = up.path
-        }
-      }
-    }
-    if (fotoPulada) caminhoFoto = null
+    // I4/M-048 · `foto_referencia_path` é coluna legado: preserva o valor já
+    // salvo (edição) e nunca cria um novo. As referências de verdade vivem em
+    // `pedido_referencias` — copiadas da proposta na conversão (abaixo).
+    const caminhoFoto = fotoPath
 
     const campos: CamposPedido = {
       cliente_id: form.cliente_id,
@@ -278,11 +246,13 @@ export function PedidoForm() {
         return
       }
       if (conversao && propostaId) {
+        // M-048 · leva a coleção de referências da proposta para o pedido novo.
+        const erroRefs = await copiarDaProposta(res.id, propostaId)
         // Auto-arquiva a proposta na aba ativa do Acompanhar (padrão M-037).
         await marcarResolvida(propostaId, true)
         avisar(
-          fotoPulada
-            ? 'Pedido criado sem a foto — você chegou ao limite de 150 imagens do plano Grátis.'
+          erroRefs
+            ? 'Pedido criado, mas não trouxe as referências — abra o pedido e adicione de novo.'
             : 'Proposta virou pedido ✓'
         )
       } else {
@@ -686,8 +656,6 @@ export function PedidoForm() {
           onCancelar={() => setAExcluir(false)}
         />
       )}
-
-      {limiteAberto && <LimiteModal onFechar={() => setLimiteAberto(false)} />}
     </div>
   )
 }

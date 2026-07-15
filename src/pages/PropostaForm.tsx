@@ -520,8 +520,13 @@ export function PropostaForm() {
         avisar('Não consegui gerar o link. Tente de novo.')
         return
       }
-      // Cópias públicas das fotos de referência (idempotente; melhor esforço).
-      await garantirFotosPublicas(res.id)
+      // BUG-011 · cópias públicas das fotos de referência (idempotente). Se
+      // alguma falhar, aborta o envio — não manda um link com fotos quebradas.
+      const falhaFotos = await garantirFotosPublicas(res.id)
+      if (falhaFotos) {
+        avisar(falhaFotos.erro)
+        return
+      }
       const texto = mensagemWhats(linkProposta(token))
       const numero = (cliente?.whatsapp ?? '').replace(/\D/g, '')
       const alvo = numero

@@ -165,14 +165,21 @@ export function usePropostaReferencias(
    *   · inspiração com imagem   → copia de `inspiracoes` p/ público;
    *   · inspiração-link          → nada (aparece pelo `url`).
    * A cópia nova é gravada em `proposta_referencias.foto_publica_path`.
+   *
+   * BUG-011 · deixa de ser "melhor esforço" silencioso: se alguma cópia que
+   * PRECISAVA subir falhou, devolve `{ erro }` para quem compartilha abortar o
+   * envio (senão a cliente abriria o link com fotos quebradas). Devolve `null`
+   * quando tudo o que precisava está pronto.
    */
-  async function garantirFotosPublicas(propostaId: string): Promise<void> {
-    const { data } = await supabase
+  async function garantirFotosPublicas(propostaId: string): Promise<{ erro: string } | null> {
+    const { data, error } = await supabase
       .from('proposta_referencias')
       .select(
         'id, foto_publica_path, trabalho_id, inspiracao_id, trabalhos(foto_path, foto_publica_path), inspiracoes(foto_path)'
       )
       .eq('proposta_id', propostaId)
+    if (error) return { erro: 'Não consegui preparar as fotos do link. Tente de novo.' }
+    let falhou = false
     for (const linha of (data ?? []) as unknown[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = linha as any
@@ -180,12 +187,23 @@ export function usePropostaReferencias(
       let novo: string | null = null
       if (r.trabalho_id) {
         if (r.trabalhos?.foto_publica_path) continue // reusa a cópia de vitrine
-        if (r.trabalhos?.foto_path) novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
+        if (r.trabalhos?.foto_path) {
+          novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
+          if (!novo) { falhou = true; continue }
+        }
       } else if (r.inspiracao_id && r.inspiracoes?.foto_path) {
         novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
+        if (!novo) { falhou = true; continue }
       }
-      if (novo) await supabase.from('proposta_referencias').update({ foto_publica_path: novo }).eq('id', r.id)
+      if (novo) {
+        const { error: upErro } = await supabase
+          .from('proposta_referencias')
+          .update({ foto_publica_path: novo })
+          .eq('id', r.id)
+        if (upErro) falhou = true
+      }
     }
+    return falhou ? { erro: 'Algumas fotos da proposta não subiram. Tente compartilhar de novo.' } : null
   }
 
   return { referencias, carregando, salvando, listar: carregar, adicionar, remover, garantirFotosPublicas }

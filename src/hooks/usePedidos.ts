@@ -195,17 +195,6 @@ export function usePedidos(usuariaId: string | undefined) {
     [pedidos]
   )
 
-  // ── Sobe a foto de referência no bucket privado 'acervo' sob {uid}/referencias/ ──
-  async function subirReferencia(blob: Blob): Promise<{ path: string } | { erro: string }> {
-    if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
-    const path = `${usuariaId}/referencias/${crypto.randomUUID()}.jpg`
-    const { error } = await supabase.storage
-      .from('acervo')
-      .upload(path, blob, { contentType: 'image/jpeg', upsert: false })
-    if (error) return { erro: 'Falha ao enviar a foto: ' + error.message }
-    return { path }
-  }
-
   /** URL assinada (bucket privado) para exibir a foto de referência. */
   async function urlReferencia(path: string): Promise<string | null> {
     const { data } = await supabase.storage.from('acervo').createSignedUrl(path, 3600)
@@ -328,7 +317,6 @@ export function usePedidos(usuariaId: string | undefined) {
     pedidosPorDia,
     porCliente,
     pedidoDaProposta,
-    subirReferencia,
     urlReferencia,
     baixarReferencia,
     criar,
