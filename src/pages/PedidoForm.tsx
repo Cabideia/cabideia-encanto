@@ -10,7 +10,9 @@ import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '.
 import { usePropostas } from '../hooks/usePropostas'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
-import { useCardapio, textoItemCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
+import { usePedidoItens } from '../hooks/usePedidoItens'
+import { LinhaItemEditavel, avisoItensForaTabela } from '../components/LinhaItemEditavel'
+import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 
@@ -41,7 +43,6 @@ export function PedidoForm() {
 
   const { clientes, criar: criarCliente, salvando: salvandoCliente } = useClientes(sessao?.user.id)
   const { inspiracoes } = useInspiracoes(sessao?.user.id)
-  const { itens: itensCardapio } = useCardapio(sessao?.user.id)
   const {
     carregando,
     salvando,
@@ -59,6 +60,14 @@ export function PedidoForm() {
   // M-048 · na conversão, copia as referências da proposta para o pedido novo.
   // Sem pedido carregado aqui (o alvo é passado explícito em copiarDaProposta).
   const { copiarDaProposta } = usePedidoReferencias(sessao?.user.id, undefined)
+  // M-044 · itens do pedido (só na edição — /pedidos/novo ainda não tem id).
+  // Na conversão, os itens são copiados por copiarItensDaProposta (não por aqui).
+  const {
+    itens: itensPedido,
+    atualizar: atualizarItemPedido,
+    remover: removerItemPedido,
+    copiarDaProposta: copiarItensDaProposta,
+  } = usePedidoItens(sessao?.user.id, id)
 
   // M-039 · modo conversão (?proposta=<id>) — só na criação.
   const propostaId = !edicao ? searchParams.get('proposta') : null
@@ -76,8 +85,10 @@ export function PedidoForm() {
     link_inspiracao: '',
   })
   const [pickerInsp, setPickerInsp] = useState(false)
-  const [pickerTabela, setPickerTabela] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
+  // M-044 · o total foi tocado pela dona? (guia o pré-preenchimento pela soma dos
+  // itens — só age enquanto o campo está vazio/não-tocado, sem sobrescrever).
+  const [valorTocado, setValorTocado] = useState(false)
   // I4 · a captura/troca/remoção da foto de referência saiu do formulário: a
   // coluna `foto_referencia_path` é legado (só exibida, somente-leitura, no
   // detalhe). fotoPath preserva o valor já salvo na edição — não zera a coluna
@@ -89,40 +100,9 @@ export function PedidoForm() {
   const [novoClienteAberto, setNovoClienteAberto] = useState(false)
   const [novoCliente, setNovoCliente] = useState<CamposCliente>({ nome: '', whatsapp: '', nota: '' })
 
-  const temaRef = useRef<HTMLTextAreaElement>(null)
-  const caretTema = useRef<number | null>(null) // ponto de inserção da Tabela de preços
   const prefilled = useRef(false)
   const prefilledNovo = useRef(false)
   const prefilledProposta = useRef(false)
-
-  // UX-002 · Abre o atalho guardando onde está o cursor (ou o fim, se o campo
-  // não estiver em foco) — assim os itens entram no ponto certo.
-  function abrirTabela() {
-    const ta = temaRef.current
-    caretTema.current =
-      ta && document.activeElement === ta ? ta.selectionStart : form.tema.length
-    setPickerTabela(true)
-  }
-
-  // UX-002 · Insere o texto pronto de um item da Tabela de preços no ponto do
-  // cursor do campo Detalhes (texto livre — sem vínculo estrutural). Permite vários.
-  function inserirDaTabela(item: (typeof itensCardapio)[number]) {
-    const trecho = textoItemCardapio(item)
-    const atual = form.tema
-    const pos = Math.min(caretTema.current ?? atual.length, atual.length)
-    const antes = atual.slice(0, pos)
-    const depois = atual.slice(pos)
-    const precisaQuebra = antes.length > 0 && !antes.endsWith('\n')
-    const inserido = (precisaQuebra ? '\n' : '') + trecho
-    const novo = antes + inserido + depois
-    if (novo.length > 300) {
-      avisar('Não cabe mais texto nos detalhes.')
-      return
-    }
-    setForm((f) => ({ ...f, tema: novo }))
-    caretTema.current = antes.length + inserido.length // avança p/ o próximo item
-    avisar('Item inserido ✓')
-  }
 
   // Pré-preenche no modo edição quando o pedido carrega (uma vez).
   const pedido = edicao && id ? buscarPorId(id) : undefined
@@ -139,6 +119,7 @@ export function PedidoForm() {
       inspiracao_id: pedido.inspiracao_id,
       link_inspiracao: pedido.link_inspiracao ?? '',
     })
+    setValorTocado(pedido.valor != null) // já tem total salvo → não pré-preencher por cima
     // Preserva a referência legada (só p/ não zerar a coluna ao salvar a edição).
     setFotoPath(pedido.foto_referencia_path)
   }, [edicao, pedido])
@@ -203,6 +184,23 @@ export function PedidoForm() {
     avisar(semZap ? 'Cliente salvo · sem WhatsApp, o botão de conversa não aparece' : 'Cliente salvo ✓')
   }
 
+  // M-044 · monta os campos do pedido a partir do form (reusado por salvar() e
+  // por abrirPickerItens(), que persiste as edições antes de ir ao picker).
+  // `foto_referencia_path` é coluna legado: preserva o já salvo, nunca cria novo.
+  function montarCampos(): CamposPedido {
+    return {
+      cliente_id: form.cliente_id,
+      nome: form.nome,
+      tema: form.tema,
+      valor: precoParaNumero(form.valor),
+      data_entrega: form.data_entrega || null,
+      status: form.status,
+      foto_referencia_path: fotoPath,
+      inspiracao_id: form.inspiracao_id,
+      link_inspiracao: form.link_inspiracao,
+    }
+  }
+
   async function salvar() {
     if (!form.nome.trim()) {
       avisar('Dê um nome ao pedido.')
@@ -213,22 +211,7 @@ export function PedidoForm() {
       avisar('Escolha a data de entrega.')
       return
     }
-    // I4/M-048 · `foto_referencia_path` é coluna legado: preserva o valor já
-    // salvo (edição) e nunca cria um novo. As referências de verdade vivem em
-    // `pedido_referencias` — copiadas da proposta na conversão (abaixo).
-    const caminhoFoto = fotoPath
-
-    const campos: CamposPedido = {
-      cliente_id: form.cliente_id,
-      nome: form.nome,
-      tema: form.tema,
-      valor: precoParaNumero(form.valor),
-      data_entrega: form.data_entrega || null,
-      status: form.status,
-      foto_referencia_path: caminhoFoto,
-      inspiracao_id: form.inspiracao_id,
-      link_inspiracao: form.link_inspiracao,
-    }
+    const campos = montarCampos()
 
     if (edicao && id) {
       const erro = await atualizar(id, campos)
@@ -248,11 +231,14 @@ export function PedidoForm() {
       if (conversao && propostaId) {
         // M-048 · leva a coleção de referências da proposta para o pedido novo.
         const erroRefs = await copiarDaProposta(res.id, propostaId)
+        // M-044 · e leva os itens da proposta (nome/preço/unidade/qtd/ordem);
+        // a partir daqui as listas são independentes.
+        const erroItens = await copiarItensDaProposta(res.id, propostaId)
         // Auto-arquiva a proposta na aba ativa do Acompanhar (padrão M-037).
         await marcarResolvida(propostaId, true)
         avisar(
-          erroRefs
-            ? 'Pedido criado, mas não trouxe as referências — abra o pedido e adicione de novo.'
+          erroRefs || erroItens
+            ? 'Pedido criado, mas algo não veio junto (referências ou itens) — abra o pedido e confira.'
             : 'Proposta virou pedido ✓'
         )
       } else {
@@ -272,6 +258,56 @@ export function PedidoForm() {
     }
     avisar('Pedido excluído')
     navegar('/pedidos', { replace: true })
+  }
+
+  // M-044 · soma dos itens (qtd × preço; item sem preço conta como 0). Base do
+  // total no pedido: pré-preenche o campo Valor, mas nunca sobrescreve o que a
+  // dona já digitou.
+  const somaItens = itensPedido.reduce(
+    (acc, it) => acc + (it.preco_snapshot ?? 0) * it.quantidade,
+    0
+  )
+  useEffect(() => {
+    if (!edicao || valorTocado || somaItens <= 0) return
+    setForm((f) => ({ ...f, valor: somaItens.toFixed(2).replace('.', ',') }))
+  }, [edicao, valorTocado, somaItens])
+
+  // Marca o total como "tocado" ao digitar (trava o pré-preenchimento pela soma).
+  function aoDigitarValor(v: string) {
+    setForm((f) => ({ ...f, valor: v }))
+    setValorTocado(true)
+  }
+
+  // M-044 · abre o picker de itens (só na edição). Persiste as edições atuais do
+  // form ANTES de navegar — assim, ao voltar (que remonta e relê do banco), nada
+  // do que a dona digitou se perde.
+  async function abrirPickerItens() {
+    if (!id) return
+    if (!form.nome.trim()) {
+      avisar('Dê um nome ao pedido antes de escolher itens.')
+      return
+    }
+    const erro = await atualizar(id, montarCampos())
+    if (erro) {
+      avisar(erro)
+      return
+    }
+    navegar(`/pedidos/${id}/itens`)
+  }
+
+  // Tira o item do pedido (não mexe no cardápio).
+  async function aoRemoverItem(itemId: string) {
+    const erro = await removerItemPedido(itemId)
+    if (erro) avisar(erro)
+  }
+
+  // Edita qtd/preço/unidade do item SÓ neste pedido (não mexe no cardápio).
+  async function aoAtualizarItem(
+    itemId: string,
+    patch: { quantidade?: number; preco_snapshot?: number | null; unidade_snapshot?: string | null }
+  ) {
+    const erro = await atualizarItemPedido(itemId, patch)
+    if (erro) avisar(erro)
   }
 
   // No modo edição, espera o pedido carregar.
@@ -330,21 +366,12 @@ export function PedidoForm() {
           />
         </div>
 
-        {/* Detalhes do pedido (opcional, longo) */}
+        {/* Detalhes do pedido (opcional, longo) — texto livre. Itens da tabela de
+            preços vão na seção estruturada abaixo (M-044); aqui ficam só as notas
+            e itens eventuais que não estão na tabela. */}
         <div className="campo">
-          <div className="campo-rotulo-linha">
-            <label>Detalhes do pedido (opcional)</label>
-            <button
-              type="button"
-              className="atalho-tabela"
-              onClick={abrirTabela}
-              aria-label="Inserir item da Tabela de preços"
-            >
-              <Icone nome="precos" size={14} /> Tabela de preços
-            </button>
-          </div>
+          <label>Detalhes do pedido (opcional)</label>
           <textarea
-            ref={temaRef}
             value={form.tema}
             onChange={(e) => setForm({ ...form, tema: e.target.value })}
             placeholder="Ex.: 100 doces tradicionais, tema unicórnio, entregar montado"
@@ -352,15 +379,63 @@ export function PedidoForm() {
           />
         </div>
 
-        {/* Valor (M-039 · Decisão #22 — só exibição, sem somas/totais) */}
+        {/* M-044 · Itens da tabela de preços (opcional) — só na edição, porque o
+            picker grava em pedido_itens e precisa de um pedido já salvo. */}
         <div className="campo">
-          <label>Valor (R$) (opcional)</label>
+          <label>Itens da tabela de preços (opcional)</label>
+          {!edicao ? (
+            <p className="apoio" style={{ marginTop: 2 }}>
+              Salve o pedido para escolher itens da sua tabela de preços.
+            </p>
+          ) : (
+            <>
+              {itensPedido.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  {itensPedido.map((it) => (
+                    <LinhaItemEditavel
+                      key={it.id}
+                      item={it}
+                      onAtualizar={(patch) => aoAtualizarItem(it.id, patch)}
+                      onRemover={() => aoRemoverItem(it.id)}
+                      desabilitado={salvando}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={abrirPickerItens}
+                disabled={salvando}
+              >
+                <Icone nome="precos" size={16} />{' '}
+                {itensPedido.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Valor total (M-044 · reusa pedidos.valor; a soma dos itens pré-preenche
+            mas nunca sobrescreve o que a dona digitou). */}
+        <div className="campo">
+          <label>Valor total (R$) (opcional)</label>
           <input
             value={form.valor}
-            onChange={(e) => setForm({ ...form, valor: e.target.value })}
+            onChange={(e) => aoDigitarValor(e.target.value)}
             placeholder="Ex.: 120,00"
             inputMode="decimal"
           />
+          {somaItens > 0 && (
+            <div className="apoio" style={{ marginTop: 6 }}>
+              Soma dos itens: <b>{formatarReal(somaItens)}</b>
+            </div>
+          )}
+          {edicao && itensPedido.length > 0 && (
+            <p className="aviso-itens" style={{ marginTop: 8, marginBottom: 0 }}>
+              {avisoItensForaTabela('pedido')}
+            </p>
+          )}
         </div>
 
         {/* Data de entrega (obrigatória na conversão de proposta) */}
@@ -595,53 +670,6 @@ export function PedidoForm() {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Sheet: inserir item da Tabela de preços (UX-002) — fica aberto p/ inserir vários */}
-      {pickerTabela && (
-        <div className="painel-overlay" onClick={() => setPickerTabela(false)}>
-          <div className="painel" onClick={(e) => e.stopPropagation()}>
-            <div className="painel-puxador" />
-            <button className="painel-fechar" onClick={() => setPickerTabela(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
-            <div className="form-acervo-titulo">Inserir da Tabela de preços</div>
-            {itensCardapio.length === 0 ? (
-              <p className="apoio" style={{ marginTop: 8 }}>
-                Sua Tabela de preços está vazia. Cadastre seus itens em Tabela de preços, na home.
-              </p>
-            ) : (
-              <>
-                <p className="apoio" style={{ marginBottom: 12 }}>
-                  Toque para inserir no texto. Pode inserir vários.
-                </p>
-                {itensCardapio.map((i) => {
-                  const preco =
-                    i.preco_base != null
-                      ? formatarReal(i.preco_base)
-                      : i.preco_sob_consulta
-                      ? 'sob consulta'
-                      : null
-                  const apoio = [preco, i.unidade ? `por ${i.unidade}` : '']
-                    .filter(Boolean)
-                    .join(' · ')
-                  return (
-                    <button
-                      key={i.id}
-                      type="button"
-                      className="tabela-item"
-                      onClick={() => inserirDaTabela(i)}
-                    >
-                      <div className="card-info">
-                        <div className="card-nome">{i.nome}</div>
-                        {apoio && <div className="apoio">{apoio}</div>}
-                      </div>
-                      <span className="mais" aria-hidden><Icone nome="mais" size={18} /></span>
-                    </button>
-                  )
-                })}
-              </>
             )}
           </div>
         </div>

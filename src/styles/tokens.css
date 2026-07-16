@@ -306,6 +306,13 @@ body{
 }
 .aviso-offline span[aria-hidden]{font-size:16px;flex:none}
 
+/* Aviso inline (M-044): itens fora da tabela → ajustar o total à mão. */
+.aviso-itens{
+  background:var(--caramelo-suave);color:var(--caramelo);
+  border-radius:var(--raio-card);padding:10px 12px;
+  font-size:var(--t-apoio);font-weight:700;line-height:1.4;
+}
+
 /* ---------- INTERRUPTOR ---------- */
 .interruptor{position:relative;width:50px;height:30px;flex:none;cursor:pointer}
 .interruptor input{opacity:0;width:0;height:0}
