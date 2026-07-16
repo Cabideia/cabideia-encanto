@@ -4,37 +4,35 @@ import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
-import { usePropostas } from '../hooks/usePropostas'
+import { usePedidos } from '../hooks/usePedidos'
 import { useCardapio, formatarReal } from '../hooks/useCardapio'
-import { usePropostaItens, type NovoItemProposta } from '../hooks/usePropostaItens'
+import { usePedidoItens, type NovoItemPedido } from '../hooks/usePedidoItens'
 
 /**
- * M-042 F2a I3 · Picker de itens do cardápio para a proposta (rota
- * /propostas/:id/itens). Multi-seleção + "TRAZER TODOS". Cada item escolhido
- * vira uma linha em `proposta_itens` com SNAPSHOT (nome + preço COPIADOS do
- * cardápio agora — não relê o preço vivo depois). Volta ao form ao salvar.
+ * M-044 · Picker de itens do cardápio para o pedido (rota /pedidos/:id/itens).
+ * Espelho de `PropostaItens`. Multi-seleção + "Trazer todos". Cada item escolhido
+ * vira uma linha em `pedido_itens` com SNAPSHOT (nome + preço + unidade COPIADOS
+ * do cardápio agora — não relê o preço vivo depois). Volta ao form ao salvar.
  */
-export function PropostaItens() {
+export function PedidoItens() {
   const { id } = useParams()
   const { sessao } = useSessao()
   const avisar = useAviso()
   const navegar = useNavigate()
 
-  const { buscarPorId, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
+  const { buscarPorId, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
   const {
     itens: cardapio,
     carregando: carregandoCardapio,
     criar: criarItemCardapio,
     salvando: salvandoCardapio,
   } = useCardapio(sessao?.user.id)
-  const { itens: jaNaProposta, carregando: carregandoItens, salvando, adicionar } =
-    usePropostaItens(sessao?.user.id, id)
+  const { itens: jaNoPedido, carregando: carregandoItens, salvando, adicionar } =
+    usePedidoItens(sessao?.user.id, id)
 
-  const proposta = id ? buscarPorId(id) : undefined
+  const pedido = id ? buscarPorId(id) : undefined
 
-  // M1 · criar um item do cardápio SEM sair do seletor (cenário: a dona percebe
-  // na hora que faltou lançar o preço do brigadeiro). Reusa o CRUD real de
-  // cardapio_itens — o item nasce no cardápio e já entra marcado para ir junto.
+  // Criar um item do cardápio SEM sair do seletor (reusa o CRUD de cardapio_itens).
   const [criando, setCriando] = useState(false)
   const [novoNome, setNovoNome] = useState('')
   const [novoPreco, setNovoPreco] = useState('')
@@ -58,12 +56,12 @@ export function PropostaItens() {
     avisar('Item criado na tabela de preços ✓')
   }
 
-  // Ids do cardápio já ofertados nesta proposta somem da grade (a remoção fica no form).
+  // Ids do cardápio já no pedido somem da grade (a remoção fica no form).
   const jaTem = useMemo(() => {
     const s = new Set<string>()
-    for (const it of jaNaProposta) if (it.cardapio_item_id) s.add(it.cardapio_item_id)
+    for (const it of jaNoPedido) if (it.cardapio_item_id) s.add(it.cardapio_item_id)
     return s
-  }, [jaNaProposta])
+  }, [jaNoPedido])
 
   const disponiveis = cardapio.filter((c) => !jaTem.has(c.id))
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
@@ -84,7 +82,7 @@ export function PropostaItens() {
   async function aoAdicionar() {
     if (!id) return
     if (marcados.size === 0) return avisar('Escolha ao menos um item.')
-    const novos: NovoItemProposta[] = disponiveis
+    const novos: NovoItemPedido[] = disponiveis
       .filter((c) => marcados.has(c.id))
       .map((c) => ({
         cardapio_item_id: c.id,
@@ -95,21 +93,21 @@ export function PropostaItens() {
     const erro = await adicionar(id, novos)
     if (erro) return avisar(erro)
     avisar(novos.length === 1 ? 'Item adicionado ✓' : `${novos.length} itens adicionados ✓`)
-    // B2 · volta POPANDO o histórico (não empurra outra /propostas/:id): o form
-    // remonta e relê os itens, sem deixar telas empilhadas na saída da proposta.
+    // Volta POPANDO o histórico (não empurra outra /pedidos/:id): o form remonta
+    // e relê os itens, sem deixar telas empilhadas na saída do pedido.
     navegar(-1)
   }
 
-  if (carregandoPropostas || carregandoCardapio || carregandoItens) return null
+  if (carregandoPedidos || carregandoCardapio || carregandoItens) return null
 
-  if (!id || !proposta) {
+  if (!id || !pedido) {
     return (
       <div className="tela">
-        <BarraTopo titulo="Itens da proposta" />
+        <BarraTopo titulo="Itens do pedido" />
         <div className="conteudo">
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="busca" size={44} /></div>
-            <p>Esta proposta não foi encontrada.</p>
+            <p>Este pedido não foi encontrado.</p>
           </div>
         </div>
       </div>
@@ -123,8 +121,7 @@ export function PropostaItens() {
       <BarraTopo titulo="Escolher itens" />
 
       <div className="conteudo" style={{ paddingBottom: 96 }}>
-        {/* M1 · criar item do cardápio sem sair. Fica no topo, disponível em
-            qualquer estado (inclusive com o cardápio vazio). */}
+        {/* Criar item do cardápio sem sair. Disponível em qualquer estado. */}
         {criando ? (
           <div
             className="campo"
@@ -176,7 +173,7 @@ export function PropostaItens() {
               </button>
             </div>
             <p className="apoio" style={{ marginTop: 8, marginBottom: 0 }}>
-              O item fica salvo na sua Tabela de preços e já entra nesta proposta.
+              O item fica salvo na sua Tabela de preços e já entra neste pedido.
             </p>
           </div>
         ) : (
@@ -206,7 +203,7 @@ export function PropostaItens() {
         ) : disponiveis.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="ok" size={44} /></div>
-            <p>Todos os itens da sua tabela de preços já estão nesta proposta.</p>
+            <p>Todos os itens da sua tabela de preços já estão neste pedido.</p>
           </div>
         ) : (
           <>

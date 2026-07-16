@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 /**
  * M-042 F2a · Referências de uma proposta (tabela `proposta_referencias`).
@@ -82,6 +83,7 @@ export function usePropostaReferencias(
     propostaAlvo: string,
     itens: NovaReferencia[]
   ): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     if (!usuariaId) return 'Sessão expirada. Entre de novo.'
     if (itens.length === 0) return null
     setSalvando(true)
@@ -124,6 +126,7 @@ export function usePropostaReferencias(
 
   // ── Remove uma referência (atualização otimista) ──
   async function remover(id: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     // F2b · limpa a cópia pública gerada para o link (se houver) antes de apagar
     // a linha. Só a cópia gerada por nós vive em `foto_publica_path` da própria
     // referência — a cópia de vitrine do trabalho nunca é gravada aqui.
@@ -172,6 +175,7 @@ export function usePropostaReferencias(
    * quando tudo o que precisava está pronto.
    */
   async function garantirFotosPublicas(propostaId: string): Promise<{ erro: string } | null> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     const { data, error } = await supabase
       .from('proposta_referencias')
       .select(

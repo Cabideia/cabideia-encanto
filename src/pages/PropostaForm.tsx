@@ -12,6 +12,7 @@ import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
 import { usePropostaItens } from '../hooks/usePropostaItens'
+import { LinhaItemEditavel, avisoItensForaTabela } from '../components/LinhaItemEditavel'
 import { useGuardaSaida } from '../hooks/useGuardaSaida'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
@@ -100,8 +101,12 @@ export function PropostaForm() {
 
   // M-042 F2a I3 · itens do cardápio ofertados (snapshot). Gerenciados ao vivo,
   // como as referências — não passam pelo salvar() do form.
-  const { itens: itensProposta, carregando: carregandoItensProp, remover: removerItem } =
-    usePropostaItens(sessao?.user.id, id)
+  const {
+    itens: itensProposta,
+    carregando: carregandoItensProp,
+    atualizar: atualizarItem,
+    remover: removerItem,
+  } = usePropostaItens(sessao?.user.id, id)
 
   const proposta = edicao && id ? buscarProposta(id) : undefined
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
@@ -112,6 +117,9 @@ export function PropostaForm() {
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
+  // M-044 · o total foi tocado pela dona? (guia o pré-preenchimento pela soma dos
+  // itens — que só age enquanto o campo está vazio/não-tocado, sem sobrescrever).
+  const [valorTocado, setValorTocado] = useState(false)
   const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
   const [modoPreco, setModoPreco] = useState<ModoPreco>('fechado') // I3
   const [condicoes, setCondicoes] = useState('') // I4
@@ -180,6 +188,7 @@ export function PropostaForm() {
     setTitulo(proposta.titulo ?? '')
     setDescricao(proposta.descricao ?? '')
     setValor(proposta.valor != null ? String(proposta.valor).replace('.', ',') : '')
+    setValorTocado(proposta.valor != null) // já tem total salvo → não pré-preencher por cima
     setValidade(proposta.validade ?? '')
     // Propostas antigas (modo_preco null) caem em 'fechado' — mesma exibição de antes.
     setModoPreco(proposta.modo_preco ?? 'fechado')
@@ -215,6 +224,25 @@ export function PropostaForm() {
   }, [])
 
   const valorNum = precoParaNumero(valor)
+
+  // M-044 · soma dos itens (qtd × preço; item sem preço conta como 0). É a base
+  // do total no modo "itens": pré-preenche o campo, mas nunca sobrescreve o que
+  // a dona já digitou.
+  const somaItens = itensProposta.reduce(
+    (acc, it) => acc + (it.preco_snapshot ?? 0) * it.quantidade,
+    0
+  )
+  useEffect(() => {
+    if (modoPreco !== 'itens' || valorTocado || somaItens <= 0) return
+    setValor(somaItens.toFixed(2).replace('.', ','))
+  }, [modoPreco, valorTocado, somaItens])
+
+  // Marca o total como "tocado" ao digitar (trava o pré-preenchimento pela soma).
+  const aoDigitarValor = (v: string) => {
+    setValor(v)
+    setValorTocado(true)
+  }
+
   // M2 · "Valor fechado" e "Itens da tabela" mostram o número quando houver
   // (no modo itens o valor é o TOTAL — o que a cliente paga; os itens são o
   // detalhamento). Sem número, ou no modo "Sem preço": "A combinar". O
@@ -575,6 +603,15 @@ export function PropostaForm() {
     if (erro) avisar(erro)
   }
 
+  // M-044 · edita qtd/preço/unidade do item SÓ nesta proposta (não mexe no cardápio).
+  async function aoAtualizarItem(
+    itemId: string,
+    patch: { quantidade?: number; preco_snapshot?: number | null; unidade_snapshot?: string | null }
+  ) {
+    const erro = await atualizarItem(itemId, patch)
+    if (erro) avisar(erro)
+  }
+
   async function confirmarExcluir() {
     if (!proposta) return
     saindoParaFilho.current = true // já estamos apagando; unmount não repete
@@ -811,7 +848,7 @@ export function PropostaForm() {
             <label>Valor (R$)</label>
             <input
               value={valor}
-              onChange={(e) => setValor(e.target.value)}
+              onChange={(e) => aoDigitarValor(e.target.value)}
               placeholder="Ex.: 120,00"
               inputMode="decimal"
             />
@@ -827,32 +864,13 @@ export function PropostaForm() {
             {itensProposta.length > 0 && (
               <div style={{ marginBottom: 10 }}>
                 {itensProposta.map((it) => (
-                  <div
+                  <LinhaItemEditavel
                     key={it.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '10px 12px',
-                      border: '1px solid var(--linha)',
-                      borderRadius: 12,
-                      marginBottom: 8,
-                      background: 'var(--acucar)',
-                    }}
-                  >
-                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{it.nome_snapshot}</span>
-                    <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
-                      {it.preco_snapshot != null ? formatarReal(it.preco_snapshot) : 'sem preço'}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-icone"
-                      onClick={() => aoRemoverItem(it.id)}
-                      aria-label="Tirar este item da proposta"
-                    >
-                      <Icone nome="fechar" size={16} />
-                    </button>
-                  </div>
+                    item={it}
+                    onAtualizar={(patch) => aoAtualizarItem(it.id, patch)}
+                    onRemover={() => aoRemoverItem(it.id)}
+                    desabilitado={salvando || processandoFoto}
+                  />
                 ))}
               </div>
             )}
@@ -867,20 +885,31 @@ export function PropostaForm() {
               {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
             </button>
 
-            {/* M2 · valor total opcional junto com os itens (reusa propostas.valor).
-                Os itens são o detalhamento; o total é o que a cliente paga. */}
+            {/* M-044 · total = soma dos itens, pré-preenchido mas editável (reusa
+                propostas.valor). Os itens são o detalhamento; o total é o que a
+                cliente paga. */}
             <div style={{ marginTop: 14 }}>
               <label>Valor total (R$) — opcional</label>
               <input
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onChange={(e) => aoDigitarValor(e.target.value)}
                 placeholder="Ex.: 120,00"
                 inputMode="decimal"
               />
               <div className="apoio" style={{ marginTop: 6 }}>
                 No cartão: <b>{valorTexto}</b>
                 {valorNum == null && ' (preencha para mostrar o total)'}
+                {somaItens > 0 && (
+                  <>
+                    {' · '}Soma dos itens: <b>{formatarReal(somaItens)}</b>
+                  </>
+                )}
               </div>
+              {itensProposta.length > 0 && (
+                <p className="aviso-itens" style={{ marginTop: 8, marginBottom: 0 }}>
+                  {avisoItensForaTabela('proposta')}
+                </p>
+              )}
             </div>
           </div>
         )}
