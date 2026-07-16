@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 export type Selecao = {
   id: string
@@ -89,6 +90,7 @@ export function useSelecoes(usuariaId: string | undefined) {
     titulo: string,
     mensagem: string
   ): Promise<{ token: string } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     if (itens.length === 0) return { erro: 'Selecione ao menos um item.' }
 
@@ -138,6 +140,7 @@ export function useSelecoes(usuariaId: string | undefined) {
 
   /** Apaga uma seleção — revoga o link na hora (cascade nos itens) e limpa as cópias. */
   async function apagar(id: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     // Remove as cópias públicas geradas para esta seleção (só as de inspiração).
     const { data: itens } = await supabase
       .from('selecao_itens')

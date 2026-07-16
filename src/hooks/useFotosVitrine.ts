@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { urlPublica } from '../lib/storage'
 import { comprimirImagem } from '../lib/imagem'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 /**
  * M-017 · Etapa 2 — fotos da vitrine.
@@ -47,6 +48,7 @@ export function useFotosVitrine(usuariaId: string | undefined) {
 
   // Adiciona uma foto: comprime -> sobe no storage -> registra em trabalhos.
   async function adicionar(arquivo: File, descricao: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     if (!usuariaId) return 'Sessão expirada. Entre de novo.'
     setEnviando(true)
     try {
@@ -82,6 +84,7 @@ export function useFotosVitrine(usuariaId: string | undefined) {
   }
 
   async function remover(foto: FotoVitrine): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     if (!usuariaId) return 'Sessão expirada.'
     const { error: dbErro } = await supabase.from('trabalhos').delete().eq('id', foto.id)
     if (dbErro) return 'Falha ao remover: ' + dbErro.message

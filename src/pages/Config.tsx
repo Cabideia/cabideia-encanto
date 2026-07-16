@@ -124,6 +124,18 @@ export function Config() {
           </p>
         )}
 
+        {/* M-023 · Nota sobre o comportamento offline — evita a impressão de "perdi meus dados". */}
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+            📴 Funciona sem internet?
+          </div>
+          <div className="apoio" style={{ marginTop: 8, lineHeight: 1.7 }}>
+            Seus dados ficam guardados na nuvem, em segurança. Sem internet, o app
+            abre e mostra a <b>última versão que você viu</b> — você não perde nada.
+            Para criar, editar ou excluir, é só conectar de novo.
+          </div>
+        </div>
+
         {/* M-033 · Exclusão REAL da conta de dentro do app (exigência do Google
             Play). Ação destrutiva: cor framboesa (a do design system). Abre a
             confirmação por digitação — não navega mais para a página de texto. */}

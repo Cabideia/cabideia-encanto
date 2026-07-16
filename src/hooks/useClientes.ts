@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
 export type Cliente = {
   id: string
@@ -77,6 +78,7 @@ export function useClientes(usuariaId: string | undefined) {
 
   // ── criar() — devolve o cliente criado (ou um erro) ──
   async function criar(campos: CamposCliente): Promise<{ cliente: Cliente } | { erro: string }> {
+    if (estaOffline()) return { erro: SEM_CONEXAO }
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const nome = campos.nome.trim()
     if (!nome) return { erro: 'Dê um nome à cliente.' }
@@ -146,6 +148,7 @@ export function useClientes(usuariaId: string | undefined) {
 
   // ── atualizar() ──
   async function atualizar(id: string, campos: CamposCliente): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const nome = campos.nome.trim()
     if (!nome) return 'Dê um nome à cliente.'
     setSalvando(true)
@@ -174,6 +177,7 @@ export function useClientes(usuariaId: string | undefined) {
 
   // ── excluir() (a confirmação fica na UI) ──
   async function excluir(id: string): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('clientes').delete().eq('id', id)
     if (error) return 'Falha ao excluir: ' + error.message
     setClientes((prev) => prev.filter((c) => c.id !== id))

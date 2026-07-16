@@ -65,6 +65,68 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icones/icone-192.png', 'icones/icone-512.png'],
+      // ── M-023 · Leitura offline ──────────────────────────────────────────
+      // O app shell (HTML/JS/CSS) já é pré-cacheado e versionado a cada build
+      // pelo generateSW. Aqui adicionamos:
+      //  • cleanupOutdatedCaches: ao ativar um deploy novo, limpa o cache antigo
+      //    para nunca servir uma versão velha do app (cuidado técnico do M-023);
+      //  • navigateFallback: reabrir uma rota da SPA offline serve o shell;
+      //  • runtimeCaching: leituras e imagens públicas com cache de fallback.
+      workbox: {
+        cleanupOutdatedCaches: true,
+        navigateFallback: '/encanto/index.html',
+        runtimeCaching: [
+          {
+            // Rotas públicas (sem login) — RPCs security-definer que servem os
+            // links compartilhados. SEMPRE à rede quando online e NUNCA de cache:
+            //  • preserva o comportamento do #36, em que a cópia pública aflora o
+            //    próprio erro (um cache velho de sucesso mascararia isso);
+            //  • a geração/leitura do link público não pode resolver de cache.
+            // Precede o NetworkFirst de dados (a 1ª regra que casa vence).
+            urlPattern:
+              /\/rest\/v1\/rpc\/(selecao_publica|proposta_publica|pedido_publico|perfil_vitrine|vitrine_publica|cardapio_publico)\b/,
+            handler: 'NetworkOnly',
+          },
+          {
+            // Dados (leituras Supabase / PostgREST GET): network-first.
+            // Online sempre busca fresco; offline serve o último estado salvo.
+            urlPattern: /\/rest\/v1\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'encanto-dados',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              // Só respostas 200 entram no cache — nunca erro (4xx/5xx) nem
+              // resposta opaca (0). O Supabase responde com CORS, então leituras
+              // válidas são 200; não há por que guardar opaca aqui.
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // Imagens públicas (vitrine/acervo no bucket 'publico'). Signed URLs
+            // de bucket privado expiram e não entram aqui — quando faltam, a tela
+            // mostra placeholder em vez de quebrar.
+            urlPattern: /\/storage\/v1\/object\/public\//,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'encanto-imagens',
+              expiration: { maxEntries: 150, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              // Bucket 'publico' do Supabase responde com CORS (200); só guarda 200.
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // Fontes do Google: o shell offline mantém a tipografia da marca.
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'encanto-fontes',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Cabideia Encanto',
         short_name: 'Encanto',

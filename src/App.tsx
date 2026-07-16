@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ToastProvider } from './components/Toast'
+import { AvisoOffline } from './components/AvisoOffline'
 import { useSessao } from './hooks/useSessao'
 import { useTema } from './hooks/useTema'
 import { Entrar } from './pages/Entrar'
@@ -81,6 +82,7 @@ export function App() {
     <BrowserRouter basename="/encanto">
       <ToastProvider>
         <AplicadorTema />
+        <AvisoOffline />
         <Routes>
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/" element={<Privada><Home /></Privada>} />
