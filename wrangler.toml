@@ -1,0 +1,20 @@
+# Configuração (versionada) do projeto Cloudflare Pages das PRÉVIAS.
+#
+# Topologia do deploy (ver docs/DEPLOY-PREVIA.md):
+#   · produção  → projeto `cabideia-encanto-app` (upload direto do dist/ já
+#     buildado), atrás do worker `encanto-router` em cabideia.com.br/encanto/*;
+#   · prévias   → projeto `cabideia-encanto`, integrado a ESTE repositório no
+#     GitHub: cada push gera um deploy de prévia da branch.
+#
+# O build de prévia lê este arquivo: `pages_build_output_dir` diz que o que se
+# publica é o dist/ GERADO PELO BUILD — nunca a raiz do repositório (a raiz tem
+# o index.html fonte, que aponta /src/main.tsx e não executa no navegador).
+# O comando de build em si não é versionável: fica nas configurações do projeto
+# no painel do Cloudflare (Build command: `npm run build`).
+#
+# Atenção no upload direto da produção: mantenha o `--project-name
+# cabideia-encanto-app` explícito no comando (`wrangler pages deploy dist
+# --project-name cabideia-encanto-app`) — sem ele, o wrangler passaria a usar o
+# `name` abaixo e publicaria no projeto errado.
+name = "cabideia-encanto"
+pages_build_output_dir = "dist"
