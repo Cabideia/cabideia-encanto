@@ -49,12 +49,14 @@ Projeto **`cabideia-encanto`** → Settings → Build & deployments:
 
 1. **Build command:** `npm run build`
    (o Pages instala as dependências sozinho pelo `package-lock.json`).
-2. **Variáveis de build** (Production e Preview):
-   - `VITE_SUPABASE_URL` = `https://chrlexerkurmydavalgd.supabase.co`
-   - `VITE_SUPABASE_ANON_KEY` = a mesma chave publishable do `.env` local
-     (painel do Supabase → Settings → API). São chaves públicas — elas já vão
-     dentro do bundle —, mas sem elas no build a prévia sobe sem banco.
-3. **Retry deployment** no último deploy da branch (ou um push novo).
+2. **Retry deployment** no último deploy da branch (ou um push novo).
+
+> **Variáveis de build:** com o `wrangler.toml` presente, o Pages IGNORA as
+> variáveis cadastradas no painel (visto no log: "Build environment variables:
+> (none found)"). Elas agora são declaradas no próprio `wrangler.toml`
+> (`[vars]` e `[env.preview.vars]`) — são valores públicos (URL do projeto e
+> chave publishable/anon; o RLS é quem protege os dados). Chave secreta nunca
+> entra lá.
 
 ### Para o teste da Josiane logar na prévia
 
