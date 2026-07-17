@@ -12,8 +12,10 @@ import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
  *
  * Preço, unidade e quantidade são editáveis SÓ neste pedido (sem tocar a tabela
  * de preços). O total do item (qtd × preço) é calculado na aplicação, não
- * persiste. `adicionar` recebe o pedido alvo explicitamente; `copiarDaProposta`
- * traz os itens na conversão proposta → pedido (listas independentes daí).
+ * persiste. `adicionar` recebe o pedido alvo explicitamente — inclusive o
+ * recém-criado em /pedidos/novo, que lança os itens do estado local do form ao
+ * salvar (regra de 17/07: itens disponíveis na criação e na conversão, sem
+ * exigir salvar antes).
  */
 export type PedidoItem = {
   id: string
@@ -27,12 +29,17 @@ export type PedidoItem = {
   criado_em: string
 }
 
-/** Item do cardápio a congelar no pedido (snapshot já resolvido pela UI). */
+/**
+ * Item a congelar no pedido (snapshot já resolvido pela UI). `cardapio_item_id`
+ * pode ser null (item herdado de proposta cujo item do cardápio já sumiu) e a
+ * `quantidade` pode vir ajustada do estado local da criação (default 1).
+ */
 export type NovoItemPedido = {
-  cardapio_item_id: string
+  cardapio_item_id: string | null
   nome_snapshot: string
   preco_snapshot: number | null
   unidade_snapshot: string | null
+  quantidade?: number
 }
 
 /** Campos editáveis de um item já no pedido (só neste pedido). */
@@ -90,8 +97,9 @@ export function usePedidoItens(
 
   /**
    * Adiciona itens (snapshots) a um pedido (alvo explícito). Ignora itens do
-   * cardápio já presentes e enfileira depois da última `ordem` existente. A
-   * quantidade nasce em 1 (default do banco); preço e unidade são congelados.
+   * cardápio já presentes (itens sem origem nunca deduplicam) e enfileira depois
+   * da última `ordem` existente. A quantidade vem do item (default 1); preço e
+   * unidade são congelados.
    */
   async function adicionar(
     pedidoAlvo: string,
@@ -115,7 +123,9 @@ export function usePedidoItens(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const base = ((atuais?.[0] as any)?.ordem ?? -1) + 1
 
-      const aInserir = novos.filter((it) => !jaTem.has(it.cardapio_item_id))
+      const aInserir = novos.filter(
+        (it) => !it.cardapio_item_id || !jaTem.has(it.cardapio_item_id)
+      )
       if (aInserir.length === 0) return null
 
       const linhas = aInserir.map((it, i) => ({
@@ -124,6 +134,7 @@ export function usePedidoItens(
         nome_snapshot: it.nome_snapshot,
         preco_snapshot: it.preco_snapshot,
         unidade_snapshot: it.unidade_snapshot,
+        quantidade: it.quantidade ?? 1,
         ordem: base + i,
       }))
       const { error } = await supabase.from('pedido_itens').insert(linhas)
@@ -133,50 +144,6 @@ export function usePedidoItens(
     } finally {
       setSalvando(false)
     }
-  }
-
-  /**
-   * M-044 · Copia os itens de uma proposta para um pedido recém-criado na
-   * conversão (Decisão #45). Preserva nome/preço/unidade/qtd/ordem; a partir daí
-   * as listas são independentes. Devolve erro (ou null); a conversão trata como
-   * não-fatal (o pedido já foi criado).
-   */
-  async function copiarDaProposta(
-    pedidoAlvo: string,
-    propostaId: string
-  ): Promise<string | null> {
-    if (estaOffline()) return SEM_CONEXAO
-    if (!usuariaId) return 'Sessão expirada. Entre de novo.'
-    const { data, error } = await supabase
-      .from('proposta_itens')
-      .select('cardapio_item_id, nome_snapshot, preco_snapshot, unidade_snapshot, quantidade, ordem')
-      .eq('proposta_id', propostaId)
-      .order('ordem', { ascending: true })
-    if (error) return 'Falha ao ler os itens da proposta: ' + error.message
-    if (!data || data.length === 0) return null
-    const linhas = data.map((linha) => {
-      const r = linha as {
-        cardapio_item_id: string | null
-        nome_snapshot: string
-        preco_snapshot: number | null
-        unidade_snapshot: string | null
-        quantidade: number
-        ordem: number
-      }
-      return {
-        pedido_id: pedidoAlvo,
-        cardapio_item_id: r.cardapio_item_id,
-        nome_snapshot: r.nome_snapshot,
-        preco_snapshot: r.preco_snapshot,
-        unidade_snapshot: r.unidade_snapshot,
-        quantidade: r.quantidade,
-        ordem: r.ordem,
-      }
-    })
-    const { error: insErro } = await supabase.from('pedido_itens').insert(linhas)
-    if (insErro) return 'Falha ao copiar os itens: ' + insErro.message
-    if (pedidoAlvo === pedidoId) await carregar()
-    return null
   }
 
   /**
@@ -208,5 +175,5 @@ export function usePedidoItens(
     return null
   }
 
-  return { itens, carregando, salvando, listar: carregar, adicionar, copiarDaProposta, atualizar, remover }
+  return { itens, carregando, salvando, listar: carregar, adicionar, atualizar, remover }
 }

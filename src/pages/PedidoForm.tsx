@@ -10,9 +10,10 @@ import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '.
 import { usePropostas } from '../hooks/usePropostas'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
-import { usePedidoItens } from '../hooks/usePedidoItens'
-import { LinhaItemEditavel, avisoItensForaTabela } from '../components/LinhaItemEditavel'
-import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
+import { usePedidoItens, type NovoItemPedido } from '../hooks/usePedidoItens'
+import { usePropostaItens } from '../hooks/usePropostaItens'
+import { LinhaItemEditavel, avisoItensForaTabela, type PatchItemEditavel } from '../components/LinhaItemEditavel'
+import { useCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 
@@ -26,6 +27,14 @@ type DadosForm = {
   inspiracao_id: string | null
   link_inspiracao: string // M-040 · URL de inspiração da cliente (texto livre)
 }
+
+/**
+ * M-044 (regra de 17/07) · item lançado em /pedidos/novo ANTES de o pedido
+ * existir: vive no estado local do form (com snapshot já congelado) e só vira
+ * linha de `pedido_itens` ao salvar. `chave` identifica a linha na lista local
+ * (o id do cardápio quando há, ou o id do item da proposta na conversão).
+ */
+type ItemLocal = NovoItemPedido & { chave: string; quantidade: number }
 
 /**
  * M-002 · Formulário de pedido (cria em /pedidos/novo, edita em /pedidos/:id/editar).
@@ -60,19 +69,32 @@ export function PedidoForm() {
   // M-048 · na conversão, copia as referências da proposta para o pedido novo.
   // Sem pedido carregado aqui (o alvo é passado explícito em copiarDaProposta).
   const { copiarDaProposta } = usePedidoReferencias(sessao?.user.id, undefined)
-  // M-044 · itens do pedido (só na edição — /pedidos/novo ainda não tem id).
-  // Na conversão, os itens são copiados por copiarItensDaProposta (não por aqui).
+  // M-044 · itens do pedido: na edição vêm do banco (pedido_itens); na criação
+  // vivem no estado local (itensLocais) e são persistidos por `adicionar` ao
+  // salvar (regra de 17/07 — sem exigir salvar antes de lançar itens).
   const {
     itens: itensPedido,
+    adicionar: adicionarItensPedido,
     atualizar: atualizarItemPedido,
     remover: removerItemPedido,
-    copiarDaProposta: copiarItensDaProposta,
   } = usePedidoItens(sessao?.user.id, id)
 
   // M-039 · modo conversão (?proposta=<id>) — só na criação.
   const propostaId = !edicao ? searchParams.get('proposta') : null
   const conversao = !!propostaId
   const proposta = propostaId ? buscarProposta(propostaId) : undefined
+  // Na conversão, os itens da proposta entram no bloco local (editáveis antes de
+  // salvar); fora dela o hook fica ocioso (proposta indefinida → lista vazia).
+  const { itens: itensProposta, carregando: carregandoItensProposta } = usePropostaItens(
+    sessao?.user.id,
+    propostaId ?? undefined
+  )
+  // Cardápio para o picker local da criação (na edição o picker é a rota filha).
+  const {
+    itens: cardapio,
+    criar: criarItemCardapio,
+    salvando: salvandoCardapio,
+  } = useCardapio(sessao?.user.id)
 
   const [form, setForm] = useState<DadosForm>({
     cliente_id: null,
@@ -86,6 +108,14 @@ export function PedidoForm() {
   })
   const [pickerInsp, setPickerInsp] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
+  // M-044 (regra de 17/07) · itens lançados na criação, antes de o pedido existir.
+  const [itensLocais, setItensLocais] = useState<ItemLocal[]>([])
+  const [pickerItens, setPickerItens] = useState(false)
+  const [marcados, setMarcados] = useState<Set<string>>(new Set())
+  // Criar um item do cardápio sem sair do picker (mesmo atalho de PedidoItens).
+  const [criandoItem, setCriandoItem] = useState(false)
+  const [novoNomeItem, setNovoNomeItem] = useState('')
+  const [novoPrecoItem, setNovoPrecoItem] = useState('')
   // M-044 · o total foi tocado pela dona? (guia o pré-preenchimento pela soma dos
   // itens — só age enquanto o campo está vazio/não-tocado, sem sobrescrever).
   const [valorTocado, setValorTocado] = useState(false)
@@ -137,7 +167,7 @@ export function PedidoForm() {
   // Data de entrega fica VAZIA de propósito (validade da proposta ≠ data de entrega).
   useEffect(() => {
     if (!conversao || !propostaId || prefilledProposta.current) return
-    if (carregando || carregandoPropostas) return
+    if (carregando || carregandoPropostas || carregandoItensProposta) return
     prefilledProposta.current = true
     // Se a proposta já virou pedido, nunca duplica: vai direto ao pedido.
     const existente = pedidoDaProposta(propostaId)
@@ -155,9 +185,25 @@ export function PedidoForm() {
       data_entrega: '',
       status: 'a_fazer',
     }))
+    // O total da proposta pode ter sido ajustado à mão acima da soma dos itens —
+    // vindo preenchido, a soma não sobrescreve (mesma regra da edição).
+    setValorTocado(proposta.valor != null)
+    // M-044 (regra de 17/07) · os itens da proposta entram no bloco local,
+    // editáveis antes de salvar; viram linhas de pedido_itens ao criar o pedido
+    // (Decisão #45 — snapshot copiado; listas independentes daí em diante).
+    setItensLocais(
+      itensProposta.map((it) => ({
+        chave: it.id,
+        cardapio_item_id: it.cardapio_item_id,
+        nome_snapshot: it.nome_snapshot,
+        preco_snapshot: it.preco_snapshot,
+        unidade_snapshot: it.unidade_snapshot,
+        quantidade: it.quantidade,
+      }))
+    )
     // M-048 · as referências vêm da coleção da proposta (proposta_referencias),
     // copiadas ao salvar — não a capa avulsa da proposta na coluna legado.
-  }, [conversao, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar])
+  }, [conversao, propostaId, carregando, carregandoPropostas, carregandoItensProposta, itensProposta, pedidoDaProposta, proposta, navegar])
 
   function abrirNovoCliente() {
     setNovoCliente({ nome: '', whatsapp: '', nota: '' })
@@ -228,12 +274,24 @@ export function PedidoForm() {
         avisar(res.erro)
         return
       }
+      // M-044 (regra de 17/07) · persiste os itens lançados no form — tanto os
+      // escolhidos na criação quanto os herdados (e editados) da conversão.
+      const erroItens =
+        itensLocais.length > 0
+          ? await adicionarItensPedido(
+              res.id,
+              itensLocais.map((it) => ({
+                cardapio_item_id: it.cardapio_item_id,
+                nome_snapshot: it.nome_snapshot,
+                preco_snapshot: it.preco_snapshot,
+                unidade_snapshot: it.unidade_snapshot,
+                quantidade: it.quantidade,
+              }))
+            )
+          : null
       if (conversao && propostaId) {
         // M-048 · leva a coleção de referências da proposta para o pedido novo.
         const erroRefs = await copiarDaProposta(res.id, propostaId)
-        // M-044 · e leva os itens da proposta (nome/preço/unidade/qtd/ordem);
-        // a partir daqui as listas são independentes.
-        const erroItens = await copiarItensDaProposta(res.id, propostaId)
         // Auto-arquiva a proposta na aba ativa do Acompanhar (padrão M-037).
         await marcarResolvida(propostaId, true)
         avisar(
@@ -242,7 +300,11 @@ export function PedidoForm() {
             : 'Proposta virou pedido ✓'
         )
       } else {
-        avisar('Pedido salvo ✓')
+        avisar(
+          erroItens
+            ? 'Pedido salvo, mas os itens não entraram — abra o pedido e confira.'
+            : 'Pedido salvo ✓'
+        )
       }
       navegar(`/pedidos/${res.id}`, { replace: true })
     }
@@ -262,15 +324,16 @@ export function PedidoForm() {
 
   // M-044 · soma dos itens (qtd × preço; item sem preço conta como 0). Base do
   // total no pedido: pré-preenche o campo Valor, mas nunca sobrescreve o que a
-  // dona já digitou.
-  const somaItens = itensPedido.reduce(
+  // dona já digitou. Na criação a lista é a local; na edição, a do banco.
+  const itensDoForm = edicao ? itensPedido : itensLocais
+  const somaItens = itensDoForm.reduce(
     (acc, it) => acc + (it.preco_snapshot ?? 0) * it.quantidade,
     0
   )
   useEffect(() => {
-    if (!edicao || valorTocado || somaItens <= 0) return
+    if (valorTocado || somaItens <= 0) return
     setForm((f) => ({ ...f, valor: somaItens.toFixed(2).replace('.', ',') }))
-  }, [edicao, valorTocado, somaItens])
+  }, [valorTocado, somaItens])
 
   // Marca o total como "tocado" ao digitar (trava o pré-preenchimento pela soma).
   function aoDigitarValor(v: string) {
@@ -299,6 +362,82 @@ export function PedidoForm() {
   async function aoRemoverItem(itemId: string) {
     const erro = await removerItemPedido(itemId)
     if (erro) avisar(erro)
+  }
+
+  // ── M-044 (regra de 17/07) · itens locais da criação ──
+  // Edita/tira SÓ na lista local; nada vai ao banco antes de "Criar pedido".
+  function aoAtualizarItemLocal(chave: string, patch: PatchItemEditavel) {
+    setItensLocais((prev) => prev.map((it) => (it.chave === chave ? { ...it, ...patch } : it)))
+  }
+  function aoRemoverItemLocal(chave: string) {
+    setItensLocais((prev) => prev.filter((it) => it.chave !== chave))
+  }
+
+  // Itens do cardápio ainda fora da lista local (o picker só mostra esses).
+  const disponiveis = cardapio.filter(
+    (c) => !itensLocais.some((it) => it.cardapio_item_id === c.id)
+  )
+
+  function abrirPickerItensLocal() {
+    setMarcados(new Set())
+    setCriandoItem(false)
+    setPickerItens(true)
+  }
+
+  function alternarMarcado(itemId: string) {
+    setMarcados((prev) => {
+      const n = new Set(prev)
+      if (n.has(itemId)) n.delete(itemId)
+      else n.add(itemId)
+      return n
+    })
+  }
+
+  // Congela o snapshot AGORA (nome/preço/unidade do cardápio) na lista local.
+  function adicionarMarcados() {
+    if (marcados.size === 0) {
+      avisar('Escolha ao menos um item.')
+      return
+    }
+    const novos: ItemLocal[] = disponiveis
+      .filter((c) => marcados.has(c.id))
+      .map((c) => ({
+        chave: c.id,
+        cardapio_item_id: c.id,
+        nome_snapshot: c.nome,
+        preco_snapshot: c.preco_base,
+        unidade_snapshot: c.unidade ?? null,
+        quantidade: 1,
+      }))
+    setItensLocais((prev) => [...prev, ...novos])
+    setPickerItens(false)
+  }
+
+  // Cria um item do cardápio sem sair do picker (reusa o CRUD de cardapio_itens;
+  // mesmo atalho de PedidoItens). O item já entra marcado.
+  async function criarItemNoPicker() {
+    const nome = novoNomeItem.trim()
+    if (!nome) {
+      avisar('Dê um nome ao item.')
+      return
+    }
+    const res = await criarItemCardapio({
+      nome,
+      preco_base: novoPrecoItem,
+      unidade: '',
+      detalhes: '',
+      na_vitrine: false,
+      preco_sob_consulta: false,
+    })
+    if ('erro' in res) {
+      avisar(res.erro)
+      return
+    }
+    setMarcados((prev) => new Set(prev).add(res.item.id))
+    setNovoNomeItem('')
+    setNovoPrecoItem('')
+    setCriandoItem(false)
+    avisar('Item criado na tabela de preços ✓')
   }
 
   // Edita qtd/preço/unidade do item SÓ neste pedido (não mexe no cardápio).
@@ -379,14 +518,38 @@ export function PedidoForm() {
           />
         </div>
 
-        {/* M-044 · Itens da tabela de preços (opcional) — só na edição, porque o
-            picker grava em pedido_itens e precisa de um pedido já salvo. */}
+        {/* M-044 · Itens da tabela de preços (opcional). Na criação (regra de
+            17/07) os itens ficam no estado local — escolhidos num picker em sheet
+            (sem sair do form) e persistidos ao "Criar pedido". Na edição, o
+            picker segue sendo a rota filha, gravando direto em pedido_itens. */}
         <div className="campo">
           <label>Itens da tabela de preços (opcional)</label>
           {!edicao ? (
-            <p className="apoio" style={{ marginTop: 2 }}>
-              Salve o pedido para escolher itens da sua tabela de preços.
-            </p>
+            <>
+              {itensLocais.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  {itensLocais.map((it) => (
+                    <LinhaItemEditavel
+                      key={it.chave}
+                      item={it}
+                      onAtualizar={(patch) => aoAtualizarItemLocal(it.chave, patch)}
+                      onRemover={() => aoRemoverItemLocal(it.chave)}
+                      desabilitado={salvando}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={abrirPickerItensLocal}
+                disabled={salvando}
+              >
+                <Icone nome="precos" size={16} />{' '}
+                {itensLocais.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
+              </button>
+            </>
           ) : (
             <>
               {itensPedido.length > 0 && (
@@ -431,7 +594,7 @@ export function PedidoForm() {
               Soma dos itens: <b>{formatarReal(somaItens)}</b>
             </div>
           )}
-          {edicao && itensPedido.length > 0 && (
+          {itensDoForm.length > 0 && (
             <p className="aviso-itens" style={{ marginTop: 8, marginBottom: 0 }}>
               {avisoItensForaTabela('pedido')}
             </p>
@@ -561,7 +724,14 @@ export function PedidoForm() {
             className="cta"
             style={{ flex: 2 }}
             onClick={salvar}
-            disabled={salvando || !form.nome.trim() || (conversao && !form.data_entrega)}
+            disabled={
+              salvando ||
+              !form.nome.trim() ||
+              (conversao && !form.data_entrega) ||
+              // Conversão: espera o pré-preenchimento (inclusive dos itens) para
+              // não criar o pedido sem o que veio da proposta.
+              (conversao && (carregando || carregandoPropostas || carregandoItensProposta))
+            }
           >
             {salvando ? 'Salvando…' : edicao ? 'Salvar' : 'Criar pedido'}
           </button>
@@ -621,6 +791,182 @@ export function PedidoForm() {
                 disabled={salvandoCliente || !novoCliente.nome.trim()}
               >
                 {salvandoCliente ? 'Salvando…' : 'Salvar cliente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet: escolher itens da tabela de preços (só na criação — M-044,
+          regra de 17/07). Tudo acontece por cima do form, sem navegar, para o
+          rascunho do pedido não se perder. Espelha a tela PedidoItens. */}
+      {pickerItens && (
+        <div className="painel-overlay" onClick={() => setPickerItens(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <button className="painel-fechar" onClick={() => setPickerItens(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
+            <div className="form-acervo-titulo">Escolher itens</div>
+
+            {/* Criar item do cardápio sem sair (mesmo atalho de PedidoItens). */}
+            {criandoItem ? (
+              <div
+                className="campo"
+                style={{
+                  border: '1px solid var(--linha)',
+                  borderRadius: 12,
+                  padding: 12,
+                  marginTop: 8,
+                  marginBottom: 12,
+                  background: 'var(--acucar)',
+                }}
+              >
+                <label>Novo item da tabela de preços</label>
+                <input
+                  value={novoNomeItem}
+                  onChange={(e) => setNovoNomeItem(e.target.value)}
+                  placeholder="Ex.: Brigadeiro"
+                  maxLength={80}
+                  autoFocus
+                />
+                <input
+                  value={novoPrecoItem}
+                  onChange={(e) => setNovoPrecoItem(e.target.value)}
+                  placeholder="Preço (ex.: 3,50) — opcional"
+                  inputMode="decimal"
+                  style={{ marginTop: 8 }}
+                />
+                <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="btn-secundario"
+                    style={{ flex: 1 }}
+                    onClick={() => {
+                      setCriandoItem(false)
+                      setNovoNomeItem('')
+                      setNovoPrecoItem('')
+                    }}
+                    disabled={salvandoCardapio}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="cta"
+                    style={{ flex: 1 }}
+                    onClick={criarItemNoPicker}
+                    disabled={salvandoCardapio || !novoNomeItem.trim()}
+                  >
+                    {salvandoCardapio ? 'Criando…' : 'Criar item'}
+                  </button>
+                </div>
+                <p className="apoio" style={{ marginTop: 8, marginBottom: 0 }}>
+                  O item fica salvo na sua Tabela de preços e já entra neste pedido.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 8, marginBottom: 12 }}
+                onClick={() => setCriandoItem(true)}
+              >
+                <Icone nome="mais" size={16} /> Criar item da tabela de preços
+              </button>
+            )}
+
+            {cardapio.length === 0 ? (
+              <div className="vazio" style={{ marginTop: 8 }}>
+                <div className="icone"><Icone nome="precos" size={44} /></div>
+                <p>Você ainda não tem itens na Tabela de preços. Crie um aqui em cima.</p>
+              </div>
+            ) : disponiveis.length === 0 ? (
+              <div className="vazio" style={{ marginTop: 8 }}>
+                <div className="icone"><Icone nome="ok" size={44} /></div>
+                <p>Todos os itens da sua tabela de preços já estão neste pedido.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <p className="apoio" style={{ margin: 0 }}>
+                    Toque para escolher. O preço é congelado agora.
+                  </p>
+                  <button
+                    type="button"
+                    className="tag-criar"
+                    onClick={() => setMarcados(new Set(disponiveis.map((c) => c.id)))}
+                  >
+                    Trazer todos
+                  </button>
+                </div>
+
+                <div className="lista">
+                  {disponiveis.map((c) => {
+                    const marcado = marcados.has(c.id)
+                    const preco =
+                      c.preco_base != null
+                        ? formatarReal(c.preco_base)
+                        : c.preco_sob_consulta
+                        ? 'sob consulta'
+                        : 'sem preço'
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`linha-selecao${marcado ? ' marcado' : ''}`}
+                        onClick={() => alternarMarcado(c.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '12px 14px',
+                          border: `1px solid ${marcado ? 'var(--framboesa)' : 'var(--linha)'}`,
+                          borderRadius: 12,
+                          background: marcado ? 'var(--framboesa-suave)' : 'var(--acucar)',
+                          color: 'var(--cacau)',
+                          marginBottom: 8,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span
+                          className={`sel-check${marcado ? ' on' : ''}`}
+                          aria-hidden
+                          style={{ position: 'static', flexShrink: 0 }}
+                        >
+                          {marcado ? <Icone nome="ok" size={15} strokeWidth={3} /> : null}
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 700, display: 'block' }}>{c.nome}</span>
+                          {c.unidade && (
+                            <span className="apoio" style={{ display: 'block' }}>por {c.unidade}</span>
+                          )}
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>{preco}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1 }}
+                onClick={() => setPickerItens(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cta"
+                style={{ flex: 2, height: 48 }}
+                onClick={adicionarMarcados}
+                disabled={marcados.size === 0}
+              >
+                {`Adicionar ${marcados.size || ''}`.trim()}
               </button>
             </div>
           </div>
