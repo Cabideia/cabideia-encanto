@@ -5,13 +5,23 @@ não carrega; o `index.html` publicado aponta `/src/main.tsx`.
 
 ## Topologia (como o Encanto chega no ar)
 
+É **um projeto Pages só**, integrado a este repositório no GitHub: slug
+`cabideia-encanto` no painel, com o subdomínio original **mantido** em
+`cabideia-encanto-app.pages.dev` (renomear projeto não troca o subdomínio).
+
 - **Produção** — `cabideia.com.br/encanto/*` passa pelo worker `encanto-router`,
-  que repassa para o projeto Pages **`cabideia-encanto-app`** (recebe upload
-  direto do `dist/` já buildado).
-- **Prévias** — o projeto Pages **`cabideia-encanto`** é integrado a este
-  repositório no GitHub: cada push de branch gera um deploy de prévia
-  (`<branch>.cabideia-encanto.pages.dev`) e um check "Cloudflare Pages" no
-  commit.
+  que repassa para `cabideia-encanto-app.pages.dev` = o deploy da branch
+  **`main`** desse projeto. Logo, **todo merge na main publica produção**.
+- **Prévias** — cada push de branch gera um deploy de prévia
+  (`<alias-da-branch>.cabideia-encanto-app.pages.dev`) e um check
+  "Cloudflare Pages" no commit.
+
+> **Atenção pós-incidente:** enquanto o projeto esteve sem build, os merges na
+> main (ex.: #38 em 16/07) publicaram o FONTE também na produção. Quem tem o
+> app instalado não percebeu porque o service worker (M-023) continuou servindo
+> o shell antigo do cache — mas visitante novo/anônimo (links públicos) pegava
+> a tela bege. Depois de corrigir o painel, fazer **Retry deployment** no
+> último deploy da main para reconstruir a produção.
 
 ## Diagnóstico (por que a tela bege)
 
