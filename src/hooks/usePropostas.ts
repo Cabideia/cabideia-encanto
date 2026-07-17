@@ -202,9 +202,24 @@ export function usePropostas(usuariaId: string | undefined) {
       .map((r) => (r as { foto_publica_path: string | null }).foto_publica_path)
       .filter((p): p is string => !!p)
 
+    // Decisão #43 (34-B) · pedido convertido antes do acerto pode ainda apontar
+    // para uma cópia desta proposta; essa fica no bucket até o pedido regenerar
+    // a dele (no próximo compartilhar) — senão o link público dele quebraria.
+    const emUso = new Set<string>()
+    if (copias.length) {
+      const { data: usadas } = await supabase
+        .from('pedido_referencias')
+        .select('foto_publica_path')
+        .in('foto_publica_path', copias)
+      for (const u of usadas ?? []) {
+        const p = (u as { foto_publica_path: string | null }).foto_publica_path
+        if (p) emUso.add(p)
+      }
+    }
+
     const { error } = await supabase.from('propostas').delete().eq('id', proposta.id)
     if (error) return 'Falha ao excluir: ' + error.message
-    const aRemover = [...copias]
+    const aRemover = copias.filter((p) => !emUso.has(p))
     if (proposta.foto_path) aRemover.push(proposta.foto_path)
     if (aRemover.length) await supabase.storage.from('publico').remove(aRemover)
     setPropostas((prev) => prev.filter((p) => p.id !== proposta.id))
