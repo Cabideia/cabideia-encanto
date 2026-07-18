@@ -1,0 +1,36 @@
+# Configuração (versionada) do projeto Cloudflare Pages das PRÉVIAS.
+#
+# Topologia do deploy (ver docs/DEPLOY-PREVIA.md):
+#   · produção  → projeto `cabideia-encanto-app` (upload direto do dist/ já
+#     buildado), atrás do worker `encanto-router` em cabideia.com.br/encanto/*;
+#   · prévias   → projeto `cabideia-encanto`, integrado a ESTE repositório no
+#     GitHub: cada push gera um deploy de prévia da branch.
+#
+# O build de prévia lê este arquivo: `pages_build_output_dir` diz que o que se
+# publica é o dist/ GERADO PELO BUILD — nunca a raiz do repositório (a raiz tem
+# o index.html fonte, que aponta /src/main.tsx e não executa no navegador).
+# O comando de build em si não é versionável: fica nas configurações do projeto
+# no painel do Cloudflare (Build command: `npm run build`).
+#
+# Atenção no upload direto da produção: mantenha o `--project-name
+# cabideia-encanto-app` explícito no comando (`wrangler pages deploy dist
+# --project-name cabideia-encanto-app`) — sem ele, o wrangler passaria a usar o
+# `name` abaixo e publicaria no projeto errado.
+name = "cabideia-encanto"
+pages_build_output_dir = "dist"
+
+# Variáveis do BUILD (viram constantes dentro do bundle via import.meta.env).
+# Com o wrangler.toml presente, o Pages passa a ignorar as variáveis cadastradas
+# no painel — a fonte de verdade é este arquivo. Os DOIS valores são públicos por
+# definição (URL do projeto e chave publishable/anon do Supabase: já vão dentro
+# do bundle publicado; quem protege os dados é o RLS), então podem ser
+# versionados. NUNCA declarar aqui chave secreta (service_role etc.).
+[vars]
+VITE_SUPABASE_URL = "https://chrlexerkurmydavalgd.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmxleGVya3VybXlkYXZhbGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyODUzMzIsImV4cCI6MjA5Njg2MTMzMn0.qLcwDk6tdfl86vIszVCMlK9tQAUq9F5_f0czAiVsPFM"
+
+# Prévias: mesmos valores, explícitos (um [env.preview] presente substitui o
+# topo por inteiro — melhor declarado que herdado por omissão).
+[env.preview.vars]
+VITE_SUPABASE_URL = "https://chrlexerkurmydavalgd.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmxleGVya3VybXlkYXZhbGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyODUzMzIsImV4cCI6MjA5Njg2MTMzMn0.qLcwDk6tdfl86vIszVCMlK9tQAUq9F5_f0czAiVsPFM"

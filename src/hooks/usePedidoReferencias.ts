@@ -128,10 +128,12 @@ export function usePedidoReferencias(
 
   /**
    * M-048 · Copia as referências de uma proposta para um pedido recém-criado na
-   * conversão (Decisão #32 = B1). Preserva as origens (trabalho/inspiração), a
-   * `ordem` e a cópia pública já gerada (`foto_publica_path`) — assim o que a
-   * proposta já subiu ao bucket público é reaproveitado (sem recopiar). Devolve
-   * erro (ou null); a conversão trata como não-fatal (o pedido já foi criado).
+   * conversão (Decisão #32 = B1). Preserva as origens (trabalho/inspiração) e a
+   * `ordem`. Decisão #43 (34-B) · NÃO leva `foto_publica_path`: a cópia pública
+   * pertence à proposta (excluí-la remove o arquivo do bucket, o que quebraria o
+   * link do pedido) — o pedido gera a própria cópia em garantirFotosPublicas, na
+   * hora de compartilhar. Devolve erro (ou null); a conversão trata como
+   * não-fatal (o pedido já foi criado).
    */
   async function copiarDaProposta(
     pedidoAlvo: string,
@@ -141,7 +143,7 @@ export function usePedidoReferencias(
     if (!usuariaId) return 'Sessão expirada. Entre de novo.'
     const { data, error } = await supabase
       .from('proposta_referencias')
-      .select('trabalho_id, inspiracao_id, ordem, foto_publica_path')
+      .select('trabalho_id, inspiracao_id, ordem')
       .eq('proposta_id', propostaId)
       .order('ordem', { ascending: true })
     if (error) return 'Falha ao ler as referências da proposta: ' + error.message
@@ -151,14 +153,12 @@ export function usePedidoReferencias(
         trabalho_id: string | null
         inspiracao_id: string | null
         ordem: number
-        foto_publica_path: string | null
       }
       return {
         pedido_id: pedidoAlvo,
         trabalho_id: r.trabalho_id,
         inspiracao_id: r.inspiracao_id,
         ordem: r.ordem,
-        foto_publica_path: r.foto_publica_path,
       }
     })
     const { error: insErro } = await supabase.from('pedido_referencias').insert(linhas)
@@ -181,7 +181,10 @@ export function usePedidoReferencias(
     const { error } = await supabase.from('pedido_referencias').delete().eq('id', id)
     if (error) return 'Falha ao remover: ' + error.message
     const copia = (alvo as { foto_publica_path: string | null } | null)?.foto_publica_path
-    if (copia) await supabase.storage.from('publico').remove([copia])
+    // Decisão #43 · só apaga do bucket a cópia que É do pedido (…/ped/…). Linha
+    // convertida antes do 34-B pode apontar para a cópia DA PROPOSTA (…/prop/…),
+    // que segue em uso pelo link público dela — essa fica.
+    if (copia && copia.includes('/ped/')) await supabase.storage.from('publico').remove([copia])
     setReferencias((prev) => prev.filter((r) => r.id !== id))
     return null
   }
@@ -213,6 +216,12 @@ export function usePedidoReferencias(
    * A cópia nova é gravada em `pedido_referencias.foto_publica_path`. Espelha o
    * mecanismo da proposta (F2b).
    *
+   * Decisão #43 (34-B) · linha convertida ANTES do acerto pode apontar para a
+   * cópia pública DA PROPOSTA (…/prop/…) — emprestada, some se a proposta for
+   * excluída. Aqui ela é tratada como "sem cópia própria": regenera uma cópia do
+   * pedido (recopiando o próprio arquivo público; se ele já sumiu, volta à
+   * origem privada) e regrava a linha.
+   *
    * BUG-011 · deixa de ser "melhor esforço" silencioso: se alguma cópia que
    * PRECISAVA subir falhou, devolve `{ erro }` para quem compartilha abortar o
    * envio (senão a cliente abriria o link com fotos quebradas). Devolve `null`
@@ -231,25 +240,46 @@ export function usePedidoReferencias(
     for (const linha of (data ?? []) as unknown[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = linha as any
-      if (r.foto_publica_path) continue // já tem cópia própria
+      const emprestada =
+        typeof r.foto_publica_path === 'string' && r.foto_publica_path.includes('/prop/')
+      if (r.foto_publica_path && !emprestada) continue // já tem cópia própria
+
       let novo: string | null = null
-      if (r.trabalho_id) {
-        if (r.trabalhos?.foto_publica_path) continue // reusa a cópia de vitrine
-        if (r.trabalhos?.foto_path) {
-          novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
-          if (!novo) { falhou = true; continue }
+      // Cópia emprestada da proposta → recopia o arquivo público como cópia do
+      // pedido. Se falhar (p.ex. a proposta já foi excluída e o arquivo sumiu),
+      // cai nos caminhos de origem privada abaixo.
+      if (emprestada) novo = await copiarParaPublico('publico', r.foto_publica_path)
+
+      if (!novo) {
+        if (r.trabalho_id) {
+          if (r.trabalhos?.foto_publica_path) {
+            // A cópia de vitrine cobre o link; a linha emprestada solta a da
+            // proposta (fica null e o link passa a usar a vitrine).
+            if (emprestada) {
+              const { error: upErro } = await supabase
+                .from('pedido_referencias')
+                .update({ foto_publica_path: null })
+                .eq('id', r.id)
+              if (upErro) falhou = true
+            }
+            continue
+          }
+          if (r.trabalhos?.foto_path) novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
+        } else if (r.inspiracao_id && r.inspiracoes?.foto_path) {
+          novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
         }
-      } else if (r.inspiracao_id && r.inspiracoes?.foto_path) {
-        novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
-        if (!novo) { falhou = true; continue }
+        if (!novo) {
+          // Precisava de cópia (tinha imagem de origem, ou estava emprestada) e
+          // não conseguiu — sinaliza para abortar o envio (BUG-011).
+          if (emprestada || r.trabalhos?.foto_path || r.inspiracoes?.foto_path) falhou = true
+          continue
+        }
       }
-      if (novo) {
-        const { error: upErro } = await supabase
-          .from('pedido_referencias')
-          .update({ foto_publica_path: novo })
-          .eq('id', r.id)
-        if (upErro) falhou = true
-      }
+      const { error: upErro } = await supabase
+        .from('pedido_referencias')
+        .update({ foto_publica_path: novo })
+        .eq('id', r.id)
+      if (upErro) falhou = true
     }
     return falhou ? { erro: 'Algumas fotos do pedido não subiram. Tente compartilhar de novo.' } : null
   }
