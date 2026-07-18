@@ -83,6 +83,7 @@ create table inspiracoes (
   usuaria_id uuid not null references perfis (id) on delete cascade,
   tipo tipo_inspiracao not null,
   foto_path text,                   -- storage: bucket 'inspiracoes' (se tipo = imagem)
+  foto_publica_path text,           -- M-051: cópia pública ÚNICA do item (bucket 'publico')
   url text,                         -- se tipo = link
   nota text,
   criado_em timestamptz not null default now(),

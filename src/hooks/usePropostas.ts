@@ -205,6 +205,9 @@ export function usePropostas(usuariaId: string | undefined) {
     // Decisão #43 (34-B) · pedido convertido antes do acerto pode ainda apontar
     // para uma cópia desta proposta; essa fica no bucket até o pedido regenerar
     // a dele (no próximo compartilhar) — senão o link público dele quebraria.
+    // M-051 · a migração m051 pode ter PROMOVIDO uma cópia desta proposta a
+    // cópia do ITEM (inspiracoes.foto_publica_path) — essa também fica: agora é
+    // patrimônio do acervo (Decisão #50), usada por vitrine/propostas/pedidos.
     const emUso = new Set<string>()
     if (copias.length) {
       const { data: usadas } = await supabase
@@ -212,6 +215,14 @@ export function usePropostas(usuariaId: string | undefined) {
         .select('foto_publica_path')
         .in('foto_publica_path', copias)
       for (const u of usadas ?? []) {
+        const p = (u as { foto_publica_path: string | null }).foto_publica_path
+        if (p) emUso.add(p)
+      }
+      const { data: promovidas } = await supabase
+        .from('inspiracoes')
+        .select('foto_publica_path')
+        .in('foto_publica_path', copias)
+      for (const u of promovidas ?? []) {
         const p = (u as { foto_publica_path: string | null }).foto_publica_path
         if (p) emUso.add(p)
       }
