@@ -11,7 +11,7 @@ import { Acervo } from './pages/Acervo'
 import { GuardarTrabalho } from './pages/GuardarTrabalho'
 import { GuardarLotePedido } from './pages/GuardarLotePedido'
 import { MinhasTags } from './pages/MinhasTags'
-import { Acompanhar } from './pages/Acompanhar'
+import { Propostas } from './pages/Propostas'
 import { SelecaoPublica } from './pages/SelecaoPublica'
 import { PropostaPublica } from './pages/PropostaPublica'
 import { PedidoPublico } from './pages/PedidoPublico'
@@ -108,7 +108,9 @@ export function App() {
           <Route path="/acervo" element={<Privada><Acervo /></Privada>} />
           <Route path="/acervo/novo" element={<Privada><GuardarTrabalho /></Privada>} />
           <Route path="/tags" element={<Privada><MinhasTags /></Privada>} />
-          <Route path="/acompanhar" element={<Privada><Acompanhar /></Privada>} />
+          {/* UX-018 · Propostas substitui Acompanhar (Decisão #36) */}
+          <Route path="/propostas" element={<Privada><Propostas /></Privada>} />
+          <Route path="/acompanhar" element={<Navigate to="/propostas" replace />} />
           <Route path="/vitrine" element={<Privada><Vitrine /></Privada>} />
           <Route path="/perfil" element={<Privada><Perfil /></Privada>} />
           <Route path="/pedidos" element={<Privada><Pedidos /></Privada>} />
