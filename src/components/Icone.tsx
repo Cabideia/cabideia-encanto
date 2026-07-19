@@ -4,7 +4,7 @@ import {
   Pencil, Share2, Upload, Link2, MapPin, X, Check, ChevronRight, ChevronLeft,
   Lock, Camera, Image as ImageIcon, Plus, Star, Eye, RotateCw, AlertCircle,
   Sparkle, ArrowLeft, ArrowRight, ArrowDownToLine, Hand, Square, RotateCcw,
-  Crop, ListChecks, type LucideProps,
+  Crop, ListChecks, House, Menu, type LucideProps,
 } from 'lucide-react'
 
 /**
@@ -55,6 +55,8 @@ const MAPA = {
   girar: RotateCcw,
   cortar: Crop,
   acompanhar: ListChecks,
+  inicio: House,
+  menu: Menu,
 } as const
 
 export type NomeIcone = keyof typeof MAPA

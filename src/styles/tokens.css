@@ -856,3 +856,43 @@ img.logo-redonda { object-fit: cover; }
   color: var(--cacau-claro); opacity: .6; margin-top: 16px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- UX-017 · BARRA INFERIOR + FAB (Decisão #35 · mockup v7.2) ---------- */
+.nav-inferior{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;z-index:40;
+  background:var(--acucar);border-top:1px solid var(--linha);
+  display:flex;justify-content:space-around;align-items:flex-end;
+  padding:6px 4px calc(10px + env(safe-area-inset-bottom));
+}
+.nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  min-height:var(--alvo-toque);justify-content:center;font-size:11px;font-weight:var(--peso-forte);
+  color:var(--cacau-claro);border:none;background:none;cursor:pointer;border-radius:var(--raio-m);
+  transition:var(--transicao);text-decoration:none;font-family:inherit;
+}
+.nav-item.ativa{color:var(--cor-primaria)}
+.nav-item:active{transform:scale(.94)}
+.nav-mais{flex:0 0 64px;display:flex;justify-content:center}
+.fab{
+  width:56px;height:56px;margin-top:-26px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--cor-primaria);color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--sombra-2);transition:var(--transicao);
+}
+.fab:active{transform:scale(.92);background:var(--cor-primaria-escura)}
+/* Convivência: com a barra presente (data-com-barra no <html>), conteúdo e CTA sobem. */
+[data-com-barra] .conteudo{padding-bottom:calc(160px + env(safe-area-inset-bottom))}
+[data-com-barra] .cta-area{bottom:calc(64px + env(safe-area-inset-bottom))}
+/* Ações das folhas do ＋ e do Menu (sobre o padrão .painel existente) */
+.folha-titulo{font-weight:var(--peso-extra);font-size:var(--texto-18);text-align:center;margin-bottom:10px}
+.acao-folha{
+  display:flex;align-items:center;gap:14px;width:100%;min-height:54px;padding:0 8px;
+  border:none;background:none;cursor:pointer;border-radius:var(--raio-m);
+  font:inherit;font-weight:var(--peso-forte);color:var(--cacau);text-align:left;
+  transition:var(--transicao);
+}
+.acao-folha:active{background:var(--framboesa-suave)}
+.acao-folha .acao-ico{
+  width:42px;height:42px;border-radius:12px;background:var(--framboesa-suave);color:var(--framboesa);
+  display:flex;align-items:center;justify-content:center;flex:none;
+}
+.acao-folha .acao-sub{display:block;font-size:var(--texto-12);color:var(--cacau-claro);font-weight:var(--peso-medio)}

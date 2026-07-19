@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ToastProvider } from './components/Toast'
 import { AvisoOffline } from './components/AvisoOffline'
+import { BarraInferior } from './components/BarraInferior'
 import { useSessao } from './hooks/useSessao'
 import { useTema } from './hooks/useTema'
 import { Entrar } from './pages/Entrar'
@@ -75,7 +76,13 @@ function Privada({ children }: { children: React.ReactNode }) {
     const query = oauth.toString()
     return <Navigate to={query ? `/entrar?${query}` : '/entrar'} replace />
   }
-  return <>{children}</>
+  // UX-017 · toda tela privada ganha a barra inferior (públicas/login/legais não).
+  return (
+    <>
+      {children}
+      <BarraInferior />
+    </>
+  )
 }
 
 /**
