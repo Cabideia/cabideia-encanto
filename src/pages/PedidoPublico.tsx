@@ -5,7 +5,7 @@ import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { formatarReal } from '../hooks/useCardapio'
 import { formatarDataLonga } from '../lib/datas'
-import { STATUS_INFO, PAGAMENTO_CURTO, type StatusPedido, type StatusPagamento } from '../hooks/usePedidos'
+import type { StatusPedido, StatusPagamento } from '../hooks/usePedidos'
 import { Icone } from '../components/Icone'
 
 /**
@@ -44,6 +44,8 @@ type DadosPedido = {
   logoUrl: string | null
   fotoReferenciaUrl: string | null // legado (foto_referencia_path)
   fotos: FotoPublica[]
+  arroba: string | null // M-048 · cabeçalho "com {negócio} · @arroba"
+  criadoEm: string | null // M-048 · data do passo "Pedido confirmado"
 }
 
 function dominioDe(url: string): string {
@@ -105,6 +107,8 @@ export function PedidoPublico() {
         logoUrl: linha.logo_path ? urlPublica(linha.logo_path) : null,
         fotoReferenciaUrl: linha.foto_referencia_path ? urlPublica(linha.foto_referencia_path) : null,
         fotos,
+        arroba: linha.arroba ?? null,
+        criadoEm: linha.criado_em ?? null,
       })
       setEstado('ok')
     }
@@ -153,7 +157,10 @@ export function PedidoPublico() {
     )
   }
 
-  const statusInfo = dados.status ? STATUS_INFO[dados.status] : null
+  // M-048 · linha do tempo com o vocabulário travado (Decisão #48 = A):
+  // Pedido confirmado (sempre feito) → Em produção → Entregue.
+  const emProducao = dados.status === 'em_producao'
+  const entregue = dados.status === 'entregue'
   const pagto =
     dados.statusPagamento === 'sinal' || dados.statusPagamento === 'pago'
       ? dados.statusPagamento
@@ -161,118 +168,133 @@ export function PedidoPublico() {
 
   return (
     <div className="tela">
-      <div className="conteudo" style={{ paddingTop: 16 }}>
-        <div className="vitrine-moldura">
-          <div className="babado" />
-          <div className="vitrine-corpo">
+      <div className="conteudo">
+        {/* Cabeçalho público do mockup v7.2: tema da dona + babado ondulado */}
+        <div className="pub-cabecalho">
+          <div className="pub-avatar">
             {dados.logoUrl ? (
-              <img className="logo-redonda" src={dados.logoUrl} alt="" />
+              <img src={dados.logoUrl} alt="" />
             ) : (
-              <div className="logo-redonda">
-                {dados.negocio ? dados.negocio.trim().charAt(0).toUpperCase() : <Icone nome="brilho" size={24} />}
-              </div>
-            )}
-            <div className="nome-negocio">{dados.titulo || 'Seu pedido'}</div>
-            {dados.clientePrimeiroNome && (
-              <div className="apoio">Pedido de {dados.clientePrimeiroNome}</div>
-            )}
-            {dados.negocio && <div className="apoio">por {dados.negocio}</div>}
-          </div>
-        </div>
-
-        {/* Resumo: status vivo, pagamento (só sinal/pago), entrega, valor, detalhes */}
-        <div className="vitrine-moldura" style={{ marginTop: 14 }}>
-          <div className="vitrine-corpo" style={{ paddingTop: 18, paddingBottom: 18 }}>
-            <div
-              style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 6 }}
-            >
-              {statusInfo && <span className={`chip ${statusInfo.chip}`}>{statusInfo.rotulo}</span>}
-              {pagto && <span className={`chip ${PAGAMENTO_CHIP[pagto]}`}>{PAGAMENTO_CURTO[pagto]}</span>}
-            </div>
-
-            {dados.dataEntrega && (
-              <p
-                className="apoio"
-                style={{ textAlign: 'center', marginTop: 6, marginBottom: 0, display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}
-              >
-                <Icone nome="calendario" size={14} /> Entrega em {formatarDataLonga(dados.dataEntrega)}
-              </p>
-            )}
-
-            {dados.valor != null && (
-              <div style={{ textAlign: 'center', marginTop: 12 }}>
-                <div className="apoio" style={{ marginBottom: 4 }}>Valor</div>
-                <div className="nome-negocio" style={{ color: 'var(--framboesa)' }}>
-                  {formatarReal(dados.valor)}
-                </div>
-              </div>
-            )}
-
-            {dados.detalhes && (
-              <p className="apoio" style={{ whiteSpace: 'pre-wrap', marginTop: 12, marginBottom: 0, textAlign: 'center' }}>
-                {dados.detalhes}
-              </p>
+              dados.negocio ? dados.negocio.trim().charAt(0).toUpperCase() : <Icone nome="brilho" size={28} />
             )}
           </div>
+          <h1>
+            {dados.clientePrimeiroNome
+              ? `Sua encomenda, ${dados.clientePrimeiroNome} 🧁`
+              : 'Sua encomenda 🧁'}
+          </h1>
+          {(dados.negocio || dados.arroba) && (
+            <div className="pub-sub">
+              {dados.negocio ? `com ${dados.negocio}` : ''}
+              {dados.negocio && dados.arroba ? ' · ' : ''}
+              {dados.arroba ? `@${dados.arroba}` : ''}
+            </div>
+          )}
+          <div className="babado-ondas" />
         </div>
 
-        {/* Galeria das fotos de referência (mesmo padrão da proposta) */}
-        {dados.fotos.length > 0 && (
-          <>
-            <div className="secao" style={{ marginTop: 18 }}>
-              <span className="confeito" /><h2>Referências</h2>
-            </div>
-            <p className="apoio" style={{ textAlign: 'center', marginTop: 4 }}>
-              Cada foto tem um código (ex.: <b>I-12</b>). É só me dizer qual você gostou.
+        {/* O pedido + entrega */}
+        <div className="card" style={{ marginTop: 18 }}>
+          <div className="card-nome" style={{ fontFamily: 'var(--fonte-titulo)', whiteSpace: 'normal' }}>
+            {dados.titulo || 'Seu pedido'}
+          </div>
+          {dados.dataEntrega && (
+            <p className="apoio" style={{ marginTop: 4 }}>
+              Entrega: <b style={{ color: 'var(--cacau)' }}>{formatarDataLonga(dados.dataEntrega)}</b>
             </p>
-            <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
-              {dados.fotos.map((f, i) => (
-                <div key={i} className="foto-item">
-                  <div className="acervo-img-wrap">
-                    {f.url ? (
-                      <img src={f.url} alt="" loading="lazy" />
-                    ) : (
-                      <a
-                        className="insp-link-capa"
-                        href={f.link ?? '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ textDecoration: 'none' }}
-                      >
-                        <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
-                        <span className="insp-link-dominio">{f.link ? dominioDe(f.link) : 'link'}</span>
-                      </a>
-                    )}
-                    {f.codigo && (
-                      <span className="cod-selo" aria-label={`Código ${f.codigo}`}>{f.codigo}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+          )}
+        </div>
+
+        {/* Andamento — linha do tempo viva */}
+        <div className="card">
+          <div className="card-nome" style={{ fontSize: 'var(--t-base)', marginBottom: 14 }}>Andamento</div>
+          <div className="linha-tempo">
+            <div className="lt-passo feito">
+              <div className="lt-bola"><Icone nome="ok" size={14} strokeWidth={3} /></div>
+              <h4>Pedido confirmado</h4>
+              {(dados.criadoEm || pagto === 'sinal') && (
+                <p>
+                  {dados.criadoEm ? formatarDataLonga(dados.criadoEm) : ''}
+                  {dados.criadoEm && pagto === 'sinal' ? ' · ' : ''}
+                  {pagto === 'sinal' ? 'sinal recebido' : ''}
+                </p>
+              )}
             </div>
+            <div className={`lt-passo${entregue ? ' feito' : emProducao ? ' atual' : ''}`}>
+              <div className="lt-bola">{entregue ? <Icone nome="ok" size={14} strokeWidth={3} /> : '2'}</div>
+              <h4>Em produção</h4>
+              {emProducao && <p>Seu pedido está sendo feito com carinho</p>}
+            </div>
+            <div className={`lt-passo${entregue ? ' feito' : ''}`}>
+              <div className="lt-bola">{entregue ? <Icone nome="ok" size={14} strokeWidth={3} /> : '3'}</div>
+              <h4>Entregue</h4>
+              {dados.dataEntrega && !entregue && <p>previsto para {formatarDataLonga(dados.dataEntrega)}</p>}
+              {entregue && <p>Prontinho! Obrigada pela confiança 💛</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* O que combinamos: detalhes + referências acordadas */}
+        {(dados.detalhes || dados.fotos.length > 0 || dados.fotoReferenciaUrl) && (
+          <>
+            <div className="secao" style={{ marginTop: 6 }}>
+              <span className="confeito" /><h2>O que combinamos</h2>
+            </div>
+            {dados.detalhes && (
+              <p className="apoio" style={{ whiteSpace: 'pre-wrap', margin: '6px 0 10px' }}>{dados.detalhes}</p>
+            )}
+            {dados.fotos.length > 0 && (
+              <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
+                {dados.fotos.map((f, i) => (
+                  <div key={i} className="foto-item">
+                    <div className="acervo-img-wrap">
+                      {f.url ? (
+                        <img src={f.url} alt="" loading="lazy" />
+                      ) : (
+                        <a
+                          className="insp-link-capa"
+                          href={f.link ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
+                          <span className="insp-link-dominio">{f.link ? dominioDe(f.link) : 'link'}</span>
+                        </a>
+                      )}
+                      {f.codigo && (
+                        <span className="cod-selo" aria-label={`Código ${f.codigo}`}>{f.codigo}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {dados.fotos.length === 0 && dados.fotoReferenciaUrl && (
+              <img
+                src={dados.fotoReferenciaUrl}
+                alt=""
+                loading="lazy"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                style={{ width: '100%', borderRadius: 16, marginTop: 8, border: '1px solid var(--linha)', display: 'block' }}
+              />
+            )}
           </>
         )}
 
-        {/* Foto de referência legada (pedidos antigos, sem referências novas) */}
-        {dados.fotos.length === 0 && dados.fotoReferenciaUrl && (
-          <>
-            <div className="secao" style={{ marginTop: 18 }}>
-              <span className="confeito" /><h2>Referência</h2>
+        {/* Pagamento (só quando há valor ou estado a mostrar; 'não pago' é suprimido) */}
+        {(dados.valor != null || pagto) && (
+          <div className="card" style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Pagamento</div>
+              {dados.valor != null && <div className="apoio">{formatarReal(dados.valor)}</div>}
             </div>
-            <img
-              src={dados.fotoReferenciaUrl}
-              alt=""
-              loading="lazy"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-              style={{
-                width: '100%',
-                borderRadius: 16,
-                marginTop: 8,
-                border: '1px solid var(--linha)',
-                display: 'block',
-              }}
-            />
-          </>
+            {pagto && (
+              <span className={`chip ${PAGAMENTO_CHIP[pagto]}`}>
+                {pagto === 'sinal' ? 'Sinal recebido' : 'Pago'}
+              </span>
+            )}
+          </div>
         )}
 
         <p className="apoio" style={{ textAlign: 'center', marginTop: 20 }}>
@@ -283,7 +305,7 @@ export function PedidoPublico() {
       {dados.whatsapp && (
         <div className="cta-area">
           <button className="cta" onClick={abrirWhatsApp}>
-            <Icone nome="whatsapp" /> Falar no WhatsApp
+            <Icone nome="whatsapp" /> {dados.negocio ? `Falar com ${dados.negocio}` : 'Falar no WhatsApp'}
           </button>
         </div>
       )}
