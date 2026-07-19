@@ -9,6 +9,7 @@ export type Inspiracao = {
   id: string
   tipo: TipoInspiracao
   foto_path: string | null // bucket privado 'inspiracoes' (imagem ou capa do link)
+  foto_publica_path: string | null // M-051 · cópia pública ÚNICA do item (bucket 'publico')
   fotoUrl: string | null // URL assinada já resolvida para exibição
   url: string | null // se tipo = link
   nota: string | null
@@ -52,7 +53,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
     const { data } = await supabase
       .from('inspiracoes')
       .select(
-        'id, tipo, foto_path, url, nota, codigo_num, criado_em, inspiracao_tags(tag_id, tags(id, nome))'
+        'id, tipo, foto_path, foto_publica_path, url, nota, codigo_num, criado_em, inspiracao_tags(tag_id, tags(id, nome))'
       )
       .eq('usuaria_id', usuariaId)
       .order('criado_em', { ascending: false })
@@ -63,6 +64,7 @@ export function useInspiracoes(usuariaId: string | undefined) {
         id: i.id as string,
         tipo: i.tipo as TipoInspiracao,
         foto_path: i.foto_path as string | null,
+        foto_publica_path: (i.foto_publica_path ?? null) as string | null,
         fotoUrl: null,
         url: i.url as string | null,
         nota: i.nota as string | null,
@@ -184,9 +186,22 @@ export function useInspiracoes(usuariaId: string | undefined) {
         .eq('id', id)
       if (error) return 'Falha ao salvar: ' + error.message
       await gravarTags(id, campos.tagIds)
-      // Remove a foto antiga do storage se foi trocada/retirada.
-      if (fotoAntiga && fotoAntiga !== campos.foto_path)
+      // Remove a foto antiga do storage se foi trocada/retirada. M-051 · a cópia
+      // pública do item fica obsoleta junto: apaga e zera a coluna — a próxima
+      // partilha regenera (lazy) em garantirFotosPublicas.
+      if (fotoAntiga && fotoAntiga !== campos.foto_path) {
         await supabase.storage.from('inspiracoes').remove([fotoAntiga])
+        const { data: atual } = await supabase
+          .from('inspiracoes')
+          .select('foto_publica_path')
+          .eq('id', id)
+          .maybeSingle()
+        const copia = (atual as { foto_publica_path: string | null } | null)?.foto_publica_path
+        if (copia) {
+          await supabase.from('inspiracoes').update({ foto_publica_path: null }).eq('id', id)
+          await supabase.storage.from('publico').remove([copia])
+        }
+      }
       await carregar()
       return null
     } finally {
@@ -194,13 +209,17 @@ export function useInspiracoes(usuariaId: string | undefined) {
     }
   }
 
-  // ── excluir(): apaga a linha e, se houver, a foto do storage ──
+  // ── excluir(): apaga a linha e, se houver, as fotos do storage ──
+  // M-051/Decisão #50 · a cópia pública do item vive até aqui: morre junto com
+  // o item do acervo (links públicos que a usavam deixam de exibi-la).
   async function excluir(inspiracao: Inspiracao): Promise<string | null> {
     if (estaOffline()) return SEM_CONEXAO
     const { error } = await supabase.from('inspiracoes').delete().eq('id', inspiracao.id)
     if (error) return 'Falha ao excluir: ' + error.message
     if (inspiracao.foto_path)
       await supabase.storage.from('inspiracoes').remove([inspiracao.foto_path])
+    if (inspiracao.foto_publica_path)
+      await supabase.storage.from('publico').remove([inspiracao.foto_publica_path])
     setInspiracoes((prev) => prev.filter((i) => i.id !== inspiracao.id))
     return null
   }

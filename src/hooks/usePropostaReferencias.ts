@@ -127,32 +127,26 @@ export function usePropostaReferencias(
   // ── Remove uma referência (atualização otimista) ──
   async function remover(id: string): Promise<string | null> {
     if (estaOffline()) return SEM_CONEXAO
-    // F2b · limpa a cópia pública gerada para o link (se houver) antes de apagar
-    // a linha. Só a cópia gerada por nós vive em `foto_publica_path` da própria
-    // referência — a cópia de vitrine do trabalho nunca é gravada aqui.
-    const { data: alvo } = await supabase
-      .from('proposta_referencias')
-      .select('foto_publica_path')
-      .eq('id', id)
-      .maybeSingle()
+    // M-051 · a cópia pública pertence ao ITEM do acervo (Decisão #50): remover
+    // a referência não apaga nada do storage. Cópias por-referência antigas
+    // (legado F2b) ficam no bucket — podem ter sido promovidas a cópia do item
+    // pela migração m051; a limpeza do legado é tarefa própria, fora daqui.
     const { error } = await supabase.from('proposta_referencias').delete().eq('id', id)
     if (error) return 'Falha ao remover: ' + error.message
-    const copia = (alvo as { foto_publica_path: string | null } | null)?.foto_publica_path
-    if (copia) await supabase.storage.from('publico').remove([copia])
     setReferencias((prev) => prev.filter((r) => r.id !== id))
     return null
   }
 
   /**
-   * F2b · Copia uma imagem de um bucket privado para o público, para aparecer no
-   * link público da proposta (a cliente anônima não enxerga bucket privado).
-   * Espelha `copiarParaPublico` do M-022. Devolve o caminho público (ou null).
+   * M-051 · Copia uma imagem de um bucket privado para o público e devolve o
+   * caminho da cópia DO ITEM ({uid}/item/…). Quem chama grava esse caminho na
+   * tabela do acervo (inspiracoes/trabalhos) — nunca mais na referência.
    */
   async function copiarParaPublico(bucket: string, pathPrivado: string): Promise<string | null> {
     if (!usuariaId) return null
     const { data, error } = await supabase.storage.from(bucket).download(pathPrivado)
     if (error || !data) return null
-    const novo = `${usuariaId}/prop/${crypto.randomUUID()}.jpg`
+    const novo = `${usuariaId}/item/${crypto.randomUUID()}.jpg`
     const { error: upErro } = await supabase.storage
       .from('publico')
       .upload(novo, data, { contentType: 'image/jpeg', upsert: false })
@@ -161,50 +155,53 @@ export function usePropostaReferencias(
   }
 
   /**
-   * F2b · Garante que TODA referência com imagem tenha um caminho público antes
-   * de o link ser compartilhado (idempotente — só age no que falta):
-   *   · trabalho já na vitrine  → reusa `trabalhos.foto_publica_path` (sem cópia);
-   *   · trabalho fora da vitrine → copia de `acervo` p/ público;
-   *   · inspiração com imagem   → copia de `inspiracoes` p/ público;
-   *   · inspiração-link          → nada (aparece pelo `url`).
-   * A cópia nova é gravada em `proposta_referencias.foto_publica_path`.
+   * M-051 · Garante que TODO ITEM referenciado com imagem tenha cópia pública
+   * NO ACERVO antes de o link ser compartilhado (idempotente — só age no que
+   * falta): a cópia é do item (`inspiracoes`/`trabalhos.foto_publica_path`),
+   * gerada uma única vez e reaproveitada por vitrine, propostas e pedidos
+   * (Decisões #42/#43/#50). A cópia por-referência (F2b) foi aposentada — as
+   * RPCs ainda leem o valor antigo como último fallback, mas nada novo é
+   * gravado nela. Inspiração-link (sem imagem): nada a fazer, aparece pelo url.
    *
-   * BUG-011 · deixa de ser "melhor esforço" silencioso: se alguma cópia que
-   * PRECISAVA subir falhou, devolve `{ erro }` para quem compartilha abortar o
-   * envio (senão a cliente abriria o link com fotos quebradas). Devolve `null`
-   * quando tudo o que precisava está pronto.
+   * BUG-011 (mantido) · se alguma cópia que PRECISAVA subir falhou, devolve
+   * `{ erro }` para quem compartilha abortar o envio.
    */
   async function garantirFotosPublicas(propostaId: string): Promise<{ erro: string } | null> {
     if (estaOffline()) return { erro: SEM_CONEXAO }
     const { data, error } = await supabase
       .from('proposta_referencias')
       .select(
-        'id, foto_publica_path, trabalho_id, inspiracao_id, trabalhos(foto_path, foto_publica_path), inspiracoes(foto_path)'
+        'id, trabalho_id, inspiracao_id, trabalhos(foto_path, foto_publica_path), inspiracoes(foto_path, foto_publica_path)'
       )
       .eq('proposta_id', propostaId)
     if (error) return { erro: 'Não consegui preparar as fotos do link. Tente de novo.' }
     let falhou = false
+    const prontos = new Set<string>() // itens já garantidos nesta passada
     for (const linha of (data ?? []) as unknown[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = linha as any
-      if (r.foto_publica_path) continue // já tem cópia própria
-      let novo: string | null = null
       if (r.trabalho_id) {
-        if (r.trabalhos?.foto_publica_path) continue // reusa a cópia de vitrine
-        if (r.trabalhos?.foto_path) {
-          novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
-          if (!novo) { falhou = true; continue }
-        }
-      } else if (r.inspiracao_id && r.inspiracoes?.foto_path) {
-        novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
+        if (r.trabalhos?.foto_publica_path || prontos.has(`t:${r.trabalho_id}`)) continue
+        if (!r.trabalhos?.foto_path) continue
+        const novo = await copiarParaPublico('acervo', r.trabalhos.foto_path)
         if (!novo) { falhou = true; continue }
-      }
-      if (novo) {
         const { error: upErro } = await supabase
-          .from('proposta_referencias')
+          .from('trabalhos')
           .update({ foto_publica_path: novo })
-          .eq('id', r.id)
+          .eq('id', r.trabalho_id)
         if (upErro) falhou = true
+        else prontos.add(`t:${r.trabalho_id}`)
+      } else if (r.inspiracao_id) {
+        if (r.inspiracoes?.foto_publica_path || prontos.has(`i:${r.inspiracao_id}`)) continue
+        if (!r.inspiracoes?.foto_path) continue // inspiração-link
+        const novo = await copiarParaPublico('inspiracoes', r.inspiracoes.foto_path)
+        if (!novo) { falhou = true; continue }
+        const { error: upErro } = await supabase
+          .from('inspiracoes')
+          .update({ foto_publica_path: novo })
+          .eq('id', r.inspiracao_id)
+        if (upErro) falhou = true
+        else prontos.add(`i:${r.inspiracao_id}`)
       }
     }
     return falhou ? { erro: 'Algumas fotos da proposta não subiram. Tente compartilhar de novo.' } : null
