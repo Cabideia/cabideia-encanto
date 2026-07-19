@@ -896,3 +896,40 @@ img.logo-redonda { object-fit: cover; }
   display:flex;align-items:center;justify-content:center;flex:none;
 }
 .acao-folha .acao-sub{display:block;font-size:var(--texto-12);color:var(--cacau-claro);font-weight:var(--peso-medio)}
+
+/* ---------- M-048 · PÁGINA PÚBLICA DO PEDIDO "ACOMPANHAR ENCOMENDA" (mockup v7.2) ---------- */
+/* Cabeçalho público: sangra as margens do .conteudo (só nas rotas públicas). */
+.pub-cabecalho{
+  margin:-8px calc(-1 * var(--espaco)) 0;background:var(--cor-primaria);color:#fff;
+  padding:30px 20px 40px;text-align:center;position:relative;
+}
+.pub-cabecalho h1{font-family:var(--fonte-titulo);font-weight:600;font-size:24px;letter-spacing:.01em}
+.pub-cabecalho .pub-sub{opacity:.88;font-size:var(--texto-14);font-weight:var(--peso-medio);margin-top:4px}
+.pub-avatar{
+  width:70px;height:70px;border-radius:50%;background:#fff;color:var(--cor-primaria);
+  font-family:var(--fonte-titulo);font-size:30px;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 12px;box-shadow:var(--sombra-2);overflow:hidden;
+}
+.pub-avatar img{width:100%;height:100%;object-fit:cover}
+/* Babado ondulado — assinatura visual das páginas públicas (não confundir com
+   o .babado de 5px do cabeçalho antigo, que segue em uso na vitrine/proposta). */
+.pub-cabecalho .babado-ondas{
+  position:absolute;left:0;right:0;bottom:-1px;height:22px;
+  background:radial-gradient(circle at 12px -6px, transparent 15px, var(--cor-fundo) 16px);
+  background-size:24px 22px;background-position:center bottom;
+}
+/* Linha do tempo do andamento (vocabulário travado: 3 passos) */
+.linha-tempo{position:relative;padding-left:34px}
+.linha-tempo::before{content:"";position:absolute;left:13px;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--linha)}
+.lt-passo{position:relative;padding-bottom:var(--esp-5)}
+.lt-passo:last-child{padding-bottom:0}
+.lt-bola{
+  position:absolute;left:-34px;top:0;width:29px;height:29px;border-radius:50%;
+  background:var(--acucar);border:3px solid var(--linha);display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:var(--cacau-claro);font-weight:800;
+}
+.lt-passo.feito .lt-bola{background:var(--cor-sucesso);border-color:var(--cor-sucesso);color:#fff}
+.lt-passo.atual .lt-bola{background:var(--cor-primaria);border-color:var(--cor-primaria);color:#fff;box-shadow:0 0 0 5px var(--cor-primaria-suave)}
+.lt-passo h4{font-weight:var(--peso-extra);font-size:var(--texto-16)}
+.lt-passo p{color:var(--cacau-claro);font-size:var(--texto-14);margin-top:2px}
+.lt-passo.atual h4{color:var(--cor-primaria)}
