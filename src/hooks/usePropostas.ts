@@ -25,6 +25,7 @@ export type Proposta = {
   condicoes: string | null // I4: condições daquela proposta (texto livre)
   token: string | null // F2b: chave do link público (nasce só ao compartilhar)
   aberturas: number // UX-018: quantas vezes a cliente abriu a página pública
+  incluir_cardapio: boolean // M-045: a arte de recheios/sabores entra no link
   criado_em: string
 }
 
@@ -36,10 +37,11 @@ export type CamposProposta = {
   foto_path: string | null
   modo_preco: ModoPreco
   condicoes: string | null
+  incluir_cardapio: boolean // M-045 · interruptor "Incluir meu cardápio"
 }
 
 const COLUNAS =
-  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, aberturas, criado_em'
+  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, aberturas, incluir_cardapio, criado_em'
 
 /**
  * F2b · Token aleatório forte e legível em URL (sem caracteres ambíguos).
@@ -114,6 +116,7 @@ export function usePropostas(usuariaId: string | undefined) {
           foto_path: campos.foto_path,
           modo_preco: campos.modo_preco,
           condicoes: campos.condicoes,
+          incluir_cardapio: campos.incluir_cardapio,
         })
         .select(COLUNAS)
         .single()
@@ -145,6 +148,7 @@ export function usePropostas(usuariaId: string | undefined) {
           foto_path: campos.foto_path,
           modo_preco: campos.modo_preco,
           condicoes: campos.condicoes,
+          incluir_cardapio: campos.incluir_cardapio,
         })
         .eq('id', id)
         .select(COLUNAS)

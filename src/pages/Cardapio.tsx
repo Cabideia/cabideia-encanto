@@ -1,5 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
+import { supabase } from '../lib/supabase'
+import { comprimirImagem } from '../lib/imagem'
+import { urlPublica } from '../lib/storage'
+import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -40,6 +44,69 @@ export function Cardapio() {
   const [editandoId, setEditandoId] = useState<string | 'novo' | null>(null)
   const [form, setForm] = useState<CamposItem>(FORM_VAZIO)
   const [aExcluir, setAExcluir] = useState<ItemCardapio | null>(null)
+
+  // M-045 · Meu cardápio: a ARTE de recheios/sabores (imagem de configuração,
+  // não é acervo — Decisão #42). Mora em perfis.cardapio_path (bucket público)
+  // e aparece na aba Cardápio da vitrine e no fim das propostas com o
+  // interruptor ligado.
+  const [artePath, setArtePath] = useState<string | null>(null)
+  const [enviandoArte, setEnviandoArte] = useState(false)
+  const [confirmarRemoverArte, setConfirmarRemoverArte] = useState(false)
+  const arquivoRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!sessao) return
+    supabase
+      .from('perfis')
+      .select('cardapio_path')
+      .eq('id', sessao.user.id)
+      .maybeSingle()
+      .then(({ data }) => setArtePath((data as { cardapio_path: string | null } | null)?.cardapio_path ?? null))
+  }, [sessao])
+
+  async function subirArte(arquivo: File) {
+    if (estaOffline()) return avisar(SEM_CONEXAO)
+    if (!sessao) return
+    setEnviandoArte(true)
+    try {
+      const { blob } = await comprimirImagem(arquivo)
+      const novo = `${sessao.user.id}/cardapio-${crypto.randomUUID()}.jpg`
+      const { error: upErro } = await supabase.storage
+        .from('publico')
+        .upload(novo, blob, { contentType: 'image/jpeg', upsert: false })
+      if (upErro) return avisar('Falha ao enviar a imagem: ' + upErro.message)
+      const { error: dbErro } = await supabase
+        .from('perfis')
+        .update({ cardapio_path: novo })
+        .eq('id', sessao.user.id)
+      if (dbErro) {
+        await supabase.storage.from('publico').remove([novo])
+        return avisar('Falha ao salvar: ' + dbErro.message)
+      }
+      if (artePath) await supabase.storage.from('publico').remove([artePath])
+      setArtePath(novo)
+      avisar('Cardápio salvo ✓ Já aparece na vitrine e nas propostas.')
+    } catch (e) {
+      avisar((e as Error)?.message ?? 'Não consegui processar a imagem.')
+    } finally {
+      setEnviandoArte(false)
+      if (arquivoRef.current) arquivoRef.current.value = ''
+    }
+  }
+
+  async function removerArte() {
+    if (estaOffline()) return avisar(SEM_CONEXAO)
+    if (!sessao || !artePath) return
+    const { error } = await supabase
+      .from('perfis')
+      .update({ cardapio_path: null })
+      .eq('id', sessao.user.id)
+    if (error) return avisar('Falha ao remover: ' + error.message)
+    await supabase.storage.from('publico').remove([artePath])
+    setArtePath(null)
+    setConfirmarRemoverArte(false)
+    avisar('Cardápio removido — some da vitrine e das propostas.')
+  }
 
   const filtrados = itens.filter(
     (i) => !busca || i.nome.toLowerCase().includes(busca.toLowerCase())
@@ -102,6 +169,65 @@ export function Cardapio() {
     <div className="tela">
       <BarraTopo titulo="Tabela de preços" />
       <div className="conteudo">
+        {/* M-045 · Meu cardápio (imagem) — Decisão #39, opção C */}
+        {!formAberto && (
+          <div className="card" style={{ marginTop: 4 }}>
+            <div className="card-nome" style={{ fontSize: 'var(--t-base)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icone nome="imagem" size={18} /> Meu cardápio
+            </div>
+            <p className="apoio" style={{ marginTop: 2, marginBottom: 12 }}>
+              Já tem sua arte com recheios e sabores? Suba aqui — ela aparece na
+              vitrine e entra nas suas propostas.
+            </p>
+            {artePath ? (
+              <>
+                <img
+                  src={urlPublica(artePath)}
+                  alt="Meu cardápio"
+                  style={{ width: '100%', borderRadius: 'var(--raio-card)', display: 'block', border: '1px solid var(--linha)' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="btn-secundario"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => arquivoRef.current?.click()}
+                    disabled={enviandoArte}
+                  >
+                    {enviandoArte ? 'Enviando…' : <><Icone nome="recarregar" size={16} /> Trocar</>}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secundario"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => setConfirmarRemoverArte(true)}
+                    disabled={enviandoArte}
+                  >
+                    <Icone nome="lixo" size={16} /> Remover
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center', minHeight: 64, borderStyle: 'dashed' }}
+                onClick={() => arquivoRef.current?.click()}
+                disabled={enviandoArte}
+              >
+                {enviandoArte ? 'Enviando…' : <><Icone nome="mais" size={18} /> Adicionar imagem do cardápio</>}
+              </button>
+            )}
+            <input
+              ref={arquivoRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => e.target.files?.[0] && subirArte(e.target.files[0])}
+            />
+          </div>
+        )}
+
         {!formAberto && itens.length > 0 && (
           <div className="busca" style={{ marginTop: 4 }}>
             <Icone nome="busca" size={18} />
@@ -300,6 +426,16 @@ export function Cardapio() {
             <Icone nome="mais" /> Novo item
           </button>
         </div>
+      )}
+
+      {confirmarRemoverArte && (
+        <Confirmar
+          titulo="Remover o cardápio?"
+          descricao="A imagem some da sua vitrine e das propostas. Você pode subir outra quando quiser."
+          rotuloConfirmar="Remover"
+          onConfirmar={removerArte}
+          onCancelar={() => setConfirmarRemoverArte(false)}
+        />
       )}
 
       {aExcluir && (
