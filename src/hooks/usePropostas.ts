@@ -24,6 +24,7 @@ export type Proposta = {
   modo_preco: ModoPreco | null // I3: null = proposta antiga (app infere 'fechado')
   condicoes: string | null // I4: condições daquela proposta (texto livre)
   token: string | null // F2b: chave do link público (nasce só ao compartilhar)
+  aberturas: number // UX-018: quantas vezes a cliente abriu a página pública
   criado_em: string
 }
 
@@ -38,7 +39,7 @@ export type CamposProposta = {
 }
 
 const COLUNAS =
-  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, criado_em'
+  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, aberturas, criado_em'
 
 /**
  * F2b · Token aleatório forte e legível em URL (sem caracteres ambíguos).

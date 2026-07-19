@@ -13,7 +13,7 @@ import { Icone } from './Icone'
  *
  * "Nova proposta" leva a /clientes (a proposta nasce da ficha da cliente —
  * fluxo atual; a criação de cliente inline é evolução do UX-018).
- * "Propostas" no Menu aponta para o Acompanhar até a fusão do UX-018.
+ * "Propostas" no Menu aponta para a tela Propostas (fusão do UX-018).
  */
 export function BarraInferior() {
   const { pathname } = useLocation()
@@ -94,7 +94,7 @@ export function BarraInferior() {
             <button className="acao-folha" onClick={() => ir('/clientes')}>
               <span className="acao-ico"><Icone nome="clientes" /></span>Clientes
             </button>
-            <button className="acao-folha" onClick={() => ir('/acompanhar')}>
+            <button className="acao-folha" onClick={() => ir('/propostas')}>
               <span className="acao-ico"><Icone nome="acompanhar" /></span>Propostas
             </button>
             <button className="acao-folha" onClick={() => ir('/acervo')}>
