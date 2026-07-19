@@ -47,6 +47,7 @@ type DadosProposta = {
   logoUrl: string | null
   fotos: FotoPublica[]
   itens: ItemPublico[]
+  cardapioUrl: string | null // M-045 · arte de recheios/sabores (se incluída)
 }
 
 function dominioDe(url: string): string {
@@ -108,6 +109,7 @@ export function PropostaPublica() {
         logoUrl: linha.logo_path ? urlPublica(linha.logo_path) : null,
         fotos,
         itens,
+        cardapioUrl: linha.cardapio_path ? urlPublica(linha.cardapio_path) : null,
       })
       setEstado('ok')
     }
@@ -289,6 +291,22 @@ export function PropostaPublica() {
               <span className="confeito" /><h2>Condições</h2>
             </div>
             <p className="apoio" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{dados.condicoes}</p>
+          </>
+        )}
+
+        {/* M-045 · Recheios e sabores: a arte do cardápio da doceira (quando a
+            proposta está com o interruptor ligado) */}
+        {dados.cardapioUrl && (
+          <>
+            <div className="secao" style={{ marginTop: 18 }}>
+              <span className="confeito" /><h2>Recheios e sabores</h2>
+            </div>
+            <img
+              src={dados.cardapioUrl}
+              alt="Cardápio de recheios e sabores"
+              loading="lazy"
+              style={{ width: '100%', borderRadius: 'var(--raio-card)', display: 'block', marginTop: 8, border: '1px solid var(--linha)' }}
+            />
           </>
         )}
 

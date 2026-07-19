@@ -23,6 +23,7 @@ type PerfilPublico = {
   whatsapp: string | null
   logo_path: string | null
   tema: string | null
+  cardapio_path: string | null // M-045 · arte de recheios/sabores
 }
 
 type FotoPublica = {
@@ -226,7 +227,7 @@ export function VitrinePublica() {
         {/* UX-011 — abas da vitrine pública. Só aparecem quando existe tabela de
             preços (sem itens não faz sentido uma aba vazia na página pública da
             dona). Usam .escolha/.filtro, que já herdam os tokens dos 3 temas (M-030). */}
-        {cardapio.length > 0 && (
+        {(cardapio.length > 0 || perfil.cardapio_path) && (
           <div className="escolha" style={{ marginTop: 16, justifyContent: 'center' }}>
             <button
               type="button"
@@ -240,12 +241,12 @@ export function VitrinePublica() {
               className={`filtro${aba === 'precos' ? ' ativo' : ''}`}
               onClick={() => setAba('precos')}
             >
-              <Icone nome="precos" size={15} /> Tabela de preços
+              <Icone nome="precos" size={15} /> Cardápio
             </button>
           </div>
         )}
 
-        {aba === 'vitrine' || cardapio.length === 0 ? (
+        {aba === 'vitrine' || (cardapio.length === 0 && !perfil.cardapio_path) ? (
           <>
             {/* Filtro por tag (só aparece se houver tags nas fotos publicadas) */}
             {tagsDisponiveis.length > 0 && (
@@ -297,8 +298,16 @@ export function VitrinePublica() {
             )}
           </>
         ) : (
-          /* Aba Tabela de preços */
+          /* Aba Cardápio: a arte de recheios/sabores (M-045) + itens com preço */
           <div style={{ marginTop: 16 }}>
+            {perfil.cardapio_path && (
+              <img
+                src={urlPublica(perfil.cardapio_path)}
+                alt={`Cardápio de ${perfil.nome_negocio ?? 'recheios e sabores'}`}
+                loading="lazy"
+                style={{ width: '100%', borderRadius: 'var(--raio-card)', display: 'block', marginBottom: 12, border: '1px solid var(--linha)' }}
+              />
+            )}
             {cardapio.map((item) => (
               <div key={item.id} className="card">
                 <div className="card-linha">

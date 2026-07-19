@@ -123,6 +123,7 @@ export function PropostaForm() {
   const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
   const [modoPreco, setModoPreco] = useState<ModoPreco>('fechado') // I3
   const [condicoes, setCondicoes] = useState('') // I4
+  const [incluirCardapio, setIncluirCardapio] = useState(true) // M-045 · ligado por padrão (Decisão #39)
   const [condicoesPadrao, setCondicoesPadrao] = useState<string | null>(null)
   const [salvandoPadrao, setSalvandoPadrao] = useState(false)
 
@@ -194,6 +195,7 @@ export function PropostaForm() {
     setModoPreco(proposta.modo_preco ?? 'fechado')
     // I4: na edição, mostra só o que foi salvo (proposta antiga sem condições fica vazia).
     setCondicoes(proposta.condicoes ?? '')
+    setIncluirCardapio(proposta.incluir_cardapio ?? true)
     setFotoPath(proposta.foto_path)
     if (proposta.foto_path) {
       supabase.storage
@@ -295,7 +297,8 @@ export function PropostaForm() {
       valorNum !== (proposta.valor ?? null) ||
       validadeN !== (proposta.validade ?? null) ||
       modoPreco !== (proposta.modo_preco ?? 'fechado') ||
-      condicoesN !== (proposta.condicoes ?? null)
+      condicoesN !== (proposta.condicoes ?? null) ||
+      incluirCardapio !== (proposta.incluir_cardapio ?? true)
     )
   }
 
@@ -361,6 +364,7 @@ export function PropostaForm() {
       foto_path: caminhoFoto,
       modo_preco: modoPreco,
       condicoes: condicoes.trim() || null,
+      incluir_cardapio: incluirCardapio,
     }
   }
 
@@ -946,6 +950,25 @@ export function PropostaForm() {
               {salvandoPadrao ? 'Salvando…' : 'Salvar como padrão'}
             </button>
           </div>
+        </div>
+
+        {/* M-045 · a arte de recheios/sabores (Tabela de preços) entra no fim do
+            link público desta proposta; a doceira desliga por proposta se quiser. */}
+        <div className="cardapio-toggle">
+          <div>
+            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Icone nome="imagem" size={16} /> Incluir meu cardápio</div>
+            <div className="apoio" style={{ marginTop: 2 }}>
+              Sua arte de recheios e sabores entra no fim da proposta.
+            </div>
+          </div>
+          <label className="interruptor">
+            <input
+              type="checkbox"
+              checked={incluirCardapio}
+              onChange={(e) => setIncluirCardapio(e.target.checked)}
+            />
+            <span className="pista" />
+          </label>
         </div>
 
         {/* F2b · CTA de compartilhamento manda o LINK (o PNG virou capa opcional).

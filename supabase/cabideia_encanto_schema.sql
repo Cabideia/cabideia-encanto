@@ -25,6 +25,7 @@ create table perfis (
   nicho text,                       -- doces, crochê, cestas, artesanato, personalizados…
   whatsapp text,                    -- E.164, ex.: +5511999999999
   logo_path text,                   -- storage: bucket 'publico'
+  cardapio_path text,               -- M-045: arte de recheios/sabores (bucket 'publico')
   tema text not null default 'oficina'  -- identidade visual (Decisão #9): oficina | vitrine | encanto
     check (tema in ('oficina', 'vitrine', 'encanto')),
   vitrine_publicada boolean not null default false,  -- consentimento explícito (LGPD)
