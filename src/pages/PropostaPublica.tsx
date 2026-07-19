@@ -116,6 +116,29 @@ export function PropostaPublica() {
     carregar()
   }, [token])
 
+  // M-049 · Favoritas da cliente (Decisão #40 = A): seleção 100% local (zero
+  // escrita anônima); a cliente marca 🤍 e responde com os CÓDIGOS no WhatsApp.
+  const [amadas, setAmadas] = useState<Set<number>>(new Set())
+  function alternarAmei(i: number) {
+    setAmadas((prev) => {
+      const n = new Set(prev)
+      if (n.has(i)) n.delete(i)
+      else n.add(i)
+      return n
+    })
+  }
+  const codigosAmados = (dados?.fotos ?? [])
+    .map((f, i) => (amadas.has(i) && f.codigo ? f.codigo : null))
+    .filter((c): c is string => !!c)
+
+  function enviarEscolhas() {
+    if (!dados?.whatsapp || codigosAmados.length === 0) return
+    let num = dados.whatsapp.replace(/\D/g, '')
+    if (num.length <= 11) num = '55' + num
+    const texto = encodeURIComponent(`Oi! Das opções, amei: ${codigosAmados.join(', ')} 💛`)
+    window.open(`https://wa.me/${num}?text=${texto}`, '_blank')
+  }
+
   function abrirWhatsApp() {
     if (!dados?.whatsapp) return
     let num = dados.whatsapp.replace(/\D/g, '')
@@ -254,12 +277,12 @@ export function PropostaPublica() {
               <span className="confeito" /><h2>Referências</h2>
             </div>
             <p className="apoio" style={{ textAlign: 'center', marginTop: 4 }}>
-              Cada foto tem um código (ex.: <b>I-12</b>). É só me dizer qual você gostou.
+              Toque no 🤍 das opções que você preferir e me conte no WhatsApp 💬
             </p>
             <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
               {dados.fotos.map((f, i) => (
-                <div key={i} className="foto-item">
-                  <div className="acervo-img-wrap">
+                <div key={i} className={`foto-item${amadas.has(i) ? ' foto-amada' : ''}`}>
+                  <div className="acervo-img-wrap" style={{ position: 'relative' }}>
                     {f.url ? (
                       <img src={f.url} alt="" loading="lazy" />
                     ) : (
@@ -277,10 +300,31 @@ export function PropostaPublica() {
                     {f.codigo && (
                       <span className="cod-selo" aria-label={`Código ${f.codigo}`}>{f.codigo}</span>
                     )}
+                    {/* M-049 · 🤍 vira 🧡 */}
+                    {f.codigo && dados.whatsapp && (
+                      <button
+                        type="button"
+                        className="btn-amei"
+                        aria-label={amadas.has(i) ? 'Desmarcar favorita' : 'Marcar favorita'}
+                        aria-pressed={amadas.has(i)}
+                        onClick={() => alternarAmei(i)}
+                      >
+                        {amadas.has(i) ? '🧡' : '🤍'}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* M-049 · barra flutuante com as escolhas (zero escrita no banco) */}
+            {codigosAmados.length > 0 && (
+              <div className="barra-favoritas">
+                <button type="button" className="cta" onClick={enviarEscolhas}>
+                  🧡 Enviar minhas escolhas no WhatsApp ({codigosAmados.join(', ')})
+                </button>
+              </div>
+            )}
           </>
         )}
 

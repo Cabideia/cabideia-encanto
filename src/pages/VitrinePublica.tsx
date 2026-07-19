@@ -126,6 +126,29 @@ export function VitrinePublica() {
     ? fotos.filter((f) => f.tags.some((t) => t.id === tagFiltro))
     : fotos
 
+  // M-049 · Favoritas da cliente (Decisão #40 = A): seleção 100% local (zero
+  // escrita anônima); a cliente marca 🤍 e envia os CÓDIGOS pelo WhatsApp.
+  const [amadas, setAmadas] = useState<Set<string>>(new Set())
+  function alternarAmei(id: string) {
+    setAmadas((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
+  const codigosAmados = fotos
+    .filter((f) => amadas.has(f.id) && f.codigo_num != null)
+    .map((f) => `A-${f.codigo_num}`)
+
+  function enviarFavoritas() {
+    if (!perfil?.whatsapp || codigosAmados.length === 0) return
+    let num = perfil.whatsapp.replace(/\D/g, '')
+    if (num.length <= 11) num = '55' + num
+    const texto = encodeURIComponent(`Oi! Amei essas: ${codigosAmados.join(', ')} 💛`)
+    window.open(`https://wa.me/${num}?text=${texto}`, '_blank')
+  }
+
   function abrirWhatsApp() {
     if (!perfil?.whatsapp) return
     let num = perfil.whatsapp.replace(/\D/g, '')
@@ -269,16 +292,26 @@ export function VitrinePublica() {
               </div>
             )}
 
+            {/* M-049 · convite ao 🤍 (só quando dá para enviar códigos) */}
+            {perfil.whatsapp && fotosFiltradas.some((f) => f.codigo_num != null) && (
+              <p className="apoio" style={{ marginTop: 12, marginBottom: -6 }}>
+                Toque no 🤍 das fotos que você gostou e me envie no WhatsApp 💬
+              </p>
+            )}
+
             {/* UX-009 — cards só com a imagem; a legenda vira overlay ao tocar. */}
             {fotosFiltradas.length > 0 ? (
               <div className="grade-fotos" style={{ marginTop: 16 }}>
                 {fotosFiltradas.map((f) => (
-                  <button
+                  <div
                     key={f.id}
-                    type="button"
-                    className="foto-item foto-item-toque"
+                    role="button"
+                    tabIndex={0}
+                    className={`foto-item foto-item-toque${amadas.has(f.id) ? ' foto-amada' : ''}`}
                     onClick={() => setAmpliada(f)}
+                    onKeyDown={(e) => e.key === 'Enter' && setAmpliada(f)}
                     aria-label={f.descricao ? `Ver legenda: ${f.descricao}` : 'Ampliar foto'}
+                    style={{ position: 'relative' }}
                   >
                     <img src={f.url} alt={f.descricao ?? ''} loading="lazy" />
                     {/* UX-015 — código A-{n} para a cliente sinalizar ("gostei da A-3").
@@ -288,13 +321,35 @@ export function VitrinePublica() {
                         A-{f.codigo_num}
                       </span>
                     )}
-                  </button>
+                    {/* M-049 · 🤍 vira 🧡; a barra de envio aparece com ≥1 marcada */}
+                    {f.codigo_num != null && perfil.whatsapp && (
+                      <button
+                        type="button"
+                        className="btn-amei"
+                        aria-label={amadas.has(f.id) ? 'Desmarcar favorita' : 'Marcar favorita'}
+                        aria-pressed={amadas.has(f.id)}
+                        onClick={(e) => { e.stopPropagation(); alternarAmei(f.id) }}
+                      >
+                        {amadas.has(f.id) ? '🧡' : '🤍'}
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             ) : (
               <p className="apoio" style={{ textAlign: 'center', marginTop: 24 }}>
                 {tagFiltro ? 'Nenhuma foto nesta categoria.' : 'Vitrine ainda sem fotos.'}
               </p>
+            )}
+
+            {/* M-049 · barra flutuante: aparece com ≥1 favorita e monta a
+                mensagem com os códigos (zero escrita no banco) */}
+            {codigosAmados.length > 0 && (
+              <div className="barra-favoritas">
+                <button type="button" className="cta" onClick={enviarFavoritas}>
+                  🧡 Enviar favoritas no WhatsApp ({codigosAmados.join(', ')})
+                </button>
+              </div>
             )}
           </>
         ) : (
