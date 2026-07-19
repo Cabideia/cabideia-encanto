@@ -136,8 +136,8 @@ export default defineConfig({
         start_url: '/encanto/',
         scope: '/encanto/',
         display: 'standalone',
-        background_color: '#F2EBDF',
-        theme_color: '#F2EBDF',
+        background_color: '#FAF7F5',
+        theme_color: '#FAF7F5',
         icons: [
           { src: 'icones/icone-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icones/icone-512.png', sizes: '512x512', type: 'image/png' },

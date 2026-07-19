@@ -97,7 +97,7 @@ export function Entrar() {
           {trocando ? 'Entrando…' : 'Entrar com Google'}
         </button>
         {erro && (
-          <p className="apoio" style={{ textAlign: 'center', marginTop: 12, color: '#b00020' }}>
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 12, color: 'var(--cor-erro)' }}>
             {erro}
           </p>
         )}

@@ -1,55 +1,94 @@
 /* ============================================================
-   CABIDEIA ENCANTO — SISTEMA DE DESIGN v5.1 (portado do protótipo)
-   Tokens únicos · todas as telas derivam daqui (UX-003)
+   CABIDEIA ENCANTO — DESIGN SYSTEM v7 · FUNDAÇÃO (UX-016 · C1)
+   Fonte única de cores, fontes, forma e espaçamento (mockup v7.2 +
+   cabideia-tokens.css). O C1 troca os VALORES pela paleta/tipografia
+   v7 e mantém os nomes v5.1 como ALIASES — a camada de componentes
+   (abaixo) e as telas não mudam aqui; o redesenho das classes é o C2.
+   Regra tipográfica v7: Nunito Sans é a ÚNICA fonte do app;
+   Fraunces SÓ nas páginas públicas (data-publica no <html>).
    ============================================================ */
 :root{
-  /* ---- Tipografia única (não muda com o tema) ---- */
-  --fonte-titulo:"Fraunces",Georgia,serif;
-  --fonte-texto:"Nunito Sans",system-ui,-apple-system,sans-serif;
+  /* ---- TIPOGRAFIA (v7) ---- */
+  --fonte-app:'Nunito Sans',system-ui,-apple-system,sans-serif;
+  --fonte-encanto:'Fraunces',Georgia,serif;               /* SÓ público */
+  --texto-12:12px; --texto-14:14px; --texto-16:16px;
+  --texto-18:18px; --texto-22:22px; --texto-28:28px;
+  --peso-normal:400; --peso-medio:600; --peso-forte:700; --peso-extra:800;
 
-  --t-marca:26px; --t-titulo:20px; --t-card:17px; --t-base:15px; --t-apoio:13px;
+  /* ---- NEUTROS (iguais nos 3 temas) ---- */
+  --cor-fundo:#FAF7F5; --cor-superficie:#FFFFFF;
+  --cor-texto:#3A2E33; --cor-texto-suave:#7C6E74; --cor-borda:#EAE1DD;
 
-  --raio-card:16px; --raio-pill:999px;
-  --espaco:16px;
-  --sombra:0 1px 3px rgba(0,0,0,.07);
+  /* ---- ESTADOS ---- */
+  --cor-erro:#C4453D; --cor-erro-fundo:#FBECEA;
+  --cor-sucesso:#2E7D53; --cor-sucesso-fundo:#E8F4EE;
+  --cor-aviso:#A9741B; --cor-aviso-fundo:#FBF2DF;
+  --cor-info:#3A6B9B; --cor-info-fundo:#EAF2F9;
+  --cor-whatsapp:#1FAF5A; --cor-whatsapp-escuro:#178F49;
 
-  /* ---- Cores de STATUS (semânticas, iguais em todos os temas) ---- */
-  --pistache:#5E8C61;
-  --pistache-suave:#E9F2E9;
-  --caramelo:#B8762E;
-  --caramelo-suave:#FBEEDC;
-  --neutro:#9A8C86;
-  --neutro-suave:#F1ECEA;
+  /* ---- STATUS DO PEDIDO (vocabulário travado) ---- */
+  --st-afazer-fundo:#F1E9EC; --st-afazer-texto:#6B5A62;
+  --st-producao-fundo:#FBF2DF; --st-producao-texto:#A9741B;
+  --st-entregue-fundo:#E8F4EE; --st-entregue-texto:#2E7D53;
+  --st-cancelado-fundo:#EFEFEF; --st-cancelado-texto:#9A9A9A;
+
+  /* ---- FORMA ---- */
+  --raio-s:10px; --raio-m:14px; --raio-g:20px; --raio-cheio:999px;
+  --sombra-1:0 1px 3px rgba(58,46,51,.08);
+  --sombra-2:0 8px 24px rgba(58,46,51,.14);
+
+  /* ---- ESPAÇAMENTO (escala de 4) ---- */
+  --esp-1:4px; --esp-2:8px; --esp-3:12px; --esp-4:16px; --esp-5:24px; --esp-6:32px;
+
+  /* ---- INTERAÇÃO ---- */
+  --alvo-toque:48px; --transicao:.18s ease;
 }
 
-/* ============================================================
-   TEMAS (Decisão #9) — só a cor muda; tipografia única.
-   Reusamos os nomes de variável já existentes para não tocar nas
-   telas: --framboesa = primária · --massa = fundo · --acucar = cartão ·
-   --cacau = tinta. --acento é a 2ª cor (quadradinhos do tema).
-   Tema nulo/legado → oficina (default no :root abaixo).
-   ============================================================ */
-:root, [data-tema="oficina"]{
-  --framboesa:#A8503A; --framboesa-escura:#8E4231; --framboesa-suave:#F4E2DC;
-  --acento:#6E8B5B;    --acento-suave:#E6EDDF;
-  --massa:#F2EBDF;     --acucar:#FFFFFF;
-  --cacau:#322B24;     --cacau-claro:#7A6E62;
-  --linha:#E7DCC9;     --moldura:#E6DBCB;
+/* ---- TEMAS v7 (Decisão #9/M-030 — só a família da primária muda) ---- */
+:root,[data-tema="oficina"]{
+  --cor-primaria:#9A4A22; --cor-primaria-escura:#7A3818;
+  --cor-primaria-suave:#FAEFE8; --cor-primaria-borda:#EFD6C8;
 }
 [data-tema="vitrine"]{
-  --framboesa:#1F6F6B; --framboesa-escura:#185955; --framboesa-suave:#DCEAE9;
-  --acento:#C9A24B;    --acento-suave:#F3EAD3;
-  --massa:#F4F2EE;     --acucar:#FFFFFF;
-  --cacau:#242424;     --cacau-claro:#6B6B6B;
-  --linha:#E4E0D8;     --moldura:#E2DCD0;
+  --cor-primaria:#2F6D62; --cor-primaria-escura:#24544C;
+  --cor-primaria-suave:#E9F3F1; --cor-primaria-borda:#CDE3DF;
 }
 [data-tema="encanto"]{
-  --framboesa:#6E3D5B; --framboesa-escura:#5A3149; --framboesa-suave:#ECE0E8;
-  --acento:#C98A3A;    --acento-suave:#F4E7D4;
-  --massa:#F3EDE6;     --acucar:#FFFFFF;
-  --cacau:#2B2330;     --cacau-claro:#786B74;
-  --linha:#E6DDD2;     --moldura:#E3D8CA;
+  --cor-primaria:#B23A6B; --cor-primaria-escura:#8E2C54;
+  --cor-primaria-suave:#FBEDF3; --cor-primaria-borda:#F2D3E0;
 }
+
+/* ---- ALIASES v5.1 → v7 (compatibilidade · remover no C2) ----
+   As classes abaixo e as telas seguem usando os nomes antigos; os
+   VALORES agora vêm todos da fundação v7 acima. ---- */
+:root{
+  /* fontes: Fraunces recua para o público (data-publica no <html>) */
+  --fonte-titulo:var(--fonte-app);
+  --fonte-texto:var(--fonte-app);
+
+  /* escala de texto (base sobe 15→16 — regra v7) */
+  --t-marca:var(--texto-28); --t-titulo:var(--texto-22); --t-card:var(--texto-18);
+  --t-base:var(--texto-16); --t-apoio:var(--texto-14);
+
+  /* forma e espaçamento */
+  --raio-card:var(--raio-g); --raio-pill:var(--raio-cheio);
+  --espaco:var(--esp-4); --sombra:var(--sombra-1);
+
+  /* paleta por papel */
+  --framboesa:var(--cor-primaria); --framboesa-escura:var(--cor-primaria-escura);
+  --framboesa-suave:var(--cor-primaria-suave);
+  --acento:var(--cor-primaria); --acento-suave:var(--cor-primaria-suave);
+  --massa:var(--cor-fundo); --acucar:var(--cor-superficie);
+  --cacau:var(--cor-texto); --cacau-claro:var(--cor-texto-suave);
+  --linha:var(--cor-borda); --moldura:var(--cor-borda);
+
+  /* status (semânticos) */
+  --pistache:var(--cor-sucesso); --pistache-suave:var(--cor-sucesso-fundo);
+  --caramelo:var(--cor-aviso); --caramelo-suave:var(--cor-aviso-fundo);
+  --neutro:var(--st-afazer-texto); --neutro-suave:var(--st-afazer-fundo);
+}
+[data-publica]{ --fonte-titulo:var(--fonte-encanto); }
+
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 /* Ícones de linha (lucide) — alinham ao texto quando usados inline (Decisão #9). */
 svg.lucide{vertical-align:-.18em;flex:none}

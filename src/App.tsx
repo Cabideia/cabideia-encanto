@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ToastProvider } from './components/Toast'
 import { AvisoOffline } from './components/AvisoOffline'
@@ -43,6 +44,16 @@ import { ExcluirConta } from './pages/ExcluirConta'
 function AplicadorTema() {
   const { sessao } = useSessao()
   useTema(sessao?.user.id)
+  // UX-016 (C1) · marca no <html> as páginas públicas voltadas à cliente
+  // (vitrine /@arroba, seleção /s/, proposta e pedido por token): a regra
+  // tipográfica v7 usa Fraunces SÓ nelas ([data-publica] em tokens.css).
+  const { pathname } = useLocation()
+  const publica =
+    /^\/(s|proposta|pedido)\//.test(pathname) || pathname.startsWith('/@')
+  useEffect(() => {
+    if (publica) document.documentElement.dataset.publica = 'sim'
+    else delete document.documentElement.dataset.publica
+  }, [publica])
   return null
 }
 

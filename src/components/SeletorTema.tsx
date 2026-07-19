@@ -8,12 +8,12 @@ import { Icone } from './Icone'
  * `perfis.tema` e repinta o app na hora — e vale também nas páginas públicas.
  */
 
-// Amostras (primária · acento · fundo) só para a prévia do cartão — espelham
-// os tokens de tokens.css.
+// Amostras (primária · borda-suave · fundo) só para a prévia do cartão —
+// espelham os tokens v7 de tokens.css (UX-016: fundo neutro é único).
 const AMOSTRA: Record<Tema, { primaria: string; acento: string; fundo: string }> = {
-  oficina: { primaria: '#A8503A', acento: '#6E8B5B', fundo: '#F2EBDF' },
-  vitrine: { primaria: '#1F6F6B', acento: '#C9A24B', fundo: '#F4F2EE' },
-  encanto: { primaria: '#6E3D5B', acento: '#C98A3A', fundo: '#F3EDE6' },
+  oficina: { primaria: '#9A4A22', acento: '#EFD6C8', fundo: '#FAF7F5' },
+  vitrine: { primaria: '#2F6D62', acento: '#CDE3DF', fundo: '#FAF7F5' },
+  encanto: { primaria: '#B23A6B', acento: '#F2D3E0', fundo: '#FAF7F5' },
 }
 
 const SUBTITULO: Record<Tema, string> = {
