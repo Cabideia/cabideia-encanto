@@ -182,7 +182,7 @@ export function InspiracaoDetalhe() {
               ? 'Ela sai também dos links já enviados às clientes.'
               : 'Esta ação não pode ser desfeita.'
           }
-          rotuloConfirmar="Excluir inspiração"
+          rotuloConfirmar={insp.tipo === 'imagem' ? 'Excluir foto' : 'Excluir inspiração'}
           onConfirmar={confirmarExcluir}
           onCancelar={() => setAExcluir(false)}
         />

@@ -821,7 +821,7 @@ export function Acervo() {
       {aApagar && (
         <Confirmar
           titulo="Excluir esta foto?"
-          descricao="Ela sai também dos links já enviados às clientes."
+          descricao="Ela sai da vitrine e também dos links já enviados às clientes. Não dá para desfazer."
           rotuloConfirmar="Excluir foto"
           onConfirmar={confirmarApagar}
           onCancelar={() => setAApagar(null)}
