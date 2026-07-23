@@ -482,6 +482,19 @@ export function Acervo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // BUG-015 · No modo seleção escondemos a barra inferior (UX-017) para a barra
+  // de ação ocupar o rodapé sem ser coberta (padrão de galeria). O atributo é
+  // global (no <html>), mas a LIMPEZA é garantida pelo return do efeito: ele
+  // roda ao sair do modo E no unmount — voltar do Android, deep link ou erro de
+  // render. Assim a nav nunca fica presa escondida no app inteiro.
+  useEffect(() => {
+    if (!modoSelecao) return
+    document.documentElement.dataset.ocultarBarra = 'sim'
+    return () => {
+      delete document.documentElement.dataset.ocultarBarra
+    }
+  }, [modoSelecao])
+
   // Uso do plano: total de IMAGENS (trabalhos + inspirações-imagem + referências),
   // não só os trabalhos desta tela. Fundadora/Vitrine = ilimitado.
   const pct = Math.min(100, Math.round((total / limite) * 100))
@@ -807,9 +820,9 @@ export function Acervo() {
       {/* Confirmação de exclusão */}
       {aApagar && (
         <Confirmar
-          titulo="Apagar esta foto?"
-          descricao="Esta ação não pode ser desfeita. A foto sai de Meus Trabalhos e da vitrine."
-          rotuloConfirmar="Apagar foto"
+          titulo="Excluir esta foto?"
+          descricao="Ela sai também dos links já enviados às clientes."
+          rotuloConfirmar="Excluir foto"
           onConfirmar={confirmarApagar}
           onCancelar={() => setAApagar(null)}
         />

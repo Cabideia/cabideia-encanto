@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
@@ -56,6 +57,8 @@ export function PedidoDetalhe() {
   const [enviandoAcervo, setEnviandoAcervo] = useState(false)
   const [compartilhandoFotos, setCompartilhandoFotos] = useState(false)
   const [compartilhandoLink, setCompartilhandoLink] = useState(false)
+  // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
+  const [refARemover, setRefARemover] = useState<{ id: string; origem: 'trabalho' | 'inspiracao' } | null>(null)
 
   // Busca URL assinada da foto de referência (bucket privado).
   useEffect(() => {
@@ -351,7 +354,7 @@ export function PedidoDetalhe() {
                           )}
                           <button
                             className="foto-remover"
-                            onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                            onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
                             aria-label="Tirar esta referência do pedido"
                           >
                             <Icone nome="fechar" size={15} />
@@ -384,7 +387,7 @@ export function PedidoDetalhe() {
                         )}
                         <button
                           className="foto-remover"
-                          onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                          onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
                           aria-label="Tirar esta referência do pedido"
                         >
                           <Icone nome="fechar" size={15} />
@@ -609,6 +612,26 @@ export function PedidoDetalhe() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* UX-026 · o × da referência só DESVINCULA — o texto por origem deixa
+          claro que a foto continua guardada onde estava. */}
+      {refARemover && (
+        <Confirmar
+          titulo="Tirar esta foto do pedido?"
+          descricao={
+            refARemover.origem === 'trabalho'
+              ? 'Ela continua em Meus Trabalhos.'
+              : 'Ela continua em Inspirações.'
+          }
+          rotuloConfirmar="Tirar foto"
+          onConfirmar={() => {
+            const alvo = refARemover.id
+            setRefARemover(null)
+            aoRemoverReferencia(alvo)
+          }}
+          onCancelar={() => setRefARemover(null)}
+        />
       )}
 
     </div>

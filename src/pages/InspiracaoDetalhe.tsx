@@ -172,10 +172,16 @@ export function InspiracaoDetalhe() {
         />
       )}
 
+      {/* UX-026 · exclusão REAL (M-051): a mesma verdade do Acervo. Só a imagem
+          pode estar em links já enviados; a inspiração-link não tem essa parte. */}
       {aExcluir && (
         <Confirmar
-          titulo="Excluir esta inspiração?"
-          descricao="Esta ação não pode ser desfeita."
+          titulo={insp.tipo === 'imagem' ? 'Excluir esta foto?' : 'Excluir esta inspiração?'}
+          descricao={
+            insp.tipo === 'imagem'
+              ? 'Ela sai também dos links já enviados às clientes.'
+              : 'Esta ação não pode ser desfeita.'
+          }
           rotuloConfirmar="Excluir inspiração"
           onConfirmar={confirmarExcluir}
           onCancelar={() => setAExcluir(false)}

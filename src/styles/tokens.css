@@ -882,6 +882,10 @@ img.logo-redonda { object-fit: cover; }
 /* Convivência: com a barra presente (data-com-barra no <html>), conteúdo e CTA sobem. */
 [data-com-barra] .conteudo{padding-bottom:calc(160px + env(safe-area-inset-bottom))}
 [data-com-barra] .cta-area{bottom:calc(64px + env(safe-area-inset-bottom))}
+/* BUG-015 · No modo seleção do Acervo a barra inferior sai (a barra de ação
+   ocupa o rodapé, padrão de galeria). O Acervo liga data-ocultar-barra no
+   <html> e garante a limpeza no unmount — ao sair, a nav volta. */
+[data-ocultar-barra] .nav-inferior{display:none}
 /* Ações das folhas do ＋ e do Menu (sobre o padrão .painel existente) */
 .folha-titulo{font-weight:var(--peso-extra);font-size:var(--texto-18);text-align:center;margin-bottom:10px}
 .acao-folha{
