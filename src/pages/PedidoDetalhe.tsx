@@ -411,8 +411,8 @@ export function PedidoDetalhe() {
         {/* UX-028 · legado só-leitura: pedidos antigos com inspiração 1:1 (M-007)
             ou link da cliente (M-040) seguem exibidos aqui, agora sob "Referências"
             (sem título "Inspirações" nem botão de escrita). A tag-ponte
-            (pedidos.tag_id) — gravada pelo picker por baixo — mantém o "Ver
-            inspirações do pedido". */}
+            (pedidos.tag_id) segue gravada pelo picker por baixo, sem atalho
+            próprio no detalhe. */}
         {inspiracao && (
           <>
             {inspiracao.fotoUrl ? (
@@ -471,19 +471,6 @@ export function PedidoDetalhe() {
               <div className="apoio">{dominioDe(pedido.link_inspiracao)} · toque para abrir</div>
             </div>
             <span aria-hidden>›</span>
-          </button>
-        )}
-
-        {/* Tag-ponte (M-040): rever a galeria de Inspirações filtrada por este
-            pedido. UX-028 · o picker (＋Nova foto/＋Colar link) grava a tag-ponte
-            por baixo, então este atalho segue funcionando sem botão de escrita. */}
-        {pedido.tag_id && (
-          <button
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={() => navegar(`/inspiracoes?tag=${pedido.tag_id}`)}
-          >
-            <Icone nome="inspiracoes" size={16} /> Ver inspirações do pedido
           </button>
         )}
 
