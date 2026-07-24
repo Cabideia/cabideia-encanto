@@ -30,7 +30,9 @@ export function Recorte({ arquivo, onConfirmar, onCancelar }: Props) {
   const [pronto, setPronto] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [giro, setGiro] = useState<0 | 90 | 180 | 270>(0)
-  const [proporcao, setProporcao] = useState<'livre' | 'quadrado'>('quadrado')
+  // UX-020 · abre em "Livre" com a moldura já cobrindo a foto inteira. Quadrado
+  // (uniforme na vitrine) continua a um toque; a dica abaixo reforça isso.
+  const [proporcao, setProporcao] = useState<'livre' | 'quadrado'>('livre')
 
   // Escala tela→original e dimensões desenhadas (preenchidas ao montar/girar)
   const escalaRef = useRef(1)

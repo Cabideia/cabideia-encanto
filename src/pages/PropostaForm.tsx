@@ -13,6 +13,7 @@ import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePropostaReferencias } from '../hooks/usePropostaReferencias'
 import { usePropostaItens } from '../hooks/usePropostaItens'
 import { LinhaItemEditavel, avisoItensForaTabela } from '../components/LinhaItemEditavel'
+import { ContadorTextoLongo } from '../components/ContadorTextoLongo'
 import { useGuardaSaida } from '../hooks/useGuardaSaida'
 import { formatarReal, precoParaNumero } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
@@ -28,28 +29,6 @@ import { cartaoParaPng, desenharProposta } from '../lib/proposta'
  * zera num reload da página (aí preservamos por precaução).
  */
 const rascunhosAbertos = new Set<string>()
-
-/**
- * BUG-012 · limite dos textos longos (descrição/condições). O banco aceita mais
- * (text sem limite); o teto é só de UX. O contador fica âmbar perto do fim para
- * a dona perceber antes de o campo parar de aceitar digitação.
- */
-const LIMITE_TEXTO_LONGO = 2000
-const ALERTA_TEXTO_LONGO = 1800
-
-/** Contador {n}/{limite} exibido abaixo dos campos de texto longo. */
-function ContadorCaracteres({ atual }: { atual: number }) {
-  const pertoDoLimite = atual >= ALERTA_TEXTO_LONGO
-  return (
-    <div
-      className="apoio"
-      style={{ textAlign: 'right', marginTop: 4, ...(pertoDoLimite ? { color: 'var(--caramelo)' } : null) }}
-      aria-live={pertoDoLimite ? 'polite' : undefined}
-    >
-      {atual}/{LIMITE_TEXTO_LONGO}
-    </div>
-  )
-}
 
 /** Carrega um Blob como ImageBitmap (null em caso de falha — o cartão segue sem ele). */
 async function bitmapDeBlob(blob: Blob | null): Promise<ImageBitmap | null> {
@@ -139,6 +118,8 @@ export function PropostaForm() {
   const [compartilhando, setCompartilhando] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
   const [confirmarSaida, setConfirmarSaida] = useState(false) // M3
+  // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
+  const [refARemover, setRefARemover] = useState<{ id: string; origem: 'trabalho' | 'inspiracao' } | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputFoto = useRef<HTMLInputElement>(null)
@@ -596,6 +577,8 @@ export function PropostaForm() {
   }
 
   // Tira só a referência da proposta — nunca apaga o trabalho/inspiração.
+  // UX-026 · confirmação por contexto: o × só desvincula, então o texto diz onde
+  // a foto continua (Meus Trabalhos ou Inspirações, conforme a origem).
   async function aoRemoverReferencia(refId: string) {
     const erro = await removerReferencia(refId)
     if (erro) avisar(erro)
@@ -707,7 +690,7 @@ export function PropostaForm() {
                           )}
                           <button
                             className="foto-remover"
-                            onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                            onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
                             aria-label="Tirar esta foto da proposta"
                           >
                             <Icone nome="fechar" size={15} />
@@ -740,7 +723,7 @@ export function PropostaForm() {
                         )}
                         <button
                           className="foto-remover"
-                          onClick={(e) => { e.stopPropagation(); aoRemoverReferencia(r.id) }}
+                          onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
                           aria-label="Tirar esta foto da proposta"
                         >
                           <Icone nome="fechar" size={15} />
@@ -814,9 +797,8 @@ export function PropostaForm() {
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Ex.: massa de baunilha, recheio de brigadeiro, topo personalizado…"
-            maxLength={LIMITE_TEXTO_LONGO}
           />
-          <ContadorCaracteres atual={descricao.length} />
+          <ContadorTextoLongo atual={descricao.length} />
         </div>
 
         {/* Preço em 3 modos (I3) — exclusivos na exibição; alternar não apaga dado. */}
@@ -937,9 +919,8 @@ export function PropostaForm() {
             value={condicoes}
             onChange={(e) => setCondicoes(e.target.value)}
             placeholder="Ex.: 50% de entrada, 7 dias úteis de antecedência, Pix ou dinheiro"
-            maxLength={LIMITE_TEXTO_LONGO}
           />
-          <ContadorCaracteres atual={condicoes.length} />
+          <ContadorTextoLongo atual={condicoes.length} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
             <button
               type="button"
@@ -1035,6 +1016,26 @@ export function PropostaForm() {
             sair()
           }}
           onCancelar={() => setConfirmarSaida(false)}
+        />
+      )}
+
+      {/* UX-026 · o × da referência só DESVINCULA — o texto por origem deixa
+          claro que a foto continua guardada onde estava. */}
+      {refARemover && (
+        <Confirmar
+          titulo="Tirar esta foto da proposta?"
+          descricao={
+            refARemover.origem === 'trabalho'
+              ? 'Ela continua em Meus Trabalhos.'
+              : 'Ela continua em Inspirações.'
+          }
+          rotuloConfirmar="Tirar foto"
+          onConfirmar={() => {
+            const alvo = refARemover.id
+            setRefARemover(null)
+            aoRemoverReferencia(alvo)
+          }}
+          onCancelar={() => setRefARemover(null)}
         />
       )}
     </div>

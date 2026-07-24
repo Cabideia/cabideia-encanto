@@ -13,6 +13,7 @@ import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
 import { usePedidoItens, type NovoItemPedido } from '../hooks/usePedidoItens'
 import { usePropostaItens } from '../hooks/usePropostaItens'
 import { LinhaItemEditavel, avisoItensForaTabela, type PatchItemEditavel } from '../components/LinhaItemEditavel'
+import { ContadorTextoLongo } from '../components/ContadorTextoLongo'
 import { useCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -514,8 +515,8 @@ export function PedidoForm() {
             value={form.tema}
             onChange={(e) => setForm({ ...form, tema: e.target.value })}
             placeholder="Ex.: 100 doces tradicionais, tema unicórnio, entregar montado"
-            maxLength={300}
           />
+          <ContadorTextoLongo atual={form.tema.length} />
         </div>
 
         {/* M-044 · Itens da tabela de preços (opcional). Na criação (regra de
