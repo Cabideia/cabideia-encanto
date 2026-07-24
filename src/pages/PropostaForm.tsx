@@ -469,7 +469,6 @@ export function PropostaForm() {
     })
   }
   const abrirPickerFotos = () => abrirFilho((pid) => `/propostas/${pid}/referencias`)
-  const abrirLoteInspiracoes = () => abrirFilho((pid) => `/inspiracoes/lote?proposta=${pid}`)
   const abrirPickerItens = () => abrirFilho((pid) => `/propostas/${pid}/itens`)
 
   const gerarPng = useCallback(async (): Promise<Blob | null> => {
@@ -744,17 +743,6 @@ export function PropostaForm() {
             >
               <Icone nome="imagem" size={16} />{' '}
               {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
-            </button>
-            {/* M-042 F2a I2 · lote do M-040 no modo proposta: sobe novas inspirações
-                e elas voltam já anexadas em proposta_referencias. */}
-            <button
-              type="button"
-              className="btn-secundario"
-              style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-              onClick={abrirLoteInspiracoes}
-              disabled={salvando || processandoFoto}
-            >
-              <Icone nome="camera" size={16} /> Incluir novas inspirações
             </button>
         </div>
 

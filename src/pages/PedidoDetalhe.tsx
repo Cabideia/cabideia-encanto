@@ -408,9 +408,11 @@ export function PedidoDetalhe() {
           {referencias.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
         </button>
 
-        {/* Inspirações do pedido: anexo 1:1 (M-007), link da cliente e
-            tag-ponte com a galeria (M-040) */}
-        <div className="secao"><span className="confeito" /><h2>Inspirações</h2></div>
+        {/* UX-028 · legado só-leitura: pedidos antigos com inspiração 1:1 (M-007)
+            ou link da cliente (M-040) seguem exibidos aqui, agora sob "Referências"
+            (sem título "Inspirações" nem botão de escrita). A tag-ponte
+            (pedidos.tag_id) — gravada pelo picker por baixo — mantém o "Ver
+            inspirações do pedido". */}
         {inspiracao && (
           <>
             {inspiracao.fotoUrl ? (
@@ -472,23 +474,18 @@ export function PedidoDetalhe() {
           </button>
         )}
 
-        {/* Tag-ponte (M-040): guardar prints em lote e rever a galeria filtrada */}
+        {/* Tag-ponte (M-040): rever a galeria de Inspirações filtrada por este
+            pedido. UX-028 · o picker (＋Nova foto/＋Colar link) grava a tag-ponte
+            por baixo, então este atalho segue funcionando sem botão de escrita. */}
         {pedido.tag_id && (
           <button
             className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', marginBottom: 10 }}
+            style={{ width: '100%', justifyContent: 'center' }}
             onClick={() => navegar(`/inspiracoes?tag=${pedido.tag_id}`)}
           >
             <Icone nome="inspiracoes" size={16} /> Ver inspirações do pedido
           </button>
         )}
-        <button
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center' }}
-          onClick={() => navegar(`/inspiracoes/lote?pedido=${pedido.id}`)}
-        >
-          <Icone nome="mais" size={16} /> Guardar inspirações deste pedido
-        </button>
 
         {/* Mudar status */}
         <div className="secao"><span className="confeito" /><h2>Status</h2></div>

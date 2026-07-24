@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
+import { useAssinatura } from '../hooks/useAssinatura'
 import { extrairCodigos } from '../lib/codigos'
+import { comprimirImagem } from '../lib/imagem'
 import { usePedidos, tituloPedido } from '../hooks/usePedidos'
 import { usePedidoReferencias, type NovaReferencia } from '../hooks/usePedidoReferencias'
 
@@ -29,9 +32,11 @@ export function PedidoReferencias() {
   const avisar = useAviso()
   const navegar = useNavigate()
 
-  const { buscarPorId, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
+  const { buscarPorId, carregando: carregandoPedidos, atualizar: atualizarPedido } =
+    usePedidos(sessao?.user.id)
   const { trabalhos, carregando: carregandoAcervo } = useAcervo(sessao?.user.id)
-  const { inspiracoes } = useInspiracoes(sessao?.user.id)
+  const { inspiracoes, subirImagem, criar: criarInspiracao, criarTag } = useInspiracoes(sessao?.user.id)
+  const { total, limite, ilimitado, recarregar } = useAssinatura(sessao?.user.id)
   const { referencias, carregando: carregandoRefs, salvando, adicionar } =
     usePedidoReferencias(sessao?.user.id, id)
 
@@ -41,6 +46,15 @@ export function PedidoReferencias() {
   const [textoCodigos, setTextoCodigos] = useState('') // M-050
   // Chaves prefixadas 't:<id>' / 'i:<id>' — mesmo padrão do Acervo.
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
+
+  // R2a · adicionar referência do zero, sem sair do picker: sobe uma foto para
+  // Inspirações (ou cria um link) e já anexa como referência do pedido.
+  const inputNovaFoto = useRef<HTMLInputElement>(null)
+  const [subindo, setSubindo] = useState(false)
+  const [limiteAberto, setLimiteAberto] = useState(false)
+  const [mostrarLink, setMostrarLink] = useState(false)
+  const [urlLink, setUrlLink] = useState('')
+  const [salvandoLink, setSalvandoLink] = useState(false)
 
   // Itens que já são referência deste pedido saem da grade (só dá p/ adicionar
   // novos aqui; a remoção fica no detalhe). O hook ainda deduplica por garantia.
@@ -95,6 +109,102 @@ export function PedidoReferencias() {
     })
   }
 
+  // R2a · tag-ponte do pedido (pedidos.tag_id): mesma mecânica do lote M-040 —
+  // garante/gera a tag a partir do título do pedido e a grava no pedido, para o
+  // "Ver inspirações do pedido" seguir funcionando. Devolve o id da tag (ou null).
+  async function garantirTagPonte(): Promise<string | null> {
+    if (!pedido) return null
+    if (pedido.tag_id) return pedido.tag_id
+    const nome = tituloPedido(pedido).trim()
+    if (!nome) return null
+    const tag = await criarTag(nome)
+    if (!tag) return null
+    await atualizarPedido(pedido.id, { tag_id: tag.id })
+    return tag.id
+  }
+
+  // R2a · ＋ Nova foto — sobe a(s) imagem(ns) para Inspirações (mesmo par
+  // subirImagem+criar do lote M-040), respeitando o teto de 150, com a tag-ponte
+  // gravada por baixo, e anexa cada uma como referência do pedido. Volta ao
+  // detalhe, onde a grade já as mostra.
+  async function aoEscolherNovaFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivos = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (arquivos.length === 0 || !id) return
+    const restante = ilimitado ? Infinity : Math.max(0, limite - total)
+    if (restante <= 0) {
+      setLimiteAberto(true)
+      return
+    }
+    setSubindo(true)
+    try {
+      // Tag-ponte gravada por baixo (M-040), como o lote do pedido faz.
+      const tagId = await garantirTagPonte()
+      const tagIds = tagId ? [tagId] : []
+      // Pré-checa o saldo: sobe só até o teto do plano (não falha o lote inteiro).
+      const aSubir = ilimitado ? arquivos : arquivos.slice(0, restante)
+      const criadas: string[] = []
+      let erroCompressao: string | null = null
+      for (const arq of aSubir) {
+        try {
+          const { blob } = await comprimirImagem(arq)
+          const up = await subirImagem(blob)
+          if ('erro' in up) continue
+          const res = await criarInspiracao({
+            tipo: 'imagem',
+            foto_path: up.path,
+            url: null,
+            nota: null,
+            tagIds,
+          })
+          if (!('erro' in res)) criadas.push(res.id)
+        } catch (err: unknown) {
+          // HEIC/formatos exóticos: propaga a mensagem acionável (orienta a
+          // "Mais compatível") em vez de engolir; só cai no genérico se não houver.
+          erroCompressao = (err as Error)?.message ?? erroCompressao
+        }
+      }
+      await recarregar()
+      if (criadas.length === 0)
+        return avisar(erroCompressao ?? 'Não consegui adicionar a foto. Tente de novo.')
+      const erro = await adicionar(
+        id,
+        criadas.map((cid) => ({ origem: 'inspiracao' as const, id: cid }))
+      )
+      if (erro) return avisar(erro)
+      const sobraram = arquivos.length - aSubir.length
+      if (sobraram > 0)
+        avisar(`Adicionei ${criadas.length}. As outras ${sobraram} passaram do limite de ${limite} imagens.`)
+      else avisar(criadas.length === 1 ? 'Foto adicionada ✓' : `${criadas.length} fotos adicionadas ✓`)
+      navegar(`/pedidos/${id}`, { replace: true })
+    } finally {
+      setSubindo(false)
+    }
+  }
+
+  // R2a · ＋ Colar link — cria uma inspiração-link (não conta no limite de fotos),
+  // com a mesma tag-ponte, e a anexa como referência na grade das fotos.
+  async function aoColarLink() {
+    if (!id) return
+    const url = urlLink.trim()
+    if (!url) return
+    setSalvandoLink(true)
+    try {
+      const tagId = await garantirTagPonte()
+      const tagIds = tagId ? [tagId] : []
+      const res = await criarInspiracao({ tipo: 'link', foto_path: null, url, nota: null, tagIds })
+      if ('erro' in res) return avisar(res.erro)
+      const erro = await adicionar(id, [{ origem: 'inspiracao', id: res.id }])
+      if (erro) return avisar(erro)
+      avisar('Link adicionado ✓')
+      setMostrarLink(false)
+      setUrlLink('')
+      navegar(`/pedidos/${id}`, { replace: true })
+    } finally {
+      setSalvandoLink(false)
+    }
+  }
+
   async function aoAdicionar() {
     if (!id) return
     if (marcados.size === 0) return avisar('Escolha ao menos uma referência.')
@@ -138,6 +248,71 @@ export function PedidoReferencias() {
           Escolha fotos de Meus Trabalhos e/ou Inspirações como referência de
           “{tituloPedido(pedido)}”. Elas ficam guardadas no pedido — sem criar link.
         </p>
+
+        {/* R2a · duas origens novas: subir do aparelho ou colar um link — ambas
+            entram como referência do pedido na mesma grade das fotos. */}
+        <input
+          ref={inputNovaFoto}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          style={{ display: 'none' }}
+          onChange={aoEscolherNovaFoto}
+        />
+        <div className="escolha" style={{ marginBottom: mostrarLink ? 4 : 10 }}>
+          <button
+            type="button"
+            className="btn-secundario"
+            onClick={() => inputNovaFoto.current?.click()}
+            disabled={subindo || salvando}
+          >
+            <Icone nome="camera" size={15} /> {subindo ? 'Enviando…' : '＋ Nova foto'}
+          </button>
+          <button
+            type="button"
+            className="btn-secundario"
+            onClick={() => setMostrarLink((v) => !v)}
+            disabled={subindo}
+          >
+            <Icone nome="link" size={15} /> ＋ Colar link
+          </button>
+        </div>
+
+        {mostrarLink && (
+          <div className="campo" style={{ marginBottom: 10 }}>
+            <input
+              value={urlLink}
+              onChange={(e) => setUrlLink(e.target.value)}
+              placeholder="Cole o link (Pinterest, Instagram…)"
+              inputMode="url"
+              autoCapitalize="none"
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setMostrarLink(false)
+                  setUrlLink('')
+                }}
+                disabled={salvandoLink}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cta"
+                style={{ flex: 2 }}
+                onClick={aoColarLink}
+                disabled={salvandoLink || !urlLink.trim()}
+              >
+                {salvandoLink ? 'Salvando…' : 'Adicionar link'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="escolha" style={{ marginBottom: 4 }}>
           <button
@@ -314,6 +489,8 @@ export function PedidoReferencias() {
           </button>
         </div>
       </div>
+
+      {limiteAberto && <LimiteModal onFechar={() => setLimiteAberto(false)} />}
     </div>
   )
 }
