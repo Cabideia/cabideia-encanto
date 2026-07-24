@@ -8,7 +8,6 @@ import { useSessao } from '../hooks/useSessao'
 import { useClientes, type CamposCliente } from '../hooks/useClientes'
 import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '../hooks/usePedidos'
 import { usePropostas } from '../hooks/usePropostas'
-import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
 import { usePedidoItens, type NovoItemPedido } from '../hooks/usePedidoItens'
 import { usePropostaItens } from '../hooks/usePropostaItens'
@@ -52,7 +51,6 @@ export function PedidoForm() {
   const avisar = useAviso()
 
   const { clientes, criar: criarCliente, salvando: salvandoCliente } = useClientes(sessao?.user.id)
-  const { inspiracoes } = useInspiracoes(sessao?.user.id)
   const {
     carregando,
     salvando,
@@ -107,7 +105,6 @@ export function PedidoForm() {
     inspiracao_id: null,
     link_inspiracao: '',
   })
-  const [pickerInsp, setPickerInsp] = useState(false)
   const [aExcluir, setAExcluir] = useState(false)
   // M-044 (regra de 17/07) · itens lançados na criação, antes de o pedido existir.
   const [itensLocais, setItensLocais] = useState<ItemLocal[]>([])
@@ -634,67 +631,10 @@ export function PedidoForm() {
           </div>
         </div>
 
-        {/* Inspiração (opcional) — escolher uma da galeria */}
-        <div className="campo">
-          <label>Inspiração (opcional)</label>
-          {(() => {
-            const sel = form.inspiracao_id
-              ? inspiracoes.find((i) => i.id === form.inspiracao_id)
-              : undefined
-            if (sel) {
-              return (
-                <div className="card card-linha" style={{ gap: 10 }}>
-                  {sel.fotoUrl ? (
-                    <img
-                      src={sel.fotoUrl}
-                      alt=""
-                      style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
-                    />
-                  ) : (
-                    <div className="bola" aria-hidden><Icone nome="link" size={18} /></div>
-                  )}
-                  <div className="card-info">
-                    <div className="card-nome">
-                      {sel.tipo === 'link' && sel.url ? dominioDe(sel.url) : sel.nota || 'Imagem'}
-                    </div>
-                    {sel.nota && sel.tipo === 'link' && <div className="apoio">{sel.nota}</div>}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-icone"
-                    onClick={() => setForm({ ...form, inspiracao_id: null })}
-                    aria-label="Tirar inspiração"
-                  >
-                    <Icone nome="fechar" />
-                  </button>
-                </div>
-              )
-            }
-            return (
-              <button
-                type="button"
-                className="origem-botao"
-                style={{ width: '100%' }}
-                onClick={() => setPickerInsp(true)}
-              >
-                <span className="origem-emoji"><Icone nome="inspiracoes" size={30} /></span>
-                Anexar uma inspiração
-              </button>
-            )
-          })()}
-        </div>
-
-        {/* Link de inspiração da cliente (M-040) — texto livre, abre no navegador */}
-        <div className="campo">
-          <label>Link de inspiração da cliente (opcional)</label>
-          <input
-            value={form.link_inspiracao}
-            onChange={(e) => setForm({ ...form, link_inspiracao: e.target.value })}
-            placeholder="Cole o link que a cliente mandou (Pinterest, Instagram…)"
-            inputMode="url"
-            autoCapitalize="none"
-          />
-        </div>
+        {/* UX-028 · a captura de "inspiração" saiu do formulário do pedido: as
+            referências vivem no picker (Referências) com ＋Nova foto / ＋Colar
+            link. As colunas inspiracao_id/link_inspiracao viram legado só-leitura
+            (montarCampos preserva o que já estava salvo; o detalhe ainda exibe). */}
 
         {/* Excluir (só na edição) */}
         {edicao && (
@@ -970,54 +910,6 @@ export function PedidoForm() {
                 {`Adicionar ${marcados.size || ''}`.trim()}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sheet: escolher inspiração da galeria */}
-      {pickerInsp && (
-        <div className="painel-overlay" onClick={() => setPickerInsp(false)}>
-          <div className="painel" onClick={(e) => e.stopPropagation()}>
-            <div className="painel-puxador" />
-            <button className="painel-fechar" onClick={() => setPickerInsp(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
-            <div className="form-acervo-titulo">Anexar inspiração</div>
-            {inspiracoes.length === 0 ? (
-              <p className="apoio" style={{ marginTop: 8 }}>
-                Você ainda não guardou inspirações. Crie uma em Inspirações, na home.
-              </p>
-            ) : (
-              <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
-                {inspiracoes.map((i) => (
-                  <div
-                    key={i.id}
-                    className="foto-item"
-                    role="button"
-                    tabIndex={0}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      setForm({ ...form, inspiracao_id: i.id })
-                      setPickerInsp(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        setForm({ ...form, inspiracao_id: i.id })
-                        setPickerInsp(false)
-                      }
-                    }}
-                  >
-                    {i.fotoUrl ? (
-                      <img src={i.fotoUrl} alt={i.nota ?? ''} loading="lazy" />
-                    ) : (
-                      <div className="insp-link-capa">
-                        <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
-                        <span className="insp-link-dominio">{i.url ? dominioDe(i.url) : 'link'}</span>
-                      </div>
-                    )}
-                    {i.nota && <div className="foto-legenda">{i.nota}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
