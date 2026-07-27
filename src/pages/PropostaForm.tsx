@@ -91,6 +91,12 @@ export function PropostaForm() {
   const clienteIdAtivo = clienteId ?? proposta?.cliente_id ?? null
   const cliente = clienteIdAtivo ? buscarCliente(clienteIdAtivo) : undefined
   const pedidoDaEdicao = edicao && id ? pedidoDaProposta(id) : undefined
+  // R2b (M-053 · Decisão #63) · trava DERIVADA: existe pedido apontando para
+  // esta proposta → o conteúdo fica só-leitura (título, descrição, valor, itens,
+  // referências, condições). Sem coluna nova: excluir o pedido desfaz a condição
+  // e a proposta reabre sozinha. Continuam liberados: Compartilhar, Baixar
+  // imagem, Abrir conversa e Ver pedido.
+  const travada = !!pedidoDaEdicao
 
   // Campos editáveis
   const [titulo, setTitulo] = useState('')
@@ -260,6 +266,7 @@ export function PropostaForm() {
   // não contam (auto-preenchimento do I4). Rascunho vazio abandonado NÃO é
   // "alteração": sai em silêncio (e a limpeza automática o descarta).
   function haAlteracoes(): boolean {
+    if (travada) return false // M-053 · só-leitura: nada editável para perder
     if (blobNovo.current) return true // capa nova ainda não subiu
     const tituloN = titulo.trim() || null
     const descricaoN = descricao.trim() || null
@@ -524,7 +531,8 @@ export function PropostaForm() {
     setCompartilhando(true)
     let idCriado: string | null = null // proposta recém-criada a adotar (replace)
     try {
-      const res = await garantirProposta()
+      // M-053 · proposta travada: nada a persistir (só-leitura) — usa o id direto.
+      const res = travada && id ? { id, criou: false } : await garantirProposta()
       if (!res) return
       if (res.criou) idCriado = res.id
       const token = await garantirToken(res.id)
@@ -636,7 +644,7 @@ export function PropostaForm() {
         titulo={edicao ? 'Proposta' : 'Nova proposta'}
         aoVoltar={tentarSair}
         acao={
-          edicao ? (
+          edicao && !travada ? (
             <button className="btn-icone" onClick={() => setAExcluir(true)} aria-label="Excluir proposta">
               <Icone nome="lixo" />
             </button>
@@ -660,6 +668,16 @@ export function PropostaForm() {
           >
             <Icone nome="pedidos" size={16} /> {pedidoDaEdicao ? 'Ver pedido' : 'Virar pedido'}
           </button>
+        )}
+
+        {/* M-053 · a proposta virou pedido: conteúdo só-leitura. O texto conta a
+            verdade e aponta o caminho (padrão UX-026). */}
+        {travada && (
+          <p className="apoio" style={{ marginTop: 0, marginBottom: 14 }}>
+            <Icone nome="ok" size={14} /> Esta proposta virou um pedido, então
+            ficou travada — o combinado agora vive no pedido. Para mudar algo,
+            toque em <b>Ver pedido</b>. Compartilhar continua funcionando.
+          </p>
         )}
 
         {/* M-042 F2a · Fotos de referência (proposta_referencias). Visível já na
@@ -687,13 +705,15 @@ export function PropostaForm() {
                           {t.codigo_num != null && (
                             <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
                           )}
-                          <button
-                            className="foto-remover"
-                            onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
-                            aria-label="Tirar esta foto da proposta"
-                          >
-                            <Icone nome="fechar" size={15} />
-                          </button>
+                          {!travada && (
+                            <button
+                              className="foto-remover"
+                              onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
+                              aria-label="Tirar esta foto da proposta"
+                            >
+                              <Icone nome="fechar" size={15} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
@@ -720,13 +740,15 @@ export function PropostaForm() {
                         {insp.codigo_num != null && (
                           <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>I-{insp.codigo_num}</span>
                         )}
-                        <button
-                          className="foto-remover"
-                          onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
-                          aria-label="Tirar esta foto da proposta"
-                        >
-                          <Icone nome="fechar" size={15} />
-                        </button>
+                        {!travada && (
+                          <button
+                            className="foto-remover"
+                            onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
+                            aria-label="Tirar esta foto da proposta"
+                          >
+                            <Icone nome="fechar" size={15} />
+                          </button>
+                        )}
                       </div>
                       {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
                     </div>
@@ -739,7 +761,7 @@ export function PropostaForm() {
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center' }}
               onClick={abrirPickerFotos}
-              disabled={salvando || processandoFoto}
+              disabled={travada || salvando || processandoFoto}
             >
               <Icone nome="imagem" size={16} />{' '}
               {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
@@ -762,7 +784,7 @@ export function PropostaForm() {
           className="btn-secundario"
           style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
           onClick={() => inputFoto.current?.click()}
-          disabled={processandoFoto}
+          disabled={travada || processandoFoto}
         >
           {processandoFoto ? 'Processando…' : <><Icone nome="imagem" size={16} /> {semFoto ? 'Adicionar foto' : 'Trocar foto'}</>}
         </button>
@@ -772,6 +794,7 @@ export function PropostaForm() {
           <label>Título</label>
           <input
             value={titulo}
+            disabled={travada}
             onChange={(e) => setTitulo(e.target.value)}
             placeholder="Ex.: Bolo de casamento 3 andares"
             maxLength={80}
@@ -783,6 +806,7 @@ export function PropostaForm() {
           <label>Descrição</label>
           <textarea
             value={descricao}
+            disabled={travada}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Ex.: massa de baunilha, recheio de brigadeiro, topo personalizado…"
           />
@@ -797,6 +821,7 @@ export function PropostaForm() {
               type="button"
               className={`filtro${modoPreco === 'fechado' ? ' ativo' : ''}`}
               onClick={() => setModoPreco('fechado')}
+              disabled={travada}
             >
               Valor fechado
             </button>
@@ -804,6 +829,7 @@ export function PropostaForm() {
               type="button"
               className={`filtro${modoPreco === 'itens' ? ' ativo' : ''}`}
               onClick={() => setModoPreco('itens')}
+              disabled={travada}
             >
               Itens da tabela
             </button>
@@ -811,6 +837,7 @@ export function PropostaForm() {
               type="button"
               className={`filtro${modoPreco === 'sem' ? ' ativo' : ''}`}
               onClick={() => setModoPreco('sem')}
+              disabled={travada}
             >
               Sem preço
             </button>
@@ -822,6 +849,7 @@ export function PropostaForm() {
             <label>Valor (R$)</label>
             <input
               value={valor}
+              disabled={travada}
               onChange={(e) => aoDigitarValor(e.target.value)}
               placeholder="Ex.: 120,00"
               inputMode="decimal"
@@ -843,7 +871,7 @@ export function PropostaForm() {
                     item={it}
                     onAtualizar={(patch) => aoAtualizarItem(it.id, patch)}
                     onRemover={() => aoRemoverItem(it.id)}
-                    desabilitado={salvando || processandoFoto}
+                    desabilitado={travada || salvando || processandoFoto}
                   />
                 ))}
               </div>
@@ -853,7 +881,7 @@ export function PropostaForm() {
               className="btn-secundario"
               style={{ width: '100%', justifyContent: 'center' }}
               onClick={abrirPickerItens}
-              disabled={salvando || processandoFoto}
+              disabled={travada || salvando || processandoFoto}
             >
               <Icone nome="precos" size={16} />{' '}
               {itensProposta.length > 0 ? 'Adicionar mais itens' : 'Selecionar itens'}
@@ -866,6 +894,7 @@ export function PropostaForm() {
               <label>Valor total (R$) — opcional</label>
               <input
                 value={valor}
+                disabled={travada}
                 onChange={(e) => aoDigitarValor(e.target.value)}
                 placeholder="Ex.: 120,00"
                 inputMode="decimal"
@@ -897,7 +926,7 @@ export function PropostaForm() {
         {/* Validade */}
         <div className="campo">
           <label>Validade (opcional)</label>
-          <input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} />
+          <input type="date" value={validade} disabled={travada} onChange={(e) => setValidade(e.target.value)} />
         </div>
 
         {/* Condições (I4) — nasce do padrão do perfil; pode virar o novo padrão. */}
@@ -905,6 +934,7 @@ export function PropostaForm() {
           <label>Condições (opcional)</label>
           <textarea
             value={condicoes}
+            disabled={travada}
             onChange={(e) => setCondicoes(e.target.value)}
             placeholder="Ex.: 50% de entrada, 7 dias úteis de antecedência, Pix ou dinheiro"
           />
@@ -914,7 +944,7 @@ export function PropostaForm() {
               type="button"
               className="tag-criar"
               onClick={salvarComoPadrao}
-              disabled={salvandoPadrao || !condicoes.trim() || condicoes.trim() === (condicoesPadrao ?? '')}
+              disabled={travada || salvandoPadrao || !condicoes.trim() || condicoes.trim() === (condicoesPadrao ?? '')}
             >
               {salvandoPadrao ? 'Salvando…' : 'Salvar como padrão'}
             </button>
@@ -934,6 +964,7 @@ export function PropostaForm() {
             <input
               type="checkbox"
               checked={incluirCardapio}
+              disabled={travada}
               onChange={(e) => setIncluirCardapio(e.target.checked)}
             />
             <span className="pista" />
@@ -976,12 +1007,15 @@ export function PropostaForm() {
         </p>
       </div>
 
-      {/* CTA primário fixo: salvar */}
-      <div className="cta-area">
-        <button type="button" className="cta" onClick={salvar} disabled={salvando || processandoFoto}>
-          {salvando ? 'Salvando…' : edicao ? 'Salvar alterações' : 'Salvar proposta'}
-        </button>
-      </div>
+      {/* CTA primário fixo: salvar. M-053 · some na proposta travada (nada a
+          salvar — o combinado vive no pedido). */}
+      {!travada && (
+        <div className="cta-area">
+          <button type="button" className="cta" onClick={salvar} disabled={salvando || processandoFoto}>
+            {salvando ? 'Salvando…' : edicao ? 'Salvar alterações' : 'Salvar proposta'}
+          </button>
+        </div>
+      )}
 
       {aExcluir && (
         <Confirmar

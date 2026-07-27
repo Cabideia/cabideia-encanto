@@ -175,5 +175,39 @@ export function usePedidoItens(
     return null
   }
 
-  return { itens, carregando, salvando, listar: carregar, adicionar, atualizar, remover }
+  /**
+   * BUG-014 · Copia os itens de uma proposta para um pedido (conversão).
+   * Lê `proposta_itens` DIRETO do banco na hora da cópia — verdade do servidor,
+   * nunca estado local (a perda silenciosa do BUG-014 nasceu de um pré-
+   * preenchimento em memória que podia disparar antes de os itens carregarem).
+   * Reusa `adicionar` (dedupe por item do cardápio + ordem em fila). Espelho de
+   * `copiarDaProposta` das referências (usePedidoReferencias).
+   */
+  async function copiarDaProposta(
+    pedidoAlvo: string,
+    propostaId: string
+  ): Promise<string | null> {
+    if (estaOffline()) return SEM_CONEXAO
+    if (!usuariaId) return 'Sessão expirada. Entre de novo.'
+    const { data, error } = await supabase
+      .from('proposta_itens')
+      .select('cardapio_item_id, nome_snapshot, preco_snapshot, unidade_snapshot, quantidade')
+      .eq('proposta_id', propostaId)
+      .order('ordem', { ascending: true })
+    if (error) return 'Falha ao ler os itens da proposta: ' + error.message
+    if (!data || data.length === 0) return null
+    return adicionar(
+      pedidoAlvo,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data.map((r: any) => ({
+        cardapio_item_id: (r.cardapio_item_id ?? null) as string | null,
+        nome_snapshot: r.nome_snapshot as string,
+        preco_snapshot: (r.preco_snapshot ?? null) as number | null,
+        unidade_snapshot: (r.unidade_snapshot ?? null) as string | null,
+        quantidade: (r.quantidade ?? 1) as number,
+      }))
+    )
+  }
+
+  return { itens, carregando, salvando, listar: carregar, adicionar, atualizar, remover, copiarDaProposta }
 }

@@ -10,10 +10,14 @@ import { usePedidos, STATUS_INFO, type CamposPedido, type StatusPedido } from '.
 import { usePropostas } from '../hooks/usePropostas'
 import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
 import { usePedidoItens, type NovoItemPedido } from '../hooks/usePedidoItens'
-import { usePropostaItens } from '../hooks/usePropostaItens'
+import { useAcervo } from '../hooks/useAcervo'
+import { useInspiracoes } from '../hooks/useInspiracoes'
+import { useGuardaSaida } from '../hooks/useGuardaSaida'
+import { GradeReferencias, resolverReferencias, type RefVisual } from '../components/GradeReferencias'
 import { LinhaItemEditavel, avisoItensForaTabela, type PatchItemEditavel } from '../components/LinhaItemEditavel'
 import { ContadorTextoLongo } from '../components/ContadorTextoLongo'
 import { useCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
+import { supabase } from '../lib/supabase'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
 
@@ -37,10 +41,25 @@ type DadosForm = {
 type ItemLocal = NovoItemPedido & { chave: string; quantidade: number }
 
 /**
+ * R2b (Decisões #60/#61) · Rascunhos de CONVERSÃO criados nesta sessão de
+ * navegação: pedidos que nasceram ao abrir "Virar pedido" e ainda não foram
+ * confirmados pelo Salvar. Sair sem salvar DESCARTA o rascunho (escolha da
+ * Josiane na espec da R2b) — a proposta volta a ficar como estava. O Set zera
+ * num reload; aí a limpeza de unmount fica inerte, mas o descarte explícito
+ * (voltar/Cancelar → confirmação) continua funcionando pelo id da URL.
+ */
+const rascunhosConversao = new Set<string>()
+/** Conversões com rascunho EM CRIAÇÃO — dedupe do efeito (StrictMode/remount). */
+const conversoesEmCriacao = new Set<string>()
+
+/**
  * M-002 · Formulário de pedido (cria em /pedidos/novo, edita em /pedidos/:id/editar).
- * M-039 · Conversão proposta → pedido: /pedidos/novo?proposta=<id> pré-preenche
- * tudo da proposta (100% editável), exige a data de entrega e, ao salvar, copia
- * a foto para o acervo, grava proposta_id e marca a proposta como resolvida.
+ * M-039/R2b · Conversão proposta → pedido: /pedidos/novo?proposta=<id> agora cria
+ * um PEDIDO-RASCUNHO imediato com os itens e as referências da proposta copiados
+ * DIRETO NO BANCO (verdade do servidor — mata o BUG-014) e segue para
+ * /pedidos/:id/editar?proposta=<id>, onde tudo fica visível e editável ANTES de
+ * salvar (UX-024). `proposta_id` e o marcar-resolvida só acontecem no Salvar —
+ * assim a proposta não trava (M-053) nem "vira pedido" por um rascunho abandonado.
  */
 export function PedidoForm() {
   const { id } = useParams()
@@ -65,29 +84,34 @@ export function PedidoForm() {
     buscarPorId: buscarProposta,
     marcarResolvida,
   } = usePropostas(sessao?.user.id)
-  // M-048 · na conversão, copia as referências da proposta para o pedido novo.
-  // Sem pedido carregado aqui (o alvo é passado explícito em copiarDaProposta).
-  const { copiarDaProposta } = usePedidoReferencias(sessao?.user.id, undefined)
+  // R2b (UX-024) · referências do pedido, visíveis e editáveis no form da
+  // edição (inclui o rascunho de conversão). Na conversão o alvo da cópia é
+  // passado explícito em copiarDaProposta (referências) e no espelho dos itens.
+  const {
+    referencias,
+    remover: removerReferencia,
+    copiarDaProposta: copiarRefsDaProposta,
+  } = usePedidoReferencias(sessao?.user.id, id)
   // M-044 · itens do pedido: na edição vêm do banco (pedido_itens); na criação
-  // vivem no estado local (itensLocais) e são persistidos por `adicionar` ao
-  // salvar (regra de 17/07 — sem exigir salvar antes de lançar itens).
+  // do zero vivem no estado local (itensLocais) e são persistidos ao salvar.
+  // R2b · na conversão os itens são copiados DIRETO no banco (copiarDaProposta).
   const {
     itens: itensPedido,
     adicionar: adicionarItensPedido,
     atualizar: atualizarItemPedido,
     remover: removerItemPedido,
+    copiarDaProposta: copiarItensDaProposta,
   } = usePedidoItens(sessao?.user.id, id)
+  // R2b · acervos para resolver as miniaturas das referências no form.
+  const { trabalhos } = useAcervo(sessao?.user.id)
+  const { inspiracoes } = useInspiracoes(sessao?.user.id)
 
-  // M-039 · modo conversão (?proposta=<id>) — só na criação.
-  const propostaId = !edicao ? searchParams.get('proposta') : null
-  const conversao = !!propostaId
+  // M-039/R2b · conversão (?proposta=<id>): em /pedidos/novo dispara a criação
+  // do rascunho; em /pedidos/:id/editar marca o modo "Virar pedido" (rascunho).
+  const propostaId = searchParams.get('proposta')
+  const conversaoNova = !edicao && !!propostaId
+  const conversao = edicao && !!propostaId
   const proposta = propostaId ? buscarProposta(propostaId) : undefined
-  // Na conversão, os itens da proposta entram no bloco local (editáveis antes de
-  // salvar); fora dela o hook fica ocioso (proposta indefinida → lista vazia).
-  const { itens: itensProposta, carregando: carregandoItensProposta } = usePropostaItens(
-    sessao?.user.id,
-    propostaId ?? undefined
-  )
   // Cardápio para o picker local da criação (na edição o picker é a rota filha).
   const {
     itens: cardapio,
@@ -106,6 +130,10 @@ export function PedidoForm() {
     link_inspiracao: '',
   })
   const [aExcluir, setAExcluir] = useState(false)
+  // R2b · confirmação do descarte do rascunho de conversão (voltar/Cancelar).
+  const [confirmarDescarte, setConfirmarDescarte] = useState(false)
+  // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
+  const [refARemover, setRefARemover] = useState<RefVisual | null>(null)
   // M-044 (regra de 17/07) · itens lançados na criação, antes de o pedido existir.
   const [itensLocais, setItensLocais] = useState<ItemLocal[]>([])
   const [pickerItens, setPickerItens] = useState(false)
@@ -161,47 +189,78 @@ export function PedidoForm() {
     setForm((f) => ({ ...f, data_entrega: data }))
   }, [edicao, searchParams])
 
-  // M-039 · Conversão: pré-preenche da proposta (uma vez, quando as listas carregam).
-  // Data de entrega fica VAZIA de propósito (validade da proposta ≠ data de entrega).
+  // R2b (BUG-014/UX-024) · Conversão: cria o PEDIDO-RASCUNHO no banco assim que
+  // a proposta carrega, copia itens + referências DIRETO de proposta_itens /
+  // proposta_referencias (verdade do servidor — nunca estado local, que é onde o
+  // BUG-014 perdia dado em silêncio) e segue para a edição do rascunho. A data
+  // de entrega fica VAZIA de propósito (validade da proposta ≠ data de entrega).
+  // `proposta_id` NÃO é gravado aqui — só o Salvar consolida a conversão.
   useEffect(() => {
-    if (!conversao || !propostaId || prefilledProposta.current) return
-    if (carregando || carregandoPropostas || carregandoItensProposta) return
-    prefilledProposta.current = true
-    // Se a proposta já virou pedido, nunca duplica: vai direto ao pedido.
+    if (!conversaoNova || !propostaId || prefilledProposta.current) return
+    if (carregando || carregandoPropostas) return
+    // Se a proposta já virou pedido (salvo de verdade), nunca duplica.
     const existente = pedidoDaProposta(propostaId)
     if (existente) {
+      prefilledProposta.current = true
       navegar(`/pedidos/${existente.id}`, { replace: true })
       return
     }
-    if (!proposta) return // id inválido → segue como pedido novo em branco
-    setForm((f) => ({
-      ...f,
-      cliente_id: proposta.cliente_id,
-      nome: proposta.titulo ?? '',
-      tema: proposta.descricao ?? '',
-      valor: proposta.valor != null ? String(proposta.valor).replace('.', ',') : '',
-      data_entrega: '',
-      status: 'a_fazer',
-    }))
-    // O total da proposta pode ter sido ajustado à mão acima da soma dos itens —
-    // vindo preenchido, a soma não sobrescreve (mesma regra da edição).
-    setValorTocado(proposta.valor != null)
-    // M-044 (regra de 17/07) · os itens da proposta entram no bloco local,
-    // editáveis antes de salvar; viram linhas de pedido_itens ao criar o pedido
-    // (Decisão #45 — snapshot copiado; listas independentes daí em diante).
-    setItensLocais(
-      itensProposta.map((it) => ({
-        chave: it.id,
-        cardapio_item_id: it.cardapio_item_id,
-        nome_snapshot: it.nome_snapshot,
-        preco_snapshot: it.preco_snapshot,
-        unidade_snapshot: it.unidade_snapshot,
-        quantidade: it.quantidade,
-      }))
-    )
-    // M-048 · as referências vêm da coleção da proposta (proposta_referencias),
-    // copiadas ao salvar — não a capa avulsa da proposta na coluna legado.
-  }, [conversao, propostaId, carregando, carregandoPropostas, carregandoItensProposta, itensProposta, pedidoDaProposta, proposta, navegar])
+    if (!proposta) {
+      // id inválido → segue como pedido novo em branco.
+      prefilledProposta.current = true
+      navegar('/pedidos/novo', { replace: true })
+      return
+    }
+    if (conversoesEmCriacao.has(propostaId)) return // outra montagem já criando
+    prefilledProposta.current = true
+    conversoesEmCriacao.add(propostaId)
+    ;(async () => {
+      try {
+        const res = await criar({
+          cliente_id: proposta.cliente_id,
+          nome: (proposta.titulo ?? '').trim() || 'Novo pedido',
+          tema: proposta.descricao ?? '',
+          valor: proposta.valor,
+          data_entrega: null,
+          status: 'a_fazer',
+          foto_referencia_path: null,
+          inspiracao_id: null,
+          // proposta_id fica DE FORA de propósito (só o Salvar grava — senão a
+          // proposta travaria pelo M-053 e o botão viraria "Ver pedido" por um
+          // rascunho que pode ser descartado).
+        })
+        if ('erro' in res) {
+          avisar(res.erro)
+          navegar(-1)
+          return
+        }
+        const erroItens = await copiarItensDaProposta(res.id, propostaId)
+        const erroRefs = await copiarRefsDaProposta(res.id, propostaId)
+        if (erroItens || erroRefs)
+          avisar('Parte do que estava na proposta não veio — confira itens e fotos antes de salvar.')
+        rascunhosConversao.add(res.id)
+        navegar(`/pedidos/${res.id}/editar?proposta=${propostaId}`, { replace: true })
+      } finally {
+        conversoesEmCriacao.delete(propostaId)
+      }
+    })()
+  }, [conversaoNova, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar, avisar]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // R2b · Descarta o rascunho de conversão se a tela for desmontada sem salvar
+  // e sem estar indo a um filho (picker/origem de referência). Cobre a saída
+  // pela barra inferior e atalhos — o CASCADE limpa itens e referências juntos.
+  const idRef = useRef<string | undefined>(id)
+  const saindoParaFilho = useRef(false)
+  idRef.current = id
+  useEffect(() => {
+    return () => {
+      const rid = idRef.current
+      if (rid && rascunhosConversao.has(rid) && !saindoParaFilho.current) {
+        rascunhosConversao.delete(rid)
+        supabase.from('pedidos').delete().eq('id', rid) // fire-and-forget
+      }
+    }
+  }, [])
 
   function abrirNovoCliente() {
     setNovoCliente({ nome: '', whatsapp: '', nota: '' })
@@ -245,6 +304,34 @@ export function PedidoForm() {
     }
   }
 
+  // R2b · guarda de saída do rascunho de conversão: voltar (seta ou back
+  // nativo) sempre pergunta antes de descartar — é a escolha da espec ("sair
+  // sem salvar descarta tudo"). Fora da conversão o form segue sem guarda.
+  const { tentarSair, sair, navegarLimpo } = useGuardaSaida({
+    ativo: conversao && !!pedido,
+    temAlteracoes: () => true, // rascunho de conversão: sair = descartar → sempre confirma
+    aoPedirConfirmacao: () => setConfirmarDescarte(true),
+  })
+
+  // R2b · descarte confirmado: apaga o rascunho (CASCADE limpa itens e
+  // referências) e a proposta segue como estava — nada foi consolidado.
+  async function descartarConversao() {
+    if (!id) return
+    saindoParaFilho.current = true // já estamos apagando; o unmount não repete
+    rascunhosConversao.delete(id)
+    const erro = await excluir(id)
+    if (erro) {
+      saindoParaFilho.current = false
+      rascunhosConversao.add(id)
+      avisar(erro)
+      setConfirmarDescarte(false)
+      return
+    }
+    setConfirmarDescarte(false)
+    avisar('Tudo bem — a proposta continua como estava.')
+    sair()
+  }
+
   async function salvar() {
     if (!form.nome.trim()) {
       avisar('Dê um nome ao pedido.')
@@ -258,22 +345,32 @@ export function PedidoForm() {
     const campos = montarCampos()
 
     if (edicao && id) {
+      // R2b · o Salvar é o que CONSOLIDA a conversão: grava proposta_id e marca
+      // a proposta como resolvida (auto-arquiva no padrão M-037). Antes disso o
+      // rascunho não aponta para a proposta — descartável sem rastro.
+      if (conversao && propostaId) campos.proposta_id = propostaId
       const erro = await atualizar(id, campos)
       if (erro) {
         avisar(erro)
         return
       }
-      avisar('Pedido atualizado ✓')
-      navegar(`/pedidos/${id}`, { replace: true })
+      if (conversao && propostaId) {
+        await marcarResolvida(propostaId, true)
+        rascunhosConversao.delete(id)
+        saindoParaFilho.current = true
+        avisar('Proposta virou pedido ✓')
+        navegarLimpo(() => navegar(`/pedidos/${id}`, { replace: true }))
+      } else {
+        avisar('Pedido atualizado ✓')
+        navegar(`/pedidos/${id}`, { replace: true })
+      }
     } else {
-      if (conversao && propostaId) campos.proposta_id = propostaId
       const res = await criar(campos)
       if ('erro' in res) {
         avisar(res.erro)
         return
       }
-      // M-044 (regra de 17/07) · persiste os itens lançados no form — tanto os
-      // escolhidos na criação quanto os herdados (e editados) da conversão.
+      // M-044 (regra de 17/07) · persiste os itens lançados no form da criação.
       const erroItens =
         itensLocais.length > 0
           ? await adicionarItensPedido(
@@ -287,23 +384,11 @@ export function PedidoForm() {
               }))
             )
           : null
-      if (conversao && propostaId) {
-        // M-048 · leva a coleção de referências da proposta para o pedido novo.
-        const erroRefs = await copiarDaProposta(res.id, propostaId)
-        // Auto-arquiva a proposta na aba ativa do Acompanhar (padrão M-037).
-        await marcarResolvida(propostaId, true)
-        avisar(
-          erroRefs || erroItens
-            ? 'Pedido criado, mas algo não veio junto (referências ou itens) — abra o pedido e confira.'
-            : 'Proposta virou pedido ✓'
-        )
-      } else {
-        avisar(
-          erroItens
-            ? 'Pedido salvo, mas os itens não entraram — abra o pedido e confira.'
-            : 'Pedido salvo ✓'
-        )
-      }
+      avisar(
+        erroItens
+          ? 'Pedido salvo, mas os itens não entraram — abra o pedido e confira.'
+          : 'Pedido salvo ✓'
+      )
       navegar(`/pedidos/${res.id}`, { replace: true })
     }
   }
@@ -341,7 +426,8 @@ export function PedidoForm() {
 
   // M-044 · abre o picker de itens (só na edição). Persiste as edições atuais do
   // form ANTES de navegar — assim, ao voltar (que remonta e relê do banco), nada
-  // do que a dona digitou se perde.
+  // do que a dona digitou se perde. R2b · no rascunho de conversão marca a ida
+  // ao filho (não descartar) e navega limpando a sentinela da guarda.
   async function abrirPickerItens() {
     if (!id) return
     if (!form.nome.trim()) {
@@ -353,7 +439,86 @@ export function PedidoForm() {
       avisar(erro)
       return
     }
-    navegar(`/pedidos/${id}/itens`)
+    irParaFilho(`/pedidos/${id}/itens`)
+  }
+
+  // R2b · navegação interna a partir do form: no rascunho de conversão precisa
+  // (a) impedir o descarte do unmount e (b) sair pela guarda (navegarLimpo).
+  function irParaFilho(rota: string) {
+    if (conversao) {
+      saindoParaFilho.current = true
+      navegarLimpo(() => navegar(rota))
+    } else {
+      navegar(rota)
+    }
+  }
+
+  // R2b (UX-024) · abre o picker de referências na edição (inclui conversão),
+  // persistindo o form antes — espelho de abrirPickerItens.
+  async function abrirPickerReferencias() {
+    if (!id) return
+    if (!form.nome.trim()) {
+      avisar('Dê um nome ao pedido antes de escolher as fotos.')
+      return
+    }
+    const erro = await atualizar(id, montarCampos())
+    if (erro) {
+      avisar(erro)
+      return
+    }
+    irParaFilho(`/pedidos/${id}/referencias`)
+  }
+
+  // R2b (UX-024) · referências na CRIAÇÃO do zero: salva o pedido agora (com os
+  // itens locais já lançados) e abre o picker — mesmo espírito do rascunho
+  // automático da proposta (Decisão #29/#61). O pedido tem nome dado pela dona,
+  // então é trabalho real: fica salvo mesmo se ela voltar sem terminar.
+  async function abrirReferenciasCriacao() {
+    if (!form.nome.trim()) {
+      avisar('Dê um nome ao pedido antes de escolher as fotos.')
+      return
+    }
+    const res = await criar(montarCampos())
+    if ('erro' in res) {
+      avisar(res.erro)
+      return
+    }
+    if (itensLocais.length > 0) {
+      const erroItens = await adicionarItensPedido(
+        res.id,
+        itensLocais.map((it) => ({
+          cardapio_item_id: it.cardapio_item_id,
+          nome_snapshot: it.nome_snapshot,
+          preco_snapshot: it.preco_snapshot,
+          unidade_snapshot: it.unidade_snapshot,
+          quantidade: it.quantidade,
+        }))
+      )
+      if (erroItens) avisar(erroItens)
+    }
+    avisar('Pedido salvo ✓')
+    navegar(`/pedidos/${res.id}/editar`, { replace: true })
+    navegar(`/pedidos/${res.id}/referencias`)
+  }
+
+  // R2b · modelos visuais das referências (miniatura + selo + destino).
+  const refsVisuais = resolverReferencias(referencias, trabalhos, inspiracoes)
+
+  // Toque numa referência: foto abre a origem no app; link puro abre no
+  // navegador. Sai por irParaFilho — na conversão isso marca o filho (não
+  // descartar) E limpa a sentinela da guarda antes de navegar.
+  function aoTocarReferencia(rv: RefVisual) {
+    if (!rv.url && rv.linkExterno) {
+      window.open(rv.linkExterno, '_blank', 'noopener')
+      return
+    }
+    irParaFilho(rv.rotaOrigem)
+  }
+
+  // UX-026 · tirar referência = desvincular (a foto continua no acervo dela).
+  async function aoRemoverReferencia(refId: string) {
+    const erro = await removerReferencia(refId)
+    if (erro) avisar(erro)
   }
 
   // Tira o item do pedido (não mexe no cardápio).
@@ -447,6 +612,20 @@ export function PedidoForm() {
     if (erro) avisar(erro)
   }
 
+  // R2b · conversão recém-aberta: o rascunho está sendo criado no banco.
+  if (conversaoNova) {
+    return (
+      <div className="tela">
+        <BarraTopo titulo="Virar pedido" />
+        <div className="conteudo">
+          <p className="apoio" style={{ textAlign: 'center', marginTop: 28 }}>
+            Trazendo o que estava na proposta…
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // No modo edição, espera o pedido carregar.
   if (edicao && carregando) return null
   if (edicao && !carregando && !pedido) {
@@ -465,9 +644,19 @@ export function PedidoForm() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo={edicao ? 'Editar pedido' : 'Novo pedido'} />
+      <BarraTopo
+        titulo={conversao ? 'Virar pedido' : edicao ? 'Editar pedido' : 'Novo pedido'}
+        aoVoltar={conversao ? tentarSair : undefined}
+      />
 
       <div className="conteudo">
+        {/* R2b · aviso do rascunho de conversão: nada é definitivo até salvar. */}
+        {conversao && (
+          <p className="apoio" style={{ marginTop: 0, marginBottom: 14 }}>
+            Confira o que veio da proposta — itens e fotos já estão aqui. Nada
+            muda na proposta até você tocar em <b>Criar pedido</b>.
+          </p>
+        )}
         {/* Cliente */}
         <div className="campo">
           <label>Cliente (opcional)</label>
@@ -514,6 +703,48 @@ export function PedidoForm() {
             placeholder="Ex.: 100 doces tradicionais, tema unicórnio, entregar montado"
           />
           <ContadorTextoLongo atual={form.tema.length} />
+        </div>
+
+        {/* R2b (UX-024) · Fotos de referência — visíveis e editáveis no form,
+            inclusive na edição e no rascunho de conversão (era o buraco que
+            fazia a doceira achar que perdeu as fotos da proposta). Na criação
+            do zero, o botão salva o pedido primeiro e abre o picker. Tocar na
+            miniatura abre a origem; o × tira só a referência. */}
+        <div className="campo">
+          <label>Fotos de referência (opcional)</label>
+          {edicao ? (
+            <>
+              {refsVisuais.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <GradeReferencias
+                    itens={refsVisuais}
+                    aoTocar={aoTocarReferencia}
+                    aoRemover={(rv) => setRefARemover(rv)}
+                  />
+                </div>
+              )}
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={abrirPickerReferencias}
+                disabled={salvando}
+              >
+                <Icone nome="imagem" size={16} />{' '}
+                {refsVisuais.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={abrirReferenciasCriacao}
+              disabled={salvando}
+            >
+              <Icone nome="imagem" size={16} /> Selecionar fotos
+            </button>
+          )}
         </div>
 
         {/* M-044 · Itens da tabela de preços (opcional). Na criação (regra de
@@ -636,8 +867,9 @@ export function PedidoForm() {
             link. As colunas inspiracao_id/link_inspiracao viram legado só-leitura
             (montarCampos preserva o que já estava salvo; o detalhe ainda exibe). */}
 
-        {/* Excluir (só na edição) */}
-        {edicao && (
+        {/* Excluir (só na edição; no rascunho de conversão quem faz esse papel
+            é o descarte do voltar/Cancelar — dois caminhos confundiriam) */}
+        {edicao && !conversao && (
           <button
             className="btn-secundario"
             style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
@@ -655,7 +887,7 @@ export function PedidoForm() {
             type="button"
             className="btn-secundario"
             style={{ flex: 1 }}
-            onClick={() => navegar(-1)}
+            onClick={() => (conversao ? tentarSair() : navegar(-1))}
             disabled={salvando}
           >
             Cancelar
@@ -668,13 +900,10 @@ export function PedidoForm() {
             disabled={
               salvando ||
               !form.nome.trim() ||
-              (conversao && !form.data_entrega) ||
-              // Conversão: espera o pré-preenchimento (inclusive dos itens) para
-              // não criar o pedido sem o que veio da proposta.
-              (conversao && (carregando || carregandoPropostas || carregandoItensProposta))
+              (conversao && !form.data_entrega)
             }
           >
-            {salvando ? 'Salvando…' : edicao ? 'Salvar' : 'Criar pedido'}
+            {salvando ? 'Salvando…' : conversao ? 'Criar pedido' : edicao ? 'Salvar' : 'Criar pedido'}
           </button>
         </div>
       </div>
@@ -921,6 +1150,38 @@ export function PedidoForm() {
           rotuloConfirmar="Excluir pedido"
           onConfirmar={confirmarExcluir}
           onCancelar={() => setAExcluir(false)}
+        />
+      )}
+
+      {/* R2b · sair do rascunho de conversão = descartar (escolha da espec).
+          O texto conta a verdade: a proposta segue como estava (UX-026). */}
+      {confirmarDescarte && (
+        <Confirmar
+          titulo="Descartar este pedido?"
+          descricao="A proposta continua ativa, como estava. Os ajustes feitos aqui se perdem."
+          rotuloConfirmar="Descartar"
+          onConfirmar={descartarConversao}
+          onCancelar={() => setConfirmarDescarte(false)}
+        />
+      )}
+
+      {/* UX-026 · o × da referência só DESVINCULA — o texto por origem deixa
+          claro que a foto continua guardada onde estava. */}
+      {refARemover && (
+        <Confirmar
+          titulo="Tirar esta foto do pedido?"
+          descricao={
+            refARemover.origem === 'trabalho'
+              ? 'Ela continua em Meus Trabalhos.'
+              : 'Ela continua em Inspirações.'
+          }
+          rotuloConfirmar="Tirar foto"
+          onConfirmar={() => {
+            const alvo = refARemover.refId
+            setRefARemover(null)
+            aoRemoverReferencia(alvo)
+          }}
+          onCancelar={() => setRefARemover(null)}
         />
       )}
     </div>
