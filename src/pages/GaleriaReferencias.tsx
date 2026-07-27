@@ -24,15 +24,15 @@ export function GaleriaReferencias() {
   const { sessao } = useSessao()
 
   const { carregando, buscarPorId } = usePedidos(sessao?.user.id)
-  const { trabalhos } = useAcervo(sessao?.user.id)
-  const { inspiracoes } = useInspiracoes(sessao?.user.id)
+  const { trabalhos, carregando: carregandoAcervo } = useAcervo(sessao?.user.id)
+  const { inspiracoes, carregando: carregandoInsp } = useInspiracoes(sessao?.user.id)
   const { referencias, carregando: carregandoRefs } = usePedidoReferencias(sessao?.user.id, id)
 
   const [ampliada, setAmpliada] = useState<RefVisual | null>(null)
 
   const pedido = id ? buscarPorId(id) : undefined
 
-  if (carregando || carregandoRefs) return null
+  if (carregando || carregandoRefs || carregandoAcervo || carregandoInsp) return null
 
   if (!pedido) {
     return (
@@ -52,8 +52,9 @@ export function GaleriaReferencias() {
 
   // Foto amplia no lightbox; link puro (sem capa) abre direto no navegador.
   function aoTocar(rv: RefVisual) {
-    if (!rv.url && rv.linkExterno) {
-      window.open(rv.linkExterno, '_blank', 'noopener')
+    if (!rv.url) {
+      // Link sem capa abre no navegador; sem URL nenhuma, nada a ampliar.
+      if (rv.linkExterno) window.open(rv.linkExterno, '_blank', 'noopener')
       return
     }
     setAmpliada(rv)

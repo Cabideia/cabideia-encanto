@@ -33,7 +33,7 @@ export function PropostaReferencias() {
 
   const { buscarPorId, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
   // R2b (M-053) · proposta com pedido → conteúdo só-leitura; este picker fecha.
-  const { pedidoDaProposta } = usePedidos(sessao?.user.id)
+  const { pedidoDaProposta, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
   const { trabalhos, carregando: carregandoAcervo } = useAcervo(sessao?.user.id)
   const { inspiracoes, subirImagem, criar: criarInspiracao } = useInspiracoes(sessao?.user.id)
   const { total, limite, ilimitado, recarregar } = useAssinatura(sessao?.user.id)
@@ -202,7 +202,7 @@ export function PropostaReferencias() {
     navegar(-1)
   }
 
-  if (carregandoPropostas || carregandoAcervo || carregandoRefs) return null
+  if (carregandoPropostas || carregandoAcervo || carregandoRefs || carregandoPedidos) return null
 
   if (!id || !proposta) {
     return (

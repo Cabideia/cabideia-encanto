@@ -23,7 +23,7 @@ export function PropostaItens() {
 
   const { buscarPorId, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
   // R2b (M-053) · proposta com pedido → conteúdo só-leitura; este picker fecha.
-  const { pedidoDaProposta } = usePedidos(sessao?.user.id)
+  const { pedidoDaProposta, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
   const {
     itens: cardapio,
     carregando: carregandoCardapio,
@@ -103,7 +103,7 @@ export function PropostaItens() {
     navegar(-1)
   }
 
-  if (carregandoPropostas || carregandoCardapio || carregandoItens) return null
+  if (carregandoPropostas || carregandoCardapio || carregandoItens || carregandoPedidos) return null
 
   if (!id || !proposta) {
     return (

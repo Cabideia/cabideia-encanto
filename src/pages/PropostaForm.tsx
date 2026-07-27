@@ -69,7 +69,7 @@ export function PropostaForm() {
   } = usePropostas(sessao?.user.id)
 
   // M-039/M-042 · o pedido que nasceu desta proposta (base do "Virar/Ver pedido").
-  const { pedidoDaProposta } = usePedidos(sessao?.user.id)
+  const { pedidoDaProposta, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
 
   // M-042 F2a · Fotos de referência multi-origem (proposta_referencias). O hook é
   // enxuto (só ids + ordem); aqui cruzamos com trabalhos/inspirações p/ as imagens.
@@ -622,7 +622,9 @@ export function PropostaForm() {
   }
 
   // Espera carregar os dados necessários.
-  if (carregandoClientes || (edicao && carregandoPropostas)) return null
+  // M-053 · espera também os PEDIDOS: `travada` deriva deles — sem esperar,
+  // uma proposta convertida abriria editável por um instante (janela de escrita).
+  if (carregandoClientes || (edicao && (carregandoPropostas || carregandoPedidos))) return null
 
   if (edicao && !carregandoPropostas && !proposta) {
     return (

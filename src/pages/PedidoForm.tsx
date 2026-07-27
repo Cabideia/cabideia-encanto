@@ -51,6 +51,13 @@ type ItemLocal = NovoItemPedido & { chave: string; quantidade: number }
 const rascunhosConversao = new Set<string>()
 /** Conversões com rascunho EM CRIAÇÃO — dedupe do efeito (StrictMode/remount). */
 const conversoesEmCriacao = new Set<string>()
+/**
+ * Descartes AGENDADOS no unmount (id do pedido → timer). O descarte espera um
+ * instante antes de executar: um remonte imediato da mesma tela (StrictMode em
+ * dev; voltar rápido pelo histórico) CANCELA o timer — sem isso, o ciclo
+ * mount→cleanup→mount do StrictMode apagaria o rascunho debaixo da usuária.
+ */
+const descartesAgendados = new Map<string, ReturnType<typeof setTimeout>>()
 
 /**
  * M-002 · Formulário de pedido (cria em /pedidos/novo, edita em /pedidos/:id/editar).
@@ -234,8 +241,18 @@ export function PedidoForm() {
           navegar(-1)
           return
         }
+        // Se a dona voltou enquanto o rascunho nascia (rede lenta), não deixa
+        // órfão: apaga o que acabou de ser criado e para por aqui.
+        if (!montado.current) {
+          void supabase.from('pedidos').delete().eq('id', res.id).then(() => {})
+          return
+        }
         const erroItens = await copiarItensDaProposta(res.id, propostaId)
         const erroRefs = await copiarRefsDaProposta(res.id, propostaId)
+        if (!montado.current) {
+          void supabase.from('pedidos').delete().eq('id', res.id).then(() => {})
+          return
+        }
         if (erroItens || erroRefs)
           avisar('Parte do que estava na proposta não veio — confira itens e fotos antes de salvar.')
         rascunhosConversao.add(res.id)
@@ -249,15 +266,33 @@ export function PedidoForm() {
   // R2b · Descarta o rascunho de conversão se a tela for desmontada sem salvar
   // e sem estar indo a um filho (picker/origem de referência). Cobre a saída
   // pela barra inferior e atalhos — o CASCADE limpa itens e referências juntos.
+  // O descarte é AGENDADO (timer): um remonte imediato cancela (StrictMode /
+  // volta rápida); só o timer mexe no Set e no banco. O `.then` é obrigatório —
+  // o builder do supabase-js é preguiçoso e sem ele o delete nunca dispara.
   const idRef = useRef<string | undefined>(id)
   const saindoParaFilho = useRef(false)
+  const montado = useRef(true)
   idRef.current = id
   useEffect(() => {
+    montado.current = true
+    const rid = idRef.current
+    if (rid) {
+      const timer = descartesAgendados.get(rid)
+      if (timer) {
+        clearTimeout(timer) // remontou a tempo: o rascunho continua vivo
+        descartesAgendados.delete(rid)
+      }
+    }
     return () => {
-      const rid = idRef.current
-      if (rid && rascunhosConversao.has(rid) && !saindoParaFilho.current) {
-        rascunhosConversao.delete(rid)
-        supabase.from('pedidos').delete().eq('id', rid) // fire-and-forget
+      montado.current = false
+      const rid2 = idRef.current
+      if (rid2 && rascunhosConversao.has(rid2) && !saindoParaFilho.current) {
+        const timer = setTimeout(() => {
+          descartesAgendados.delete(rid2)
+          rascunhosConversao.delete(rid2)
+          void supabase.from('pedidos').delete().eq('id', rid2).then(() => {})
+        }, 800)
+        descartesAgendados.set(rid2, timer)
       }
     }
   }, [])
@@ -505,12 +540,20 @@ export function PedidoForm() {
   const refsVisuais = resolverReferencias(referencias, trabalhos, inspiracoes)
 
   // Toque numa referência: foto abre a origem no app; link puro abre no
-  // navegador. Sai por irParaFilho — na conversão isso marca o filho (não
-  // descartar) E limpa a sentinela da guarda antes de navegar.
-  function aoTocarReferencia(rv: RefVisual) {
+  // navegador. PERSISTE o form antes de sair (mesma regra dos pickers — sem
+  // isso a data de entrega escolhida na conversão se perderia ao voltar) e sai
+  // por irParaFilho, que na conversão marca o filho e limpa a sentinela.
+  async function aoTocarReferencia(rv: RefVisual) {
     if (!rv.url && rv.linkExterno) {
       window.open(rv.linkExterno, '_blank', 'noopener')
       return
+    }
+    if (id) {
+      const erro = await atualizar(id, montarCampos())
+      if (erro) {
+        avisar(erro)
+        return
+      }
     }
     irParaFilho(rv.rotaOrigem)
   }
