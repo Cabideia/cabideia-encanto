@@ -137,6 +137,8 @@ export function PedidoForm() {
     link_inspiracao: '',
   })
   const [aExcluir, setAExcluir] = useState(false)
+  // R2b · re-dispara o efeito de conversão quando outra montagem estava criando.
+  const [tickConversao, setTickConversao] = useState(0)
   // R2b · confirmação do descarte do rascunho de conversão (voltar/Cancelar).
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
   // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
@@ -218,7 +220,13 @@ export function PedidoForm() {
       navegar('/pedidos/novo', { replace: true })
       return
     }
-    if (conversoesEmCriacao.has(propostaId)) return // outra montagem já criando
+    if (conversoesEmCriacao.has(propostaId)) {
+      // Outra montagem ainda está criando (ex.: voltou e reabriu com rede
+      // lenta). O Set não é reativo — re-tenta num instante em vez de ficar
+      // preso em "Trazendo…" para sempre.
+      const t = setTimeout(() => setTickConversao((n) => n + 1), 400)
+      return () => clearTimeout(t)
+    }
     prefilledProposta.current = true
     conversoesEmCriacao.add(propostaId)
     ;(async () => {
@@ -261,7 +269,7 @@ export function PedidoForm() {
         conversoesEmCriacao.delete(propostaId)
       }
     })()
-  }, [conversaoNova, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar, avisar]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversaoNova, propostaId, carregando, carregandoPropostas, pedidoDaProposta, proposta, navegar, avisar, tickConversao]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // R2b · Descarta o rascunho de conversão se a tela for desmontada sem salvar
   // e sem estar indo a um filho (picker/origem de referência). Cobre a saída
@@ -272,7 +280,14 @@ export function PedidoForm() {
   const idRef = useRef<string | undefined>(id)
   const saindoParaFilho = useRef(false)
   const montado = useRef(true)
+  // O cleanup só pode agendar descarte quando o unmount é da TELA DE CONVERSÃO
+  // — um rascunho que ficou no Set (saída pela barra inferior via filho) e foi
+  // reaberto depois pela EDIÇÃO NORMAL é decisão da dona de mantê-lo; sem esta
+  // checagem, o salvar da edição normal seria apagado 800ms depois (achado da
+  // verificação adversarial).
+  const conversaoRef = useRef(false)
   idRef.current = id
+  conversaoRef.current = conversao
   useEffect(() => {
     montado.current = true
     const rid = idRef.current
@@ -286,7 +301,7 @@ export function PedidoForm() {
     return () => {
       montado.current = false
       const rid2 = idRef.current
-      if (rid2 && rascunhosConversao.has(rid2) && !saindoParaFilho.current) {
+      if (rid2 && conversaoRef.current && rascunhosConversao.has(rid2) && !saindoParaFilho.current) {
         const timer = setTimeout(() => {
           descartesAgendados.delete(rid2)
           rascunhosConversao.delete(rid2)
@@ -396,6 +411,9 @@ export function PedidoForm() {
         avisar('Proposta virou pedido ✓')
         navegarLimpo(() => navegar(`/pedidos/${id}`, { replace: true }))
       } else {
+        // Se este pedido um dia foi rascunho de conversão que sobrou no Set
+        // (saída pela barra inferior), o salvar explícito o adota de vez.
+        rascunhosConversao.delete(id)
         avisar('Pedido atualizado ✓')
         navegar(`/pedidos/${id}`, { replace: true })
       }
