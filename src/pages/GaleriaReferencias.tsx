@@ -96,7 +96,7 @@ export function GaleriaReferencias() {
           onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
         >
           <Icone nome="imagem" size={16} />{' '}
-          {itens.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
+          {itens.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
         </button>
       </div>
 

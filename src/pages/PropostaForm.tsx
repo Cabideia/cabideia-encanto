@@ -925,7 +925,7 @@ export function PropostaForm() {
               disabled={travada || salvando || processandoFoto}
             >
               <Icone nome="imagem" size={16} />{' '}
-              {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
+              {referencias.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
             </button>
         </div>
 
@@ -940,17 +940,11 @@ export function PropostaForm() {
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', left: -9999 }}
         />
 
-        {/* Foto */}
+        {/* UX-031 (ajuste do device 28/07) · o botao da capa SAIU daqui: sem a
+            previa em canvas ele ficou orfao, colado no botao de referencias —
+            dois botoes iguais com acoes diferentes (feedback da Josiane; ela leu
+            o segundo como "cardapio"). A capa agora vive em "Antes de enviar". */}
         <input ref={inputFoto} type="file" accept="image/*" style={{ display: 'none' }} onChange={aoEscolherFoto} />
-        <button
-          type="button"
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
-          onClick={() => inputFoto.current?.click()}
-          disabled={travada || processandoFoto}
-        >
-          {processandoFoto ? 'Processando…' : <><Icone nome="imagem" size={16} /> {semFoto ? 'Adicionar foto' : 'Trocar foto'}</>}
-        </button>
 
         {/* Título */}
         <div className="campo" style={{ marginTop: 14 }}>
@@ -966,7 +960,7 @@ export function PropostaForm() {
 
         {/* Descrição */}
         <div className="campo">
-          <label>Descrição</label>
+          <label>Mensagem para a cliente</label>
           <textarea
             value={descricao}
             disabled={travada}
@@ -994,7 +988,7 @@ export function PropostaForm() {
               onClick={() => setModoPreco('itens')}
               disabled={travada}
             >
-              Itens da tabela
+              Por itens
             </button>
             <button
               type="button"
@@ -1172,22 +1166,41 @@ export function PropostaForm() {
               <span aria-hidden>›</span>
             </div>
 
-            <div
-              className="item"
-              role="button"
-              tabIndex={0}
-              onClick={baixarImagem}
-              onKeyDown={(e) => e.key === 'Enter' && baixarImagem()}
-              aria-disabled={semFoto}
-              style={semFoto ? { opacity: .55 } : undefined}
-            >
-              <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="baixar" size={17} /></div>
-              <div className="card-info">
-                <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Baixar imagem da capa</div>
-                {semFoto && <div className="apoio">adicione uma foto para gerar a capa</div>}
+            {!travada && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={() => !processandoFoto && inputFoto.current?.click()}
+                onKeyDown={(e) => e.key === 'Enter' && inputFoto.current?.click()}
+                aria-disabled={processandoFoto}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="imagem" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+                    {processandoFoto ? 'Processando…' : semFoto ? 'Adicionar imagem da capa' : 'Trocar imagem da capa'}
+                  </div>
+                  <div className="apoio">a foto que aparece na mensagem do WhatsApp</div>
+                </div>
+                <span aria-hidden>›</span>
               </div>
-              <span aria-hidden>›</span>
-            </div>
+            )}
+
+            {!semFoto && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={baixarImagem}
+                onKeyDown={(e) => e.key === 'Enter' && baixarImagem()}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="baixar" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Baixar imagem da capa</div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
 
             {cliente?.whatsapp && (
               <div

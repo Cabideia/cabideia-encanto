@@ -833,7 +833,7 @@ export function PedidoForm() {
                 disabled={salvando}
               >
                 <Icone nome="imagem" size={16} />{' '}
-                {refsVisuais.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
+                {refsVisuais.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
               </button>
             </>
           ) : (
@@ -844,7 +844,7 @@ export function PedidoForm() {
               onClick={abrirReferenciasCriacao}
               disabled={salvando}
             >
-              <Icone nome="imagem" size={16} /> Selecionar fotos
+              <Icone nome="imagem" size={16} /> Selecionar referências
             </button>
           )}
         </div>
