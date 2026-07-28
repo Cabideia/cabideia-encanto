@@ -970,3 +970,10 @@ img.logo-redonda { object-fit: cover; }
 }
 .pilha-rotulo{flex:1;min-width:0;font-weight:700;font-size:var(--t-base)}
 .pilha-chevron{color:var(--cacau-claro);flex:none;font-size:20px}
+
+/* UX-031 (D1/P0) · selo do salvamento automatico na barra da proposta ------- */
+.selo-autosave{
+  display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:var(--raio-pill);
+  font-size:13px;font-weight:700;background:var(--linha);color:var(--cacau-claro);white-space:nowrap;
+}
+.selo-autosave.ok{background:var(--cor-sucesso-fundo);color:var(--cor-sucesso)}

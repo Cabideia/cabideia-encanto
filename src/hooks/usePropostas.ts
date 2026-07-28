@@ -17,6 +17,7 @@ export type Proposta = {
   cliente_id: string | null
   titulo: string | null
   descricao: string | null
+  detalhes: string | null // UX-031 · observacoes, separadas da mensagem de abertura
   valor: number | null
   validade: string | null // 'YYYY-MM-DD'
   foto_path: string | null // bucket 'publico'
@@ -32,6 +33,7 @@ export type Proposta = {
 export type CamposProposta = {
   titulo: string
   descricao: string
+  detalhes: string // UX-031 · "Detalhes e outros itens" (vazio -> null no banco)
   valor: number | null
   validade: string | null
   foto_path: string | null
@@ -41,7 +43,7 @@ export type CamposProposta = {
 }
 
 const COLUNAS =
-  'id, cliente_id, titulo, descricao, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, aberturas, incluir_cardapio, criado_em'
+  'id, cliente_id, titulo, descricao, detalhes, valor, validade, foto_path, resolvida, modo_preco, condicoes, token, aberturas, incluir_cardapio, criado_em'
 
 /**
  * F2b · Token aleatório forte e legível em URL (sem caracteres ambíguos).
@@ -111,6 +113,7 @@ export function usePropostas(usuariaId: string | undefined) {
           cliente_id: clienteId,
           titulo: campos.titulo.trim() || null,
           descricao: campos.descricao.trim() || null,
+          detalhes: campos.detalhes.trim() || null,
           valor: campos.valor,
           validade: campos.validade,
           foto_path: campos.foto_path,
@@ -143,6 +146,7 @@ export function usePropostas(usuariaId: string | undefined) {
         .update({
           titulo: campos.titulo.trim() || null,
           descricao: campos.descricao.trim() || null,
+          detalhes: campos.detalhes.trim() || null,
           valor: campos.valor,
           validade: campos.validade,
           foto_path: campos.foto_path,
