@@ -37,6 +37,7 @@ type ItemPublico = { nome: string; preco: number | null }
 type DadosProposta = {
   titulo: string | null
   descricao: string | null
+  detalhes: string | null // UX-031/032 · observacoes, separadas da mensagem
   valor: number | null
   validade: string | null
   condicoes: string | null
@@ -45,6 +46,10 @@ type DadosProposta = {
   negocio: string | null
   whatsapp: string | null
   logoUrl: string | null
+  // UX-032 · saudacao e assinatura do cabecalho. A RPC ainda pode nao devolver
+  // estes dois (DDL apresentada a parte) — o layout degrada sem eles.
+  clientePrimeiroNome: string | null
+  arroba: string | null
   fotos: FotoPublica[]
   itens: ItemPublico[]
   cardapioUrl: string | null // M-045 · arte de recheios/sabores (se incluída)
@@ -99,6 +104,7 @@ export function PropostaPublica() {
       setDados({
         titulo: linha.titulo ?? null,
         descricao: linha.descricao ?? null,
+        detalhes: linha.detalhes ?? null,
         valor: linha.valor != null ? Number(linha.valor) : null,
         validade: linha.validade ?? null,
         condicoes: linha.condicoes ?? null,
@@ -107,6 +113,8 @@ export function PropostaPublica() {
         negocio: linha.negocio ?? null,
         whatsapp: linha.whatsapp ?? null,
         logoUrl: linha.logo_path ? urlPublica(linha.logo_path) : null,
+        clientePrimeiroNome: linha.cliente_primeiro_nome ?? null,
+        arroba: linha.arroba ?? null,
         fotos,
         itens,
         cardapioUrl: linha.cardapio_path ? urlPublica(linha.cardapio_path) : null,
@@ -189,27 +197,111 @@ export function PropostaPublica() {
   return (
     <div className="tela">
       <div className="conteudo" style={{ paddingTop: 16 }}>
-        <div className="vitrine-moldura">
-          <div className="babado" />
-          <div className="vitrine-corpo">
+        {/* UX-032 (D1/P0) · mesmo cabecalho do PedidoPublico (.pub-cabecalho +
+            .babado-ondas): a pagina da PROPOSTA e a peca de venda e estava
+            visualmente inferior a do pedido. Titulo = nome do negocio;
+            subtitulo = so o @arroba. */}
+        <div className="pub-cabecalho">
+          <div className="pub-avatar">
             {dados.logoUrl ? (
-              <img className="logo-redonda" src={dados.logoUrl} alt="" />
+              <img src={dados.logoUrl} alt="" />
             ) : (
-              <div className="logo-redonda">
-                {dados.negocio ? dados.negocio.trim().charAt(0).toUpperCase() : <Icone nome="brilho" size={24} />}
-              </div>
-            )}
-            <div className="nome-negocio">{dados.titulo || 'Uma proposta especial pra você'}</div>
-            {dados.negocio && <div className="apoio">por {dados.negocio}</div>}
-            {dados.descricao && (
-              <p className="apoio" style={{ marginTop: 8, textAlign: 'center' }}>
-                {dados.descricao}
-              </p>
+              dados.negocio ? dados.negocio.trim().charAt(0).toUpperCase() : <Icone nome="brilho" size={28} />
             )}
           </div>
+          <h1>{dados.negocio || 'Uma proposta pra você'}</h1>
+          {dados.arroba && <div className="pub-sub">@{dados.arroba}</div>}
+          <div className="babado-ondas" />
         </div>
 
-        {/* Capa (foto principal da proposta), se houver */}
+        {/* UX-032 · card de ABERTURA: saudacao + titulo da proposta + a
+            mensagem que a doceira escreveu. E a primeira coisa que a cliente le. */}
+        <div className="card" style={{ marginTop: 18 }}>
+          <div
+            style={{
+              fontSize: 14, fontWeight: 800, color: 'var(--cor-primaria)', marginBottom: 6,
+            }}
+          >
+            {dados.clientePrimeiroNome
+              ? `Uma proposta pra você, ${dados.clientePrimeiroNome} 💛`
+              : 'Uma proposta pra você 💛'}
+          </div>
+          <div
+            className="card-nome"
+            style={{ fontFamily: 'var(--fonte-titulo)', fontSize: 20, whiteSpace: 'normal' }}
+          >
+            {dados.titulo || 'Proposta'}
+          </div>
+          {dados.descricao && (
+            <p style={{ marginTop: 8, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{dados.descricao}</p>
+          )}
+        </div>
+
+        {/* UX-032 · "O que esta incluido" (era "Tabela de precos"): a validade
+            sai do texto de apoio e vira CHIP no canto; o Total ganha destaque. */}
+        <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div className="secao" style={{ margin: 0, flex: 1 }}>
+              <span className="confeito" /><h2>O que está incluído</h2>
+            </div>
+            {validadeTexto && (
+              <span
+                className="chip"
+                style={{
+                  background: 'var(--st-producao-fundo)', color: 'var(--st-producao-texto)', flexShrink: 0,
+                }}
+              >
+                válida até {formatarDataNumerica(dados.validade as string)}
+              </span>
+            )}
+          </div>
+
+          {dados.modoPreco === 'itens' && dados.itens.length > 0 ? (
+            <>
+              {dados.itens.map((it, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
+                    borderBottom: i < dados.itens.length - 1 ? '1px solid var(--linha)' : 'none',
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{it.nome}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
+                    {it.preco != null ? formatarReal(it.preco) : 'sob consulta'}
+                  </span>
+                </div>
+              ))}
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--linha)',
+                }}
+              >
+                <span style={{ fontWeight: 700 }}>Total</span>
+                <b style={{ fontSize: 18, fontWeight: 800, color: 'var(--cor-primaria)' }}>{valorTexto}</b>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ fontWeight: 700 }}>Valor</span>
+              <b style={{ fontSize: 18, fontWeight: 800, color: 'var(--cor-primaria)' }}>{valorTexto}</b>
+            </div>
+          )}
+        </div>
+
+        {/* UX-032 · espelho do campo novo do formulario (UX-031) */}
+        {dados.detalhes && (
+          <div className="card">
+            <div className="secao" style={{ margin: '0 0 8px' }}>
+              <span className="confeito" /><h2>Detalhes e outros itens</h2>
+            </div>
+            <p style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{dados.detalhes}</p>
+          </div>
+        )}
+
+        {/* UX-032 · a capa desceu: primeiro o que ela precisa saber (preco e
+            detalhes), depois a imagem, logo antes das favoritas. */}
         {dados.capaUrl && (
           <img
             src={dados.capaUrl}
@@ -217,69 +309,24 @@ export function PropostaPublica() {
             loading="lazy"
             style={{
               width: '100%',
-              borderRadius: 16,
-              marginTop: 14,
+              borderRadius: 'var(--raio-card)',
+              marginTop: 4,
               border: '1px solid var(--linha)',
               display: 'block',
             }}
           />
         )}
 
-        {/* Preço */}
-        <div className="vitrine-moldura" style={{ marginTop: 14 }}>
-          <div className="vitrine-corpo" style={{ paddingTop: 18, paddingBottom: 18 }}>
-            {dados.modoPreco === 'itens' && dados.itens.length > 0 ? (
-              <>
-                <div className="secao" style={{ justifyContent: 'center' }}>
-                  <span className="confeito" /><h2>Tabela de preços</h2>
-                </div>
-                <div style={{ marginTop: 6 }}>
-                  {dados.itens.map((it, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '8px 0',
-                        borderBottom: i < dados.itens.length - 1 ? '1px solid var(--linha)' : 'none',
-                      }}
-                    >
-                      <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{it.nome}</span>
-                      <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
-                        {it.preco != null ? formatarReal(it.preco) : 'sob consulta'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="apoio" style={{ textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
-                  Total: <b style={{ color: 'var(--framboesa)' }}>{valorTexto}</b>
-                </p>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center' }}>
-                <div className="apoio" style={{ marginBottom: 4 }}>Valor</div>
-                <div className="nome-negocio" style={{ color: 'var(--framboesa)' }}>{valorTexto}</div>
-              </div>
-            )}
-            {validadeTexto && (
-              <p className="apoio" style={{ textAlign: 'center', marginTop: 10, marginBottom: 0 }}>
-                {validadeTexto}
-              </p>
-            )}
-          </div>
-        </div>
-
         {/* Galeria das fotos de referência */}
         {dados.fotos.length > 0 && (
           <>
             <div className="secao" style={{ marginTop: 18 }}>
-              <span className="confeito" /><h2>Referências</h2>
+              <span className="confeito" /><h2>Escolha suas preferidas</h2>
             </div>
             <p className="apoio" style={{ textAlign: 'center', marginTop: 4 }}>
-              Toque no 🤍 das opções que você preferir e me conte no WhatsApp 💬
+              Toque no 🤍 das opções que amar e me conte no WhatsApp
             </p>
-            <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
+            <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start', gridTemplateColumns: 'repeat(2, 1fr)' }}>
               {dados.fotos.map((f, i) => (
                 <div key={i} className={`foto-item${amadas.has(i) ? ' foto-amada' : ''}`}>
                   <div className="acervo-img-wrap" style={{ position: 'relative' }}>
@@ -321,7 +368,7 @@ export function PropostaPublica() {
             {codigosAmados.length > 0 && (
               <div className="barra-favoritas">
                 <button type="button" className="cta" onClick={enviarEscolhas}>
-                  🧡 Enviar minhas escolhas no WhatsApp ({codigosAmados.join(', ')})
+                  🧡 Enviar favoritas no WhatsApp ({codigosAmados.length})
                 </button>
               </div>
             )}
@@ -362,7 +409,7 @@ export function PropostaPublica() {
       {dados.whatsapp && (
         <div className="cta-area">
           <button className="cta" onClick={abrirWhatsApp}>
-            <Icone nome="whatsapp" /> Falar no WhatsApp
+            <Icone nome="whatsapp" /> {dados.negocio ? `Falar com ${dados.negocio}` : 'Falar no WhatsApp'}
           </button>
         </div>
       )}

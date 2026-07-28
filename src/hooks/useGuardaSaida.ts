@@ -71,12 +71,19 @@ export function useGuardaSaida({ ativo, temAlteracoes, aoPedirConfirmacao }: Opc
    * do form (pop) e roda `fn` no popstate (posição assentada), para que um
    * replace dentro de `fn` troque a entrada do form — não a sentinela.
    */
-  function navegarLimpo(fn: () => void) {
+  function navegarLimpo(fn: () => void, reporDepois = false) {
     if (!ativoRef.current) {
       fn()
       return
     }
-    pendenteRef.current = fn
+    // D1 · `reporDepois` para quando a tela CONTINUA montada depois do fn (o
+    // caso do rascunho adotado pela URL): sem repor a sentinela, o histórico
+    // fica [origem, form] e o `sair()` (go(-2)) pularia uma tela a mais — ou
+    // sairia da faixa, deixando a seta de voltar inerte.
+    pendenteRef.current = () => {
+      fn()
+      if (reporDepois) reporSentinela()
+    }
     saindoRef.current = true
     window.history.go(-1)
   }

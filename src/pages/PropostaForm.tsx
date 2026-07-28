@@ -30,6 +30,9 @@ import { cartaoParaPng, desenharProposta } from '../lib/proposta'
  */
 const rascunhosAbertos = new Set<string>()
 
+/** UX-031 (mockup 1b) · marca "fui ao picker de referências e vou voltar". */
+const CHAVE_VOLTA_REFS = 'encanto:proposta-voltar-refs'
+
 /** Carrega um Blob como ImageBitmap (null em caso de falha — o cartão segue sem ele). */
 async function bitmapDeBlob(blob: Blob | null): Promise<ImageBitmap | null> {
   if (!blob) return null
@@ -73,8 +76,8 @@ export function PropostaForm() {
 
   // M-042 F2a · Fotos de referência multi-origem (proposta_referencias). O hook é
   // enxuto (só ids + ordem); aqui cruzamos com trabalhos/inspirações p/ as imagens.
-  const { trabalhos } = useAcervo(sessao?.user.id)
-  const { inspiracoes } = useInspiracoes(sessao?.user.id)
+  const { trabalhos, carregando: carregandoAcervo } = useAcervo(sessao?.user.id)
+  const { inspiracoes, carregando: carregandoInsp } = useInspiracoes(sessao?.user.id)
   const { referencias, carregando: carregandoRefs, remover: removerReferencia, garantirFotosPublicas } =
     usePropostaReferencias(sessao?.user.id, id)
 
@@ -107,6 +110,7 @@ export function PropostaForm() {
   const [valorTocado, setValorTocado] = useState(false)
   const [validade, setValidade] = useState('') // 'YYYY-MM-DD'
   const [modoPreco, setModoPreco] = useState<ModoPreco>('fechado') // I3
+  const [detalhes, setDetalhes] = useState('') // UX-031 · observacoes (≠ mensagem)
   const [condicoes, setCondicoes] = useState('') // I4
   const [incluirCardapio, setIncluirCardapio] = useState(true) // M-045 · ligado por padrão (Decisão #39)
   const [condicoesPadrao, setCondicoesPadrao] = useState<string | null>(null)
@@ -122,6 +126,12 @@ export function PropostaForm() {
   const [fontesProntas, setFontesProntas] = useState(false)
   const [processandoFoto, setProcessandoFoto] = useState(false)
   const [compartilhando, setCompartilhando] = useState(false)
+  // UX-031 (D1/P0) · estado do salvamento automatico, refletido no selo da barra.
+  const [estadoSalvo, setEstadoSalvo] = useState<'ocioso' | 'salvando' | 'salvo'>('ocioso')
+  const [abrindoPrevia, setAbrindoPrevia] = useState(false)
+  // Gatilhos do autosave que nao sao campos de texto: troca de capa e retentativa.
+  const [fotoVersao, setFotoVersao] = useState(0)
+  const [tickSalvar, setTickSalvar] = useState(0)
   const [aExcluir, setAExcluir] = useState(false)
   const [confirmarSaida, setConfirmarSaida] = useState(false) // M3
   // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
@@ -129,12 +139,75 @@ export function PropostaForm() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputFoto = useRef<HTMLInputElement>(null)
+  // UX-031 (mockup 1b) · com o bloco de referências abaixo de "Detalhes", voltar
+  // do picker cairia no topo do form (a `.conteudo` remonta com scrollTop 0) e a
+  // doceira não veria as fotos que acabou de escolher. Marcamos a ida no
+  // sessionStorage e rolamos de volta quando as referências chegarem.
+  const blocoRefs = useRef<HTMLDivElement>(null)
   const prefilled = useRef(false)
   const perfilCarregado = useRef(false)
   // Limpeza do rascunho vazio (opção A): refs lidos no unmount, sempre atuais.
   const idRef = useRef<string | undefined>(id)
   const saindoParaFilho = useRef(false) // indo a um picker/lote → NÃO limpar
   const rascunhoVazioRef = useRef(false)
+
+  // A rota /propostas/:id reusa este componente. Se um dia existir navegacao
+  // proposta -> proposta, os refs de identidade precisam zerar, senao o form
+  // mantem os campos da anterior e o autosave grava por cima.
+  const idAdotado = useRef<string | null>(null)
+  useEffect(() => {
+    // ATENCAO: este efeito tambem roda quando o proprio autosave adota a URL
+    // (id: undefined -> novo). Nesse caso NAO pode zerar `prefilled` — seria
+    // reabrir o bug do pre-preenchimento sobrescrevendo o que esta digitado.
+    if (id && id === idAdotado.current) return
+    prefilled.current = false
+    adotadaRef.current = false
+    tentativasRef.current = 0
+  }, [id])
+
+  // UX-031 (mockup 1b) · volta do picker de referências. A marca é só LIDA no
+  // mount (nunca apagada aqui: com StrictMode o mount acontece duas vezes e a
+  // segunda leitura não acharia mais nada — armadilha nº 2 do handoff) e vale
+  // por 2 min, então também não fica órfã se a doceira sair do picker por outro
+  // caminho (ex.: "Ver planos" no limite de fotos, ou o picker mandando para o
+  // pedido). Quem apaga é a rolagem. A marca carrega o id da proposta: sem isso
+  // uma marca abandonada faria a PRÓXIMA proposta abrir já rolada.
+  const [rolarParaRefs, setRolarParaRefs] = useState(() => {
+    try {
+      const marca = sessionStorage.getItem(CHAVE_VOLTA_REFS)
+      if (!marca || !id) return false
+      const [pid, quando] = marca.split('|')
+      return pid === id && Date.now() - Number(quando) < 120_000
+    } catch {
+      return false // modo privado: sem marca, sem rolagem
+    }
+  })
+
+  // Só rola quando (a) o form já saiu da guarda de carregamento — antes disso a
+  // árvore inteira é `null` e o ref não existe — e (b) acervo e inspirações já
+  // chegaram, senão a grade ainda renderiza zero miniaturas e o alvo mede só o
+  // cabeçalho. `block:'end'` porque as referências novas entram no FIM da lista.
+  useEffect(() => {
+    if (!rolarParaRefs) return
+    if (carregandoRefs || carregandoAcervo || carregandoInsp) return
+    const alvo = blocoRefs.current
+    if (!alvo) return // guarda de carregamento ainda de pé: tenta no próximo render
+    const t = requestAnimationFrame(() => {
+      alvo.scrollIntoView({ block: 'end', behavior: 'auto' })
+      try { sessionStorage.removeItem(CHAVE_VOLTA_REFS) } catch { /* modo privado */ }
+      setRolarParaRefs(false)
+    })
+    return () => cancelAnimationFrame(t)
+  }, [
+    rolarParaRefs,
+    carregandoRefs,
+    carregandoAcervo,
+    carregandoInsp,
+    carregandoClientes,
+    carregandoPropostas,
+    carregandoPedidos,
+    proposta, // a árvore só existe depois que a proposta é encontrada
+  ])
 
   // Garante as fontes (Fraunces / Nunito Sans) antes de desenhar texto no canvas.
   useEffect(() => {
@@ -175,6 +248,7 @@ export function PropostaForm() {
     prefilled.current = true
     setTitulo(proposta.titulo ?? '')
     setDescricao(proposta.descricao ?? '')
+    setDetalhes(proposta.detalhes ?? '')
     setValor(proposta.valor != null ? String(proposta.valor).replace('.', ',') : '')
     setValorTocado(proposta.valor != null) // já tem total salvo → não pré-preencher por cima
     setValidade(proposta.validade ?? '')
@@ -252,6 +326,7 @@ export function PropostaForm() {
     itensProposta.length === 0 &&
     !titulo.trim() &&
     !descricao.trim() &&
+    !detalhes.trim() &&
     valorNum == null &&
     !validade &&
     !fotoPath &&
@@ -270,19 +345,22 @@ export function PropostaForm() {
     if (blobNovo.current) return true // capa nova ainda não subiu
     const tituloN = titulo.trim() || null
     const descricaoN = descricao.trim() || null
+    const detalhesN = detalhes.trim() || null
     const condicoesN = condicoes.trim() || null
     const validadeN = validade || null
     if (!proposta) {
       // Criação pura: sem registro salvo, qualquer conteúdo digitado é "não salvo".
       const condProprias = condicoesN != null && condicoesN !== (condicoesPadrao ?? '').trim()
       return (
-        !!tituloN || !!descricaoN || valorNum != null || !!validadeN || !!fotoPath || condProprias
+        !!tituloN || !!descricaoN || !!detalhesN || valorNum != null || !!validadeN || !!fotoPath || condProprias
       )
     }
     return (
       tituloN !== (proposta.titulo ?? null) ||
       descricaoN !== (proposta.descricao ?? null) ||
+      detalhesN !== (proposta.detalhes ?? null) ||
       valorNum !== (proposta.valor ?? null) ||
+      fotoPath !== (proposta.foto_path ?? null) || // capa que subiu mas nao gravou
       validadeN !== (proposta.validade ?? null) ||
       modoPreco !== (proposta.modo_preco ?? 'fechado') ||
       condicoesN !== (proposta.condicoes ?? null) ||
@@ -325,6 +403,7 @@ export function PropostaForm() {
     try {
       const { blob } = await comprimirImagem(f)
       blobNovo.current = blob
+      setFotoVersao((n) => n + 1) // capa nova: acorda o autosave (blob e ref)
       const bmp = await bitmapDeBlob(blob)
       if (bmp) {
         setFotoBitmap((antigo) => {
@@ -347,6 +426,7 @@ export function PropostaForm() {
     return {
       titulo,
       descricao,
+      detalhes,
       valor: valorNum,
       validade: validade || null,
       foto_path: caminhoFoto,
@@ -384,38 +464,6 @@ export function PropostaForm() {
     return { path: up.path }
   }
 
-  async function salvar() {
-    if (!clienteIdAtivo) {
-      avisar('Proposta sem cliente.')
-      return
-    }
-    const foto = await garantirFoto()
-    if ('erro' in foto) {
-      avisar(foto.erro)
-      return
-    }
-    if (edicao && id) {
-      const erro = await atualizar(id, campos(foto.path), proposta?.foto_path ?? null)
-      if (erro) {
-        avisar(erro)
-        return
-      }
-      // Save explícito: deixa de ser rascunho descartável (é decisão da dona).
-      rascunhosAbertos.delete(id)
-      avisar('Proposta salva ✓')
-    } else {
-      const res = await criar(clienteIdAtivo, campos(foto.path))
-      if ('erro' in res) {
-        avisar(res.erro)
-        return
-      }
-      avisar('Proposta salva ✓')
-      // B2 · troca "/nova" pela proposta real colapsando a sentinela (M3), para
-      // o "voltar" da proposta salva cair direto na origem, sem "/nova" fantasma.
-      navegarLimpo(() => navegar(`/propostas/${res.id}`, { replace: true }))
-    }
-  }
-
   /**
    * Rascunho automático (fix de fluxo, opção A): garante um `proposta_id` para
    * gravar os filhos (fotos/inspirações/itens) SEM a dona salvar e reabrir. Na
@@ -424,6 +472,21 @@ export function PropostaForm() {
    * abre em seguida volta para /propostas/:id, onde o form recarrega tudo.
    */
   async function garantirProposta(): Promise<{ id: string; criou: boolean } | null> {
+    // D1 · SERIALIZACAO no proprio garantirProposta (nao em cada chamador): o
+    // autosave, o "Enviar", o "Ver como a cliente ve" e o abrirFilho podem se
+    // cruzar, e dois `criar()` concorrentes nasciam DUAS propostas na ficha.
+    // Quem chega no meio de um voo espera o MESMO resultado.
+    if (vooRef.current) return vooRef.current
+    const voo = executarGarantia()
+    vooRef.current = voo
+    try {
+      return await voo
+    } finally {
+      vooRef.current = null
+    }
+  }
+
+  async function executarGarantia(): Promise<{ id: string; criou: boolean } | null> {
     if (!clienteIdAtivo) {
       avisar('Proposta sem cliente.')
       return null
@@ -456,6 +519,129 @@ export function PropostaForm() {
   }
 
   /**
+   * UX-031 (D1/P0) · SALVAMENTO AUTOMATICO.
+   *
+   * O CTA da tela deixou de ser "Salvar" (virou "Enviar no WhatsApp"), entao o
+   * salvar precisa acontecer sozinho: a cada pausa na digitacao (1,2s) o form
+   * persiste e o selo da barra diz "Salva ✓". Reusa `garantirProposta`, que ja
+   * criava o rascunho na primeira acao (Decisao #29) — a novidade e disparar
+   * por conteudo digitado, nao so por abrir um picker.
+   *
+   * NAO age: em proposta travada (M-053, so-leitura), sem cliente, enquanto sai
+   * para um filho, ou quando nao ha nada diferente do que esta salvo.
+   */
+  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Serializa o autosave: sem isso, um save em voo + o CTA "Enviar" podiam
+  // chamar `criar()` duas vezes e nascer DUAS propostas na ficha da cliente.
+  const salvandoAutoRef = useRef(false)
+  /** Voo em curso do garantirProposta (mutex). */
+  const vooRef = useRef<Promise<{ id: string; criou: boolean } | null> | null>(null)
+  /** O rascunho ja foi adotado pela URL? (so o primeiro adota) */
+  const adotadaRef = useRef(false)
+  /** Tentativas seguidas do autosave que falharam (teto para nao virar loop). */
+  const tentativasRef = useRef(0)
+  // A tela ainda existe? (um save em voo nao pode navegar depois do unmount)
+  const montadoForm = useRef(true)
+  useEffect(() => {
+    montadoForm.current = true
+    return () => {
+      montadoForm.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (travada || !clienteIdAtivo) return
+    if (edicao && !proposta) return // ainda carregando a proposta
+    if (!haAlteracoes()) return
+    if (autosaveRef.current) clearTimeout(autosaveRef.current)
+    autosaveRef.current = setTimeout(async () => {
+      // As tres checagens sao REFEITAS aqui dentro: 1,2s se passaram desde o
+      // agendamento e o mundo pode ter mudado (a dona tocou em Enviar, abriu um
+      // picker, ou saiu da tela).
+      if (!montadoForm.current || saindoParaFilho.current || salvandoAutoRef.current) return
+      salvandoAutoRef.current = true
+      setEstadoSalvo('salvando')
+      try {
+        const res = await garantirProposta()
+        if (!montadoForm.current) return // saiu no meio: nao navega nem pinta
+        if (!res) {
+          setEstadoSalvo('ocioso')
+          // Falhou (offline, por ex.): re-tenta sozinha em vez de esperar a
+          // proxima tecla — mas com TETO de 3, senao offline persistente vira
+          // um toast de erro a cada 5s para sempre.
+          tentativasRef.current += 1
+          if (tentativasRef.current <= 3) {
+            const espera = 4000 * tentativasRef.current // 4s, 8s, 12s
+            setTimeout(() => montadoForm.current && setTickSalvar((n) => n + 1), espera)
+          }
+          return
+        }
+        // A tela continua montada -> ficaNaTela = true (repoe a sentinela).
+        // NAO tiramos do `rascunhosAbertos`: se a dona esvaziar tudo e sair, a
+        // limpeza conservadora do unmount ainda precisa poder descartar.
+        // Se ela abriu um picker enquanto este save voava, quem adota a URL e
+        // o abrirFilho (que adota E empilha o filho num colapso so) — adotar
+        // aqui tambem dispararia DOIS history.go(-1) e fecharia o picker.
+        if (!saindoParaFilho.current) adotarRascunho(res.id, res.criou, true)
+        tentativasRef.current = 0
+        setEstadoSalvo('salvo')
+      } finally {
+        salvandoAutoRef.current = false
+      }
+    }, 1200)
+    return () => {
+      if (autosaveRef.current) clearTimeout(autosaveRef.current)
+    }
+    // `fotoVersao` entra nas deps porque a capa nova vive num ref (blobNovo) —
+    // sem ele, trocar SO a foto nunca disparava o autosave.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titulo, descricao, detalhes, valor, validade, modoPreco, condicoes, incluirCardapio, fotoPath, fotoVersao, tickSalvar, travada, clienteIdAtivo, edicao, proposta])
+
+  /**
+   * D1 · Adota o rascunho recem-criado na URL — UM UNICO lugar, porque tres
+   * caminhos podem cria-lo. Marca `prefilled` ANTES de navegar (a rota reusa o
+   * componente e o pre-preenchimento sobrescreveria o que esta sendo digitado)
+   * e repoe a sentinela do historico quando a tela CONTINUA montada.
+   */
+  function adotarRascunho(idNovo: string, criou: boolean, ficaNaTela: boolean) {
+    if (!criou || adotadaRef.current) return
+    adotadaRef.current = true
+    idAdotado.current = idNovo // marca a troca de URL como "nossa" (ver efeito acima)
+    prefilled.current = true
+    navegarLimpo(() => navegar(`/propostas/${idNovo}`, { replace: true }), ficaNaTela)
+  }
+
+  /**
+   * UX-031 · "Ver como a cliente ve" — abre a PAGINA PUBLICA real pelo token
+   * (substitui a previa em canvas, que mostrava so a capa). Persiste antes,
+   * para a pagina refletir o que esta na tela.
+   */
+  async function verComoCliente() {
+    if (abrindoPrevia) return
+    if (autosaveRef.current) clearTimeout(autosaveRef.current)
+    setAbrindoPrevia(true)
+    saindoParaFilho.current = true // persistir aqui nao pode descartar o rascunho
+    try {
+      const res = travada && id ? { id, criou: false } : await garantirProposta()
+      if (!res) return
+      const token = await garantirToken(res.id)
+      if (!token) {
+        avisar('Não consegui abrir a prévia. Tente de novo.')
+        return
+      }
+      const falhaFotos = await garantirFotosPublicas(res.id)
+      if (falhaFotos) {
+        avisar(falhaFotos.erro)
+        return
+      }
+      window.open(linkProposta(token), '_blank', 'noopener')
+      adotarRascunho(res.id, res.criou, true) // a tela continua aqui
+    } finally {
+      setAbrindoPrevia(false)
+      saindoParaFilho.current = false
+    }
+  }
+
+  /**
    * Abre um filho (picker/lote) da proposta. B2 · via `navegarLimpo`, que colapsa
    * a sentinela do aviso (M3) antes de navegar: na criação, troca a entrada
    * "/nova" pela proposta real (replace) e empurra o filho — o "voltar" do filho
@@ -464,18 +650,35 @@ export function PropostaForm() {
    */
   async function abrirFilho(destino: (pid: string) => string) {
     saindoParaFilho.current = true
-    const res = await garantirProposta()
+    if (autosaveRef.current) clearTimeout(autosaveRef.current)
+    const res = await garantirProposta() // serializado: nao duplica com o autosave
     if (!res) {
       saindoParaFilho.current = false
       return
     }
     const { id: pid, criou } = res
+    // Adota + empilha o filho num unico colapso da sentinela. Aqui a tela SAI
+    // (o picker assume), entao nao repomos a sentinela — quem volta remonta o
+    // form, e o efeito do hook a repoe sozinho.
+    if (criou && !adotadaRef.current) {
+      adotadaRef.current = true
+      idAdotado.current = pid
+      prefilled.current = true
+    }
     navegarLimpo(() => {
       if (criou) navegar(`/propostas/${pid}`, { replace: true })
       navegar(destino(pid))
     })
   }
-  const abrirPickerFotos = () => abrirFilho((pid) => `/propostas/${pid}/referencias`)
+  // A marca é gravada DENTRO do `destino`, ou seja no instante em que o form
+  // realmente sai para o picker. Se fosse gravada antes do `await`, o `replace`
+  // que adota o rascunho recria o hook de referências e o efeito de rolagem
+  // consumiria a marca ainda nesta tela — a volta cairia no topo de novo.
+  const abrirPickerFotos = () =>
+    abrirFilho((pid) => {
+      try { sessionStorage.setItem(CHAVE_VOLTA_REFS, `${pid}|${Date.now()}`) } catch { /* modo privado */ }
+      return `/propostas/${pid}/referencias`
+    })
   const abrirPickerItens = () => abrirFilho((pid) => `/propostas/${pid}/itens`)
 
   const gerarPng = useCallback(async (): Promise<Blob | null> => {
@@ -527,7 +730,9 @@ export function PropostaForm() {
    * pronto + o link. Não exige foto (o link mostra tudo).
    */
   async function compartilhar() {
+    if (compartilhando) return
     saindoParaFilho.current = true // persistir aqui não pode descartar o rascunho
+    if (autosaveRef.current) clearTimeout(autosaveRef.current) // cancela o debounce pendente
     setCompartilhando(true)
     let idCriado: string | null = null // proposta recém-criada a adotar (replace)
     try {
@@ -559,7 +764,12 @@ export function PropostaForm() {
       // adota o rascunho SEMPRE que foi criado, mesmo se algo acima falhou (não
       // deixa órfão nem gera duplicata no próximo "Salvar"). Em edição, libera a
       // guarda do rascunho.
-      if (idCriado) navegarLimpo(() => navegar(`/propostas/${idCriado}`, { replace: true }))
+      // A tela continua montada (o WhatsApp abre em outra aba/app): adota com
+      // reposicao da sentinela, senao a seta de voltar pula a ficha da cliente.
+      if (idCriado) adotarRascunho(idCriado, true, true)
+      // So libera a guarda quando NAO criou: a proposta recem-criada pode ser
+      // "vazia" pelo criterio conservador (so condicoes padrao), e a limpeza do
+      // unmount apagaria a linha — matando o link que acabou de ir a cliente.
       else saindoParaFilho.current = false
     }
   }
@@ -646,11 +856,20 @@ export function PropostaForm() {
         titulo={edicao ? 'Proposta' : 'Nova proposta'}
         aoVoltar={tentarSair}
         acao={
-          edicao && !travada ? (
-            <button className="btn-icone" onClick={() => setAExcluir(true)} aria-label="Excluir proposta">
-              <Icone nome="lixo" />
-            </button>
-          ) : undefined
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* UX-031 · o selo conta o estado do autosave (some enquanto nada
+                foi digitado ainda, e na proposta travada — nada a salvar). */}
+            {!travada && estadoSalvo !== 'ocioso' && (
+              <span className={`selo-autosave${estadoSalvo === 'salvo' ? ' ok' : ''}`}>
+                {estadoSalvo === 'salvando' ? 'Salvando…' : 'Salva ✓'}
+              </span>
+            )}
+            {edicao && !travada && (
+              <button className="btn-icone" onClick={() => setAExcluir(true)} aria-label="Excluir proposta">
+                <Icone nome="lixo" />
+              </button>
+            )}
+          </span>
         }
       />
 
@@ -682,114 +901,22 @@ export function PropostaForm() {
           </p>
         )}
 
-        {/* M-042 F2a · Fotos de referência (proposta_referencias). Visível já na
-            criação: ao tocar, o rascunho automático salva a proposta e abre o
-            picker (opção A). Tocar na miniatura abre a origem; o × tira só a
-            referência — nunca apaga o trabalho/inspiração. */}
-        <div style={{ marginBottom: 14 }}>
-          <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
-            {referencias.length > 0 && (
-              <div className="grade-fotos" style={{ alignItems: 'start', marginBottom: 12 }}>
-                {referencias.map((r) => {
-                  if (r.origem === 'trabalho') {
-                    const t = trabalhos.find((x) => x.id === r.trabalho_id)
-                    if (!t) return null
-                    return (
-                      <div className="foto-item" key={r.id}>
-                        <div
-                          className="acervo-img-wrap"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => navegar(`/acervo?t=${t.id}`)}
-                          onKeyDown={(e) => e.key === 'Enter' && navegar(`/acervo?t=${t.id}`)}
-                        >
-                          <img src={t.url} alt={t.descricao ?? ''} loading="lazy" />
-                          {t.codigo_num != null && (
-                            <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
-                          )}
-                          {!travada && (
-                            <button
-                              className="foto-remover"
-                              onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
-                              aria-label="Tirar esta foto da proposta"
-                            >
-                              <Icone nome="fechar" size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  }
-                  const insp = inspiracoes.find((x) => x.id === r.inspiracao_id)
-                  if (!insp) return null
-                  return (
-                    <div className="foto-item" key={r.id}>
-                      <div
-                        className="acervo-img-wrap"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => navegar(`/inspiracoes/${insp.id}`)}
-                        onKeyDown={(e) => e.key === 'Enter' && navegar(`/inspiracoes/${insp.id}`)}
-                      >
-                        {insp.fotoUrl ? (
-                          <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
-                        ) : (
-                          <div className="insp-link-capa">
-                            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
-                            <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
-                          </div>
-                        )}
-                        {insp.codigo_num != null && (
-                          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>I-{insp.codigo_num}</span>
-                        )}
-                        {!travada && (
-                          <button
-                            className="foto-remover"
-                            onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
-                            aria-label="Tirar esta foto da proposta"
-                          >
-                            <Icone nome="fechar" size={15} />
-                          </button>
-                        )}
-                      </div>
-                      {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <button
-              type="button"
-              className="btn-secundario"
-              style={{ width: '100%', justifyContent: 'center' }}
-              onClick={abrirPickerFotos}
-              disabled={travada || salvando || processandoFoto}
-            >
-              <Icone nome="imagem" size={16} />{' '}
-              {referencias.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
-            </button>
-        </div>
+        {/* UX-031 (D1/P0) · a previa em canvas SAIU da tela: quem mostra a
+            proposta agora e "Ver como a cliente ve" (a pagina publica real, com
+            precos, fotos e condicoes — o cartao so tinha a capa). O canvas
+            continua montado, fora da vista, porque e ele que gera o PNG da capa
+            em "Baixar imagem da capa" (toBlob nao depende de estar visivel). */}
+        <canvas
+          ref={canvasRef}
+          aria-hidden
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', left: -9999 }}
+        />
 
-        {/* Prévia do cartão (canvas 1080×1440 exibido reduzido) */}
-        <canvas ref={canvasRef} className="proposta-previa" aria-label="Prévia da proposta" />
-
-        {semFoto && (
-          <p className="apoio" style={{ textAlign: 'center', marginTop: 10, color: 'var(--framboesa)', fontWeight: 700 }}>
-            Adicione uma foto para deixar a proposta encantadora.
-          </p>
-        )}
-
-        {/* Foto */}
+        {/* UX-031 (ajuste do device 28/07) · o botao da capa SAIU daqui: sem a
+            previa em canvas ele ficou orfao, colado no botao de referencias —
+            dois botoes iguais com acoes diferentes (feedback da Josiane; ela leu
+            o segundo como "cardapio"). A capa agora vive em "Antes de enviar". */}
         <input ref={inputFoto} type="file" accept="image/*" style={{ display: 'none' }} onChange={aoEscolherFoto} />
-        <button
-          type="button"
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
-          onClick={() => inputFoto.current?.click()}
-          disabled={travada || processandoFoto}
-        >
-          {processandoFoto ? 'Processando…' : <><Icone nome="imagem" size={16} /> {semFoto ? 'Adicionar foto' : 'Trocar foto'}</>}
-        </button>
 
         {/* Título */}
         <div className="campo" style={{ marginTop: 14 }}>
@@ -805,7 +932,7 @@ export function PropostaForm() {
 
         {/* Descrição */}
         <div className="campo">
-          <label>Descrição</label>
+          <label>Mensagem para a cliente</label>
           <textarea
             value={descricao}
             disabled={travada}
@@ -833,7 +960,7 @@ export function PropostaForm() {
               onClick={() => setModoPreco('itens')}
               disabled={travada}
             >
-              Itens da tabela
+              Por itens
             </button>
             <button
               type="button"
@@ -925,6 +1052,115 @@ export function PropostaForm() {
           </p>
         )}
 
+        {/* UX-031 (D1/P0) · "Detalhes e outros itens" — separa as observacoes da
+            MENSAGEM que abre a proposta (Descricao). Fica logo apos o preco,
+            porque e ali que a doceira lembra do que ficou de fora da tabela. */}
+        <div className="campo">
+          <label>Detalhes e outros itens (opcional)</label>
+          <textarea
+            value={detalhes}
+            disabled={travada}
+            onChange={(e) => setDetalhes(e.target.value)}
+            placeholder="Ex.: topo personalizado, entrega montada, taxa de deslocamento"
+          />
+          <ContadorTextoLongo atual={detalhes.length} />
+        </div>
+
+        {/* M-042 F2a · Fotos de referência (proposta_referencias). Visível já na
+            criação: ao tocar, o rascunho automático salva a proposta e abre o
+            picker (opção A). Tocar na miniatura abre a origem; o × tira só a
+            referência — nunca apaga o trabalho/inspiração.
+            UX-031 (mockup 1b) · o bloco DESCEU: no mockup o form abre em Título →
+            Mensagem → Preço → Detalhes, e a grade de fotos dominava o topo da
+            tela. Agora entra logo depois de "Detalhes e outros itens". */}
+        {/* `scrollMarginBottom` = os 160px que a `.conteudo` já reserva para o
+            CTA fixo + barra inferior: sem isso o `block:'end'` esconderia a
+            última fileira de miniaturas (justo as recém-adicionadas) atrás do
+            botão "Enviar no WhatsApp". */}
+        <div ref={blocoRefs} style={{ marginBottom: 14, scrollMarginBottom: 160 }}>
+          <div className="secao"><span className="confeito" /><h2>Fotos de referência</h2></div>
+            {referencias.length > 0 && (
+              <div className="grade-fotos" style={{ alignItems: 'start', marginBottom: 12 }}>
+                {referencias.map((r) => {
+                  if (r.origem === 'trabalho') {
+                    const t = trabalhos.find((x) => x.id === r.trabalho_id)
+                    if (!t) return null
+                    return (
+                      <div className="foto-item" key={r.id}>
+                        <div
+                          className="acervo-img-wrap"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navegar(`/acervo?t=${t.id}`)}
+                          onKeyDown={(e) => e.key === 'Enter' && navegar(`/acervo?t=${t.id}`)}
+                        >
+                          <img src={t.url} alt={t.descricao ?? ''} loading="lazy" />
+                          {t.codigo_num != null && (
+                            <span className="cod-selo" aria-label={`Código A-${t.codigo_num}`}>A-{t.codigo_num}</span>
+                          )}
+                          {!travada && (
+                            <button
+                              className="foto-remover"
+                              onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
+                              aria-label="Tirar esta foto da proposta"
+                            >
+                              <Icone nome="fechar" size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+                  const insp = inspiracoes.find((x) => x.id === r.inspiracao_id)
+                  if (!insp) return null
+                  return (
+                    <div className="foto-item" key={r.id}>
+                      <div
+                        className="acervo-img-wrap"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navegar(`/inspiracoes/${insp.id}`)}
+                        onKeyDown={(e) => e.key === 'Enter' && navegar(`/inspiracoes/${insp.id}`)}
+                      >
+                        {insp.fotoUrl ? (
+                          <img src={insp.fotoUrl} alt={insp.nota ?? ''} loading="lazy" />
+                        ) : (
+                          <div className="insp-link-capa">
+                            <span className="insp-link-emoji" aria-hidden><Icone nome="link" size={30} /></span>
+                            <span className="insp-link-dominio">{insp.url ? dominioDe(insp.url) : 'link'}</span>
+                          </div>
+                        )}
+                        {insp.codigo_num != null && (
+                          <span className="cod-selo" aria-label={`Código I-${insp.codigo_num}`}>I-{insp.codigo_num}</span>
+                        )}
+                        {!travada && (
+                          <button
+                            className="foto-remover"
+                            onClick={(e) => { e.stopPropagation(); setRefARemover({ id: r.id, origem: r.origem }) }}
+                            aria-label="Tirar esta foto da proposta"
+                          >
+                            <Icone nome="fechar" size={15} />
+                          </button>
+                        )}
+                      </div>
+                      {insp.nota && <div className="foto-legenda">{insp.nota}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={abrirPickerFotos}
+              disabled={travada || salvando || processandoFoto}
+            >
+              <Icone nome="imagem" size={16} />{' '}
+              {referencias.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
+            </button>
+        </div>
+
         {/* Validade */}
         <div className="campo">
           <label>Validade (opcional)</label>
@@ -973,49 +1209,107 @@ export function PropostaForm() {
           </label>
         </div>
 
-        {/* F2b · CTA de compartilhamento manda o LINK (o PNG virou capa opcional).
-            Não exige foto — a página pública mostra tudo. */}
-        <button
-          type="button"
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
-          onClick={compartilhar}
-          disabled={compartilhando || salvando || processandoFoto}
-        >
-          {compartilhando ? 'Preparando o link…' : <><Icone nome="compartilhar" size={16} /> Compartilhar no WhatsApp</>}
-        </button>
-        <button
-          type="button"
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-          onClick={baixarImagem}
-          disabled={semFoto}
-        >
-          <Icone nome="baixar" size={16} /> Baixar imagem (capa)
-        </button>
-        {cliente?.whatsapp && (
-          <button
-            type="button"
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-            onClick={abrirWhatsAppCliente}
-          >
-            <Icone nome="whatsapp" size={16} /> Abrir conversa de {cliente.nome.split(' ')[0]}
-          </button>
-        )}
+        {/* UX-031 (D1/P0) · "Antes de enviar" — o que era 3 botoes secundarios
+            identicos vira lista, e a previa em canvas da lugar a pagina REAL
+            que a cliente recebe ("Ver como a cliente ve"). */}
+        <div className="secao"><span className="confeito" /><h2>Antes de enviar</h2></div>
+        <div className="card" style={{ padding: '2px 14px' }}>
+          <div className="lista">
+            <div
+              className="item"
+              role="button"
+              tabIndex={0}
+              onClick={verComoCliente}
+              onKeyDown={(e) => e.key === 'Enter' && verComoCliente()}
+              aria-disabled={abrindoPrevia}
+            >
+              <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="olho" size={17} /></div>
+              <div className="card-info">
+                <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+                  {abrindoPrevia ? 'Abrindo…' : 'Ver como a cliente vê'}
+                </div>
+                <div className="apoio">abre a página que ela vai receber</div>
+              </div>
+              <span aria-hidden>›</span>
+            </div>
 
-        <p className="apoio" style={{ textAlign: 'center', marginTop: 14 }}>
-          A proposta fica salva na ficha da cliente. A foto não conta como trabalho.
-        </p>
+            {!travada && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={() => !processandoFoto && inputFoto.current?.click()}
+                onKeyDown={(e) => e.key === 'Enter' && inputFoto.current?.click()}
+                aria-disabled={processandoFoto}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="imagem" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+                    {processandoFoto ? 'Processando…' : semFoto ? 'Adicionar imagem da capa' : 'Trocar imagem da capa'}
+                  </div>
+                  <div className="apoio">a foto que aparece na mensagem do WhatsApp</div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+
+            {!semFoto && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={baixarImagem}
+                onKeyDown={(e) => e.key === 'Enter' && baixarImagem()}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="baixar" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Baixar imagem da capa</div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+
+            {cliente?.whatsapp && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={abrirWhatsAppCliente}
+                onKeyDown={(e) => e.key === 'Enter' && abrirWhatsAppCliente()}
+              >
+                <div
+                  className="bola"
+                  style={{ width: 36, height: 36, background: 'var(--cor-sucesso-fundo)', color: 'var(--cor-whatsapp)' }}
+                >
+                  <Icone nome="whatsapp" size={17} />
+                </div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+                    Abrir conversa da {cliente.nome.split(' ')[0]}
+                  </div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* CTA primário fixo: salvar. M-053 · some na proposta travada (nada a
-          salvar — o combinado vive no pedido). */}
+      {/* UX-031 · o CTA fixo agora ENVIA (o salvar virou automatico). M-053 ·
+          na proposta travada some — o combinado vive no pedido. */}
       {!travada && (
         <div className="cta-area">
-          <button type="button" className="cta" onClick={salvar} disabled={salvando || processandoFoto}>
-            {salvando ? 'Salvando…' : edicao ? 'Salvar alterações' : 'Salvar proposta'}
+          <button
+            type="button"
+            className="cta"
+            onClick={compartilhar}
+            disabled={compartilhando || salvando || processandoFoto}
+          >
+            {compartilhando ? 'Preparando o link…' : <><Icone nome="whatsapp" size={16} /> Enviar no WhatsApp</>}
           </button>
+          <p className="apoio" style={{ textAlign: 'center', margin: '8px 0 0', fontSize: 12 }}>
+            sua proposta fica salva automaticamente
+          </p>
         </div>
       )}
 
@@ -1032,9 +1326,9 @@ export function PropostaForm() {
       {/* M3 · aviso "sair sem salvar" quando há conteúdo não salvo no form. */}
       {confirmarSaida && (
         <Confirmar
-          titulo="Sair sem salvar?"
-          descricao="Você tem alterações que ainda não foram salvas nesta proposta."
-          rotuloConfirmar="Sair sem salvar"
+          titulo="Sair agora?"
+          descricao="A proposta salva sozinha, mas as últimas letras que você digitou ainda não foram gravadas."
+          rotuloConfirmar="Sair mesmo assim"
           onConfirmar={() => {
             setConfirmarSaida(false)
             sair()

@@ -55,16 +55,16 @@ export const STATUS_INFO: Record<StatusPedido, { rotulo: string; chip: string }>
 /** Rótulos do status de pagamento (enum `status_pagamento` do banco). */
 export const PAGAMENTO_INFO: Record<StatusPagamento, string> = {
   nao_pago: 'Não pago',
-  sinal: 'Sinal pago',
+  sinal: 'Sinal recebido',
   pago: 'Pago',
 }
 
-/** Rótulo curto do pagamento — chips do detalhe e indicador "· Sinal"/"· Pago" da lista. */
-export const PAGAMENTO_CURTO: Record<StatusPagamento, string> = {
-  nao_pago: 'Não pago',
-  sinal: 'Sinal',
-  pago: 'Pago',
-}
+/**
+ * Rótulo curto do pagamento — chips do detalhe e indicador "· Sinal recebido"/
+ * "· Pago" da lista. Mockup 1a do design review: "Não pago / Sinal recebido /
+ * Pago". Mantido idêntico ao `PAGAMENTO_INFO` para os dois nunca divergirem.
+ */
+export const PAGAMENTO_CURTO: Record<StatusPagamento, string> = PAGAMENTO_INFO
 
 export type JanelaEntrega = '7d' | 'mes'
 const DIAS_JANELA: Record<JanelaEntrega, number> = { '7d': 7, mes: 30 }

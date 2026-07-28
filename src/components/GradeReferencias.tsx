@@ -144,3 +144,42 @@ export function GradeReferencias({ itens, colunas, aoTocar, aoRemover }: Props) 
     </div>
   )
 }
+
+/**
+ * UX-030 (D1/P0) · Pilha compacta de miniaturas — o detalhe do pedido mostra
+ * uma amostra (3 fotos sobrepostas, a ultima com "+N") em vez da grade inteira;
+ * a grade completa vive na galeria (UX-029). Linha inteira clicavel, no padrao
+ * `.lista .item`.
+ */
+export function PilhaReferencias({
+  itens,
+  onClick,
+}: {
+  itens: RefVisual[]
+  onClick: () => void
+}) {
+  const amostra = itens.slice(0, 3)
+  const resto = itens.length - amostra.length
+  return (
+    <button type="button" className="pilha-refs" onClick={onClick}>
+      <span className="pilha-fotos" aria-hidden>
+        {amostra.map((rv, i) => (
+          <span className="pilha-foto" key={rv.refId} style={{ marginLeft: i === 0 ? 0 : -14 }}>
+            {rv.url ? (
+              <img src={rv.url} alt="" loading="lazy" />
+            ) : (
+              <span className="pilha-link"><Icone nome="link" size={16} /></span>
+            )}
+          </span>
+        ))}
+        {resto > 0 && (
+          <span className="pilha-foto pilha-mais" style={{ marginLeft: -14 }}>+{resto}</span>
+        )}
+      </span>
+      <span className="pilha-rotulo">
+        Ver referências ({itens.length})
+      </span>
+      <span aria-hidden className="pilha-chevron">›</span>
+    </button>
+  )
+}
