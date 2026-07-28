@@ -32,7 +32,16 @@ type FotoPublica = {
   link: string | null // inspiração-link sem imagem
 }
 
-type ItemPublico = { nome: string; preco: number | null }
+// M-052 · preco é o valor POR UNIDADE (snapshot do cardápio) — o total da
+// linha é quantidade × preco, calculado na hora (mesma conta do privado, sem
+// persistir). unidade só aparece quando a dona preencheu (itens antigos podem
+// não ter).
+type ItemPublico = { nome: string; preco: number | null; quantidade: number; unidade: string | null }
+
+/** Ex.: 2 → "2" · 1.5 → "1,5" — mesma regra do form privado (LinhaItemEditavel). */
+function fmtQuantidade(q: number): string {
+  return Number.isInteger(q) ? String(q) : String(q).replace('.', ',')
+}
 
 type DadosProposta = {
   titulo: string | null
@@ -99,6 +108,8 @@ export function PropostaPublica() {
       const itens: ItemPublico[] = ((linha.itens ?? []) as any[]).map((it) => ({
         nome: it.nome ?? '',
         preco: it.preco != null ? Number(it.preco) : null,
+        quantidade: it.quantidade != null ? Number(it.quantidade) : 1,
+        unidade: it.unidade ?? null,
       }))
 
       setDados({
@@ -258,20 +269,30 @@ export function PropostaPublica() {
 
           {dados.modoPreco === 'itens' && dados.itens.length > 0 ? (
             <>
-              {dados.itens.map((it, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
-                    borderBottom: i < dados.itens.length - 1 ? '1px solid var(--linha)' : 'none',
-                  }}
-                >
-                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{it.nome}</span>
-                  <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
-                    {it.preco != null ? formatarReal(it.preco) : 'sob consulta'}
-                  </span>
-                </div>
-              ))}
+              {dados.itens.map((it, i) => {
+                // M-052 · preco (snapshot) é POR UNIDADE — o total da linha é
+                // quantidade × preco, mesma conta do form privado (nunca
+                // persistida; a cliente só vê o resultado).
+                const totalLinha = it.preco != null ? it.preco * it.quantidade : null
+                const prefixoQtd = it.quantidade !== 1 ? `${fmtQuantidade(it.quantidade)}× ` : ''
+                const sufixoUnidade = it.unidade ? ` (${it.unidade})` : ''
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
+                      borderBottom: i < dados.itens.length - 1 ? '1px solid var(--linha)' : 'none',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>
+                      {prefixoQtd}{it.nome}{sufixoUnidade}
+                    </span>
+                    <span style={{ fontWeight: 700, color: 'var(--framboesa)', flexShrink: 0 }}>
+                      {totalLinha != null ? formatarReal(totalLinha) : 'sob consulta'}
+                    </span>
+                  </div>
+                )
+              })}
               <div
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,

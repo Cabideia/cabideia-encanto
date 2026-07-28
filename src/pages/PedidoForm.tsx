@@ -16,7 +16,7 @@ import { useGuardaSaida } from '../hooks/useGuardaSaida'
 import { GradeReferencias, resolverReferencias, type RefVisual } from '../components/GradeReferencias'
 import { LinhaItemEditavel, avisoItensForaTabela, type PatchItemEditavel } from '../components/LinhaItemEditavel'
 import { ContadorTextoLongo } from '../components/ContadorTextoLongo'
-import { useCardapio, formatarReal, precoParaNumero } from '../hooks/useCardapio'
+import { useCardapio, formatarReal, precoParaNumero, unidadesParaChips } from '../hooks/useCardapio'
 import { supabase } from '../lib/supabase'
 
 const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
@@ -153,6 +153,10 @@ export function PedidoForm() {
   const [criandoItem, setCriandoItem] = useState(false)
   const [novoNomeItem, setNovoNomeItem] = useState('')
   const [novoPrecoItem, setNovoPrecoItem] = useState('')
+  // M-052 · unidade é obrigatória (useCardapio.criar() recusa sem ela) — este
+  // atalho não tinha o campo e ficava sempre recusado.
+  const [novoUnidadeItem, setNovoUnidadeItem] = useState('')
+  const chipsUnidadeItem = unidadesParaChips(cardapio)
   // M-044 · o total foi tocado pela dona? (guia o pré-preenchimento pela soma dos
   // itens — só age enquanto o campo está vazio/não-tocado, sem sobrescrever).
   const [valorTocado, setValorTocado] = useState(false)
@@ -686,10 +690,14 @@ export function PedidoForm() {
       avisar('Dê um nome ao item.')
       return
     }
+    if (!novoUnidadeItem.trim()) {
+      avisar('Escolha uma unidade (ex.: unidade, kg, cento…).')
+      return
+    }
     const res = await criarItemCardapio({
       nome,
       preco_base: novoPrecoItem,
-      unidade: '',
+      unidade: novoUnidadeItem,
       detalhes: '',
       na_vitrine: false,
       preco_sob_consulta: false,
@@ -701,6 +709,7 @@ export function PedidoForm() {
     setMarcados((prev) => new Set(prev).add(res.item.id))
     setNovoNomeItem('')
     setNovoPrecoItem('')
+    setNovoUnidadeItem('')
     setCriandoItem(false)
     avisar('Item criado na tabela de preços ✓')
   }
@@ -1107,6 +1116,25 @@ export function PedidoForm() {
                   inputMode="decimal"
                   style={{ marginTop: 8 }}
                 />
+                <input
+                  value={novoUnidadeItem}
+                  onChange={(e) => setNovoUnidadeItem(e.target.value)}
+                  placeholder="Unidade (ex.: kg, cento…)"
+                  maxLength={40}
+                  style={{ marginTop: 8 }}
+                />
+                <div className="escolha" style={{ marginTop: 8 }}>
+                  {chipsUnidadeItem.map((u) => (
+                    <button
+                      key={u.toLowerCase()}
+                      type="button"
+                      className={`filtro${novoUnidadeItem.trim().toLowerCase() === u.toLowerCase() ? ' ativo' : ''}`}
+                      onClick={() => setNovoUnidadeItem(u)}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                   <button
                     type="button"
@@ -1116,6 +1144,7 @@ export function PedidoForm() {
                       setCriandoItem(false)
                       setNovoNomeItem('')
                       setNovoPrecoItem('')
+                      setNovoUnidadeItem('')
                     }}
                     disabled={salvandoCardapio}
                   >
@@ -1126,7 +1155,7 @@ export function PedidoForm() {
                     className="cta"
                     style={{ flex: 1 }}
                     onClick={criarItemNoPicker}
-                    disabled={salvandoCardapio || !novoNomeItem.trim()}
+                    disabled={salvandoCardapio || !novoNomeItem.trim() || !novoUnidadeItem.trim()}
                   >
                     {salvandoCardapio ? 'Criando…' : 'Criar item'}
                   </button>

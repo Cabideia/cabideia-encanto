@@ -57,3 +57,13 @@ export function rotuloEntrega(iso: string): string {
   if (d < 0) return `Atrasado ${Math.abs(d)}d`
   return formatarData(iso)
 }
+
+/**
+ * UX-022 · Ex.: "julho" — nome do mês por extenso, minúsculo. Recebe `Date`
+ * pronta (não string) porque o chamador pode ter uma data-só ('YYYY-MM-DD',
+ * via `dataLocal`) ou um timestamp completo (`criado_em`, via `new Date`) —
+ * formatos diferentes o bastante para não valer a pena adivinhar aqui.
+ */
+export function formatarMes(d: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(d)
+}
