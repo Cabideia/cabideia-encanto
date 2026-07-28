@@ -10,6 +10,7 @@ import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { useAssinatura } from '../hooks/useAssinatura'
 import { extrairCodigos } from '../lib/codigos'
 import { comprimirImagem } from '../lib/imagem'
+import { usePedidos } from '../hooks/usePedidos'
 import { usePropostas } from '../hooks/usePropostas'
 import { usePropostaReferencias, type NovaReferencia } from '../hooks/usePropostaReferencias'
 
@@ -31,6 +32,8 @@ export function PropostaReferencias() {
   const navegar = useNavigate()
 
   const { buscarPorId, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
+  // R2b (M-053) · proposta com pedido → conteúdo só-leitura; este picker fecha.
+  const { pedidoDaProposta, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
   const { trabalhos, carregando: carregandoAcervo } = useAcervo(sessao?.user.id)
   const { inspiracoes, subirImagem, criar: criarInspiracao } = useInspiracoes(sessao?.user.id)
   const { total, limite, ilimitado, recarregar } = useAssinatura(sessao?.user.id)
@@ -199,7 +202,7 @@ export function PropostaReferencias() {
     navegar(-1)
   }
 
-  if (carregandoPropostas || carregandoAcervo || carregandoRefs) return null
+  if (carregandoPropostas || carregandoAcervo || carregandoRefs || carregandoPedidos) return null
 
   if (!id || !proposta) {
     return (
@@ -210,6 +213,33 @@ export function PropostaReferencias() {
             <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Esta proposta não foi encontrada.</p>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // R2b (M-053 · Decisão #63) · a proposta virou pedido: nada de mexer em as fotos
+  // por aqui — o combinado vive no pedido. Tela informativa com o caminho certo.
+  const pedidoDaEdicao = pedidoDaProposta(id)
+  if (pedidoDaEdicao) {
+    return (
+      <div className="tela">
+        <BarraTopo titulo="Referências" />
+        <div className="conteudo">
+          <div className="vazio" style={{ marginTop: 16 }}>
+            <div className="icone"><Icone nome="pedidos" size={44} /></div>
+            <p>
+              Esta proposta virou um pedido e ficou travada. Para mudar as fotos,
+              edite o pedido.
+            </p>
+          </div>
+          <button
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+            onClick={() => navegar(`/pedidos/${pedidoDaEdicao.id}`, { replace: true })}
+          >
+            <Icone nome="pedidos" size={16} /> Ver pedido
+          </button>
         </div>
       </div>
     )

@@ -4,6 +4,7 @@ import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
+import { usePedidos } from '../hooks/usePedidos'
 import { usePropostas } from '../hooks/usePropostas'
 import { useCardapio, formatarReal } from '../hooks/useCardapio'
 import { usePropostaItens, type NovoItemProposta } from '../hooks/usePropostaItens'
@@ -21,6 +22,8 @@ export function PropostaItens() {
   const navegar = useNavigate()
 
   const { buscarPorId, carregando: carregandoPropostas } = usePropostas(sessao?.user.id)
+  // R2b (M-053) · proposta com pedido → conteúdo só-leitura; este picker fecha.
+  const { pedidoDaProposta, carregando: carregandoPedidos } = usePedidos(sessao?.user.id)
   const {
     itens: cardapio,
     carregando: carregandoCardapio,
@@ -100,7 +103,7 @@ export function PropostaItens() {
     navegar(-1)
   }
 
-  if (carregandoPropostas || carregandoCardapio || carregandoItens) return null
+  if (carregandoPropostas || carregandoCardapio || carregandoItens || carregandoPedidos) return null
 
   if (!id || !proposta) {
     return (
@@ -111,6 +114,33 @@ export function PropostaItens() {
             <div className="icone"><Icone nome="busca" size={44} /></div>
             <p>Esta proposta não foi encontrada.</p>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // R2b (M-053 · Decisão #63) · a proposta virou pedido: nada de mexer em os itens
+  // por aqui — o combinado vive no pedido. Tela informativa com o caminho certo.
+  const pedidoDaEdicao = pedidoDaProposta(id)
+  if (pedidoDaEdicao) {
+    return (
+      <div className="tela">
+        <BarraTopo titulo="Itens da proposta" />
+        <div className="conteudo">
+          <div className="vazio" style={{ marginTop: 16 }}>
+            <div className="icone"><Icone nome="pedidos" size={44} /></div>
+            <p>
+              Esta proposta virou um pedido e ficou travada. Para mudar os itens,
+              edite o pedido.
+            </p>
+          </div>
+          <button
+            className="btn-secundario"
+            style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+            onClick={() => navegar(`/pedidos/${pedidoDaEdicao.id}`, { replace: true })}
+          >
+            <Icone nome="pedidos" size={16} /> Ver pedido
+          </button>
         </div>
       </div>
     )

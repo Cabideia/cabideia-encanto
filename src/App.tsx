@@ -21,6 +21,7 @@ import { Pedidos } from './pages/Pedidos'
 import { PedidoForm } from './pages/PedidoForm'
 import { PedidoDetalhe } from './pages/PedidoDetalhe'
 import { PedidoReferencias } from './pages/PedidoReferencias'
+import { GaleriaReferencias } from './pages/GaleriaReferencias'
 import { PedidoItens } from './pages/PedidoItens'
 import { PropostaForm } from './pages/PropostaForm'
 import { PropostaReferencias } from './pages/PropostaReferencias'
@@ -119,6 +120,7 @@ export function App() {
           <Route path="/pedidos/:id/editar" element={<Privada><PedidoForm /></Privada>} />
           <Route path="/pedidos/:id/fotos" element={<Privada><GuardarLotePedido /></Privada>} />
           <Route path="/pedidos/:id/referencias" element={<Privada><PedidoReferencias /></Privada>} />
+          <Route path="/pedidos/:id/galeria" element={<Privada><GaleriaReferencias /></Privada>} />
           <Route path="/pedidos/:id/itens" element={<Privada><PedidoItens /></Privada>} />
           <Route path="/clientes" element={<Privada><Clientes /></Privada>} />
           <Route path="/clientes/:id" element={<Privada><ClienteDetalhe /></Privada>} />
