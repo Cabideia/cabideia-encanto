@@ -340,14 +340,9 @@ export function ClienteDetalhe() {
         )}
       </div>
 
-      {/* CTA primário (modo leitura): criar uma proposta para esta cliente */}
-      {!editando && (
-        <div className="cta-area">
-          <button className="cta" onClick={() => navegar(`/clientes/${cliente.id}/propostas/nova`)}>
-            <Icone nome="mais" /> Nova proposta
-          </button>
-        </div>
-      )}
+      {/* UX-022 (Decisão #57) · "Nova proposta" SAIU da ficha — nasce agora só
+          pelo seletor do FAB (SeletorClienteProposta). Esta tela vira leitura
+          + histórico: editar (lápis na barra), WhatsApp e excluir continuam. */}
 
       {/* CTA primário fixo só no modo edição (Salvar). */}
       {editando && (

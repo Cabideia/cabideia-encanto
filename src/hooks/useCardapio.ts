@@ -2,8 +2,26 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEM_CONEXAO, estaOffline } from '../lib/conexao'
 
-/** Sugestões de unidade (chips). O campo aceita qualquer texto livre. */
+/** Sugestões-base de unidade (chips). O campo aceita qualquer texto livre. */
 export const UNIDADES_SUGERIDAS = ['unidade', 'cento', 'dúzia', 'kg', 'fatia']
+
+/**
+ * M-052 · Chips de unidade: a base fixa + as que a própria dona já usou, sem
+ * duplicar por maiúsculas/minúsculas — hoje o banco tem "Cento" e "cento"
+ * convivendo (dado real, introspecção de 28/07); o merge mostra só um chip
+ * por unidade, na casing que a base ou a dona escolheram primeiro.
+ */
+export function unidadesParaChips(itens: Pick<ItemCardapio, 'unidade'>[]): string[] {
+  const vistas = new Map<string, string>() // chave minúscula → forma a exibir
+  for (const base of UNIDADES_SUGERIDAS) vistas.set(base.toLowerCase(), base)
+  for (const it of itens) {
+    const u = it.unidade?.trim()
+    if (!u) continue
+    const chave = u.toLowerCase()
+    if (!vistas.has(chave)) vistas.set(chave, u)
+  }
+  return [...vistas.values()]
+}
 
 /** Formata um preço em reais (ex.: 1234.56 → "R$ 1.234,56"). */
 export function formatarReal(valor: number): string {
@@ -106,6 +124,9 @@ export function useCardapio(usuariaId: string | undefined) {
     if (!usuariaId) return { erro: 'Sessão expirada. Entre de novo.' }
     const dados = payload(campos)
     if (!dados.nome) return { erro: 'Dê um nome ao item.' }
+    // M-052 · unidade OBRIGATÓRIA em item novo (o legado com unidade nula não
+    // é tocado por aqui — só passa por este caminho quem está criando agora).
+    if (!dados.unidade) return { erro: 'Escolha uma unidade (ex.: unidade, kg, cento…).' }
     setSalvando(true)
     try {
       const { data, error } = await supabase
@@ -127,6 +148,10 @@ export function useCardapio(usuariaId: string | undefined) {
     if (estaOffline()) return SEM_CONEXAO
     const dados = payload(campos)
     if (!dados.nome) return 'Dê um nome ao item.'
+    // M-052 · unidade OBRIGATÓRIA ao editar — inclusive item legado sem
+    // unidade: abrir e editar sem preenchê-la não deixa mais salvar (a tela
+    // continua abrindo normalmente; só o SALVAR exige o campo).
+    if (!dados.unidade) return 'Escolha uma unidade (ex.: unidade, kg, cento…).'
     setSalvando(true)
     try {
       const { data, error } = await supabase

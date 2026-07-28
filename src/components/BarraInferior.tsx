@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Icone } from './Icone'
+import { SeletorClienteProposta } from './SeletorClienteProposta'
 
 /**
  * UX-017 · Barra inferior (Decisão #35): Início · Pedidos · ＋ · Agenda · Menu.
@@ -11,14 +12,16 @@ import { Icone } from './Icone'
  * que saíram da barra (Clientes fica a 1 toque aqui e no bloco da home).
  * Ambas usam o padrão .painel/.painel-overlay já existente no app.
  *
- * "Nova proposta" leva a /clientes (a proposta nasce da ficha da cliente —
- * fluxo atual; a criação de cliente inline é evolução do UX-018).
+ * UX-022 (Decisão #57/#76, mockup 2c) · "Nova proposta" NÃO navega mais para
+ * /clientes — abre o `SeletorClienteProposta` (busca + "+ Criar cliente
+ * nova"), montado só quando `folha === 'proposta'` para não buscar
+ * clientes/pedidos/propostas em toda navegação privada à toa.
  * "Propostas" no Menu aponta para a tela Propostas (fusão do UX-018).
  */
 export function BarraInferior() {
   const { pathname } = useLocation()
   const navegar = useNavigate()
-  const [folha, setFolha] = useState<'criar' | 'menu' | null>(null)
+  const [folha, setFolha] = useState<'criar' | 'menu' | 'proposta' | null>(null)
 
   // Marca no <html> que a barra está presente — o CSS sobe .conteudo/.cta-area.
   useEffect(() => {
@@ -71,7 +74,7 @@ export function BarraInferior() {
               <span className="acao-ico"><Icone nome="pedidos" /></span>
               <span>Novo pedido<span className="acao-sub">Uma encomenda de cliente</span></span>
             </button>
-            <button className="acao-folha" onClick={() => ir('/clientes')}>
+            <button className="acao-folha" onClick={() => setFolha('proposta')}>
               <span className="acao-ico"><Icone nome="enviar" /></span>
               <span>Nova proposta<span className="acao-sub">Escolha a cliente para começar</span></span>
             </button>
@@ -115,6 +118,8 @@ export function BarraInferior() {
           </div>
         </div>
       )}
+
+      {folha === 'proposta' && <SeletorClienteProposta aoFechar={() => setFolha(null)} />}
     </>
   )
 }

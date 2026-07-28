@@ -10,7 +10,7 @@ import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import {
   useCardapio,
-  UNIDADES_SUGERIDAS,
+  unidadesParaChips,
   formatarReal,
   precoParaNumero,
   type CamposItem,
@@ -38,6 +38,8 @@ export function Cardapio() {
   const { sessao } = useSessao()
   const avisar = useAviso()
   const { itens, carregando, salvando, criar, atualizar, excluir } = useCardapio(sessao?.user.id)
+  // M-052 · chips = base fixa + unidades que a própria dona já usou.
+  const chipsUnidade = unidadesParaChips(itens)
 
   const [busca, setBusca] = useState('')
   // null = fechado · 'novo' = criando · string(id) = editando
@@ -279,7 +281,10 @@ export function Cardapio() {
               )}
             </div>
             <div className="campo">
-              <label>Unidade (opcional)</label>
+              {/* M-052 · unidade passa a OBRIGATÓRIA (itens novos e ao editar
+                  — o legado com unidade nula continua abrindo normalmente,
+                  só o SALVAR passa a exigir o campo). */}
+              <label>Unidade</label>
               <input
                 value={form.unidade}
                 onChange={(e) => setForm({ ...form, unidade: e.target.value })}
@@ -287,11 +292,11 @@ export function Cardapio() {
                 maxLength={40}
               />
               <div className="escolha" style={{ marginTop: 8 }}>
-                {UNIDADES_SUGERIDAS.map((u) => (
+                {chipsUnidade.map((u) => (
                   <button
-                    key={u}
+                    key={u.toLowerCase()}
                     type="button"
-                    className={`filtro${form.unidade.trim().toLowerCase() === u ? ' ativo' : ''}`}
+                    className={`filtro${form.unidade.trim().toLowerCase() === u.toLowerCase() ? ' ativo' : ''}`}
                     onClick={() => setForm({ ...form, unidade: u })}
                   >
                     {u}
@@ -359,7 +364,7 @@ export function Cardapio() {
               <button
                 type="button"
                 onClick={salvar}
-                disabled={salvando || !form.nome.trim()}
+                disabled={salvando || !form.nome.trim() || !form.unidade.trim()}
                 className="cta"
                 style={{ flex: 2, height: 48 }}
               >
