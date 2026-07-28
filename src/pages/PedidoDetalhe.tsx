@@ -9,11 +9,10 @@ import { useClientes, linkWhatsApp } from '../hooks/useClientes'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
 import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
-import { GradeReferencias, resolverReferencias, type RefVisual } from '../components/GradeReferencias'
+import { PilhaReferencias, resolverReferencias } from '../components/GradeReferencias'
 import {
   usePedidos,
   STATUS_INFO,
-  PAGAMENTO_INFO,
   PAGAMENTO_CURTO,
   tituloPedido,
   type StatusPedido,
@@ -23,7 +22,10 @@ import { formatarReal } from '../hooks/useCardapio'
 import { compartilharImagens } from '../lib/compartilhar'
 import { formatarDataLonga, formatarDataNumerica, rotuloEntrega } from '../lib/datas'
 
-const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue', 'cancelado']
+// UX-030 (D1/P0) · os chips mostram so o CAMINHO NORMAL do pedido. "Cancelado"
+// e uma acao destrutiva de excecao: saiu dos chips e virou item do menu (✎),
+// atras de confirmacao — a doceira nao cancela um pedido por engano num toque.
+const ORDEM_STATUS: StatusPedido[] = ['a_fazer', 'em_producao', 'entregue']
 const ORDEM_PAGAMENTO: StatusPagamento[] = ['nao_pago', 'sinal', 'pago']
 
 /** URLs coladas pela cliente costumam vir sem https:// — garante o esquema. */
@@ -60,6 +62,9 @@ export function PedidoDetalhe() {
   const [compartilhandoLink, setCompartilhandoLink] = useState(false)
   // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
   const [refARemover, setRefARemover] = useState<{ id: string; origem: 'trabalho' | 'inspiracao' } | null>(null)
+  // UX-030 · menu do ✎ (editar / cancelar) + confirmacao do cancelamento.
+  const [menuAberto, setMenuAberto] = useState(false)
+  const [aCancelar, setACancelar] = useState(false)
 
   // Busca URL assinada da foto de referência (bucket privado).
   useEffect(() => {
@@ -141,6 +146,19 @@ export function PedidoDetalhe() {
     }
   }
 
+  // UX-030 · cancelar o pedido (acao de excecao, fora dos chips). O link da
+  // cliente para de abrir (a RPC publica filtra cancelado) e o pedido sai da
+  // agenda — por isso passa por confirmacao. Reabrir e so escolher um chip.
+  async function confirmarCancelar() {
+    const erro = await mudarStatus(pedido!.id, 'cancelado')
+    setACancelar(false)
+    if (erro) {
+      avisar(erro)
+      return
+    }
+    avisar('Pedido cancelado')
+  }
+
   // M-042 · tira uma referência do pedido (não apaga o trabalho/inspiração).
   async function aoRemoverReferencia(refId: string) {
     const erro = await removerReferencia(refId)
@@ -149,15 +167,6 @@ export function PedidoDetalhe() {
 
   // R2b · modelos visuais das referências (grade compartilhada — UX-029).
   const refsVisuais = resolverReferencias(referencias, trabalhos, inspiracoes)
-
-  // Toque numa referência: foto abre a origem; link puro abre no navegador.
-  function aoTocarReferencia(rv: RefVisual) {
-    if (!rv.url && rv.linkExterno) {
-      window.open(rv.linkExterno, '_blank', 'noopener')
-      return
-    }
-    navegar(rv.rotaOrigem)
-  }
 
   // M-047 · URL da página pública do pedido (mesmo domínio da proposta F2b).
   function linkPedido(token: string): string {
@@ -240,7 +249,7 @@ export function PedidoDetalhe() {
       <BarraTopo
         titulo="Pedido"
         acao={
-          <button className="btn-icone" onClick={() => navegar(`/pedidos/${pedido.id}/editar`)} aria-label="Editar pedido">
+          <button className="btn-icone" onClick={() => setMenuAberto(true)} aria-label="Mais opções do pedido">
             <Icone nome="editar" />
           </button>
         }
@@ -258,11 +267,8 @@ export function PedidoDetalhe() {
                   <Icone nome="calendario" size={14} /> {formatarDataLonga(pedido.data_entrega)} · {rotuloEntrega(pedido.data_entrega)}
                 </div>
               )}
-              {/* M-039 · valor junto ao status de pagamento (só exibição) */}
-              {pedido.valor != null && (
-                <div className="apoio" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icone nome="precos" size={14} /> {formatarReal(pedido.valor)} · {PAGAMENTO_INFO[pedido.status_pagamento]}
-                </div>
+              {cliente && (
+                <div className="apoio" style={{ marginTop: 4 }}>{cliente.nome}</div>
               )}
             </div>
             <span className={`chip ${info.chip}`}>{info.rotulo}</span>
@@ -277,57 +283,23 @@ export function PedidoDetalhe() {
               <Icone nome="trabalhos" size={15} /> {vinculados.length} trabalho{vinculados.length !== 1 ? 's' : ''}
             </div>
           )}
-        </div>
 
-        {/* Cliente */}
-        {cliente && (
-          <div className="card">
-            <div className="card-linha">
-              <div className="bola" aria-hidden>
-                {cliente.nome.trim().charAt(0).toUpperCase() || <Icone nome="clientes" size={18} />}
-              </div>
-              <div className="card-info">
-                <div className="card-nome">{cliente.nome}</div>
-                <div className="apoio">{cliente.whatsapp ?? 'sem WhatsApp'}</div>
-              </div>
+          {/* UX-030 · o valor combinado ganha linha propria dentro do card
+              (antes era mais uma linha de apoio, perdida entre data e tema). */}
+          {pedido.valor != null && (
+            <div
+              style={{
+                marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--linha)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              }}
+            >
+              <span className="apoio">Valor combinado</span>
+              <b style={{ fontSize: 'var(--t-card)', color: 'var(--framboesa)' }}>
+                {formatarReal(pedido.valor)}
+              </b>
             </div>
-            {linkZap && (
-              <button
-                className="btn-secundario"
-                style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
-                onClick={() => window.open(linkZap, '_blank', 'noopener')}
-              >
-                <Icone nome="whatsapp" size={16} /> Abrir conversa no WhatsApp
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* M-047 · Compartilhar o pedido com a cliente como página-link pública.
-            Fica logo abaixo de "Abrir conversa no WhatsApp"; como o pedido pode
-            não ter cliente, mora fora do card da cliente para estar sempre
-            visível (decisão de design). O toque gera/reusa o token, garante as
-            cópias públicas das fotos e abre o WhatsApp com o texto + o link. */}
-        <button
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center' }}
-          onClick={compartilharLink}
-          disabled={compartilhandoLink}
-        >
-          <Icone nome="compartilhar" size={16} />{' '}
-          {compartilhandoLink ? 'Preparando o link…' : 'Compartilhar com a cliente'}
-        </button>
-
-        {/* M-042 · atalho para a proposta que originou este pedido (M-039) */}
-        {pedido.proposta_id && (
-          <button
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={() => navegar(`/propostas/${pedido.proposta_id}`)}
-          >
-            <Icone nome="precos" size={16} /> Ver proposta
-          </button>
-        )}
+          )}
+        </div>
 
         {/* Foto de referência */}
         {fotoUrl && (
@@ -346,28 +318,20 @@ export function PedidoDetalhe() {
             completa (2 colunas + zoom) vive em "Ver referências". Tocar abre a
             origem; o × tira só a referência — nunca apaga o item. */}
         <div className="secao"><span className="confeito" /><h2>Referências</h2></div>
-        <GradeReferencias
-          itens={refsVisuais.slice(0, 4)}
-          aoTocar={aoTocarReferencia}
-          aoRemover={(rv) => setRefARemover({ id: rv.refId, origem: rv.origem })}
-        />
-        {refsVisuais.length > 0 && (
+        {refsVisuais.length > 0 ? (
+          <PilhaReferencias
+            itens={refsVisuais}
+            onClick={() => navegar(`/pedidos/${pedido.id}/galeria`)}
+          />
+        ) : (
           <button
             className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-            onClick={() => navegar(`/pedidos/${pedido.id}/galeria`)}
+            style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
           >
-            <Icone nome="imagem" size={16} /> Ver referências ({refsVisuais.length})
+            <Icone nome="imagem" size={16} /> Selecionar referências
           </button>
         )}
-        <button
-          className="btn-secundario"
-          style={{ width: '100%', justifyContent: 'center', marginTop: refsVisuais.length > 0 ? 10 : 0 }}
-          onClick={() => navegar(`/pedidos/${pedido.id}/referencias`)}
-        >
-          <Icone nome="imagem" size={16} />{' '}
-          {refsVisuais.length > 0 ? 'Adicionar mais referências' : 'Selecionar referências'}
-        </button>
 
         {/* UX-028 · legado só-leitura: pedidos antigos com inspiração 1:1 (M-007)
             ou link da cliente (M-040) seguem exibidos aqui, agora sob "Referências"
@@ -490,33 +454,161 @@ export function PedidoDetalhe() {
                 </div>
               ))}
             </div>
-            <button
-              className="btn-secundario"
-              style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-              onClick={compartilharFotos}
-              disabled={compartilhandoFotos}
-            >
-              <Icone nome="compartilhar" size={16} />{' '}
-              {compartilhandoFotos
-                ? 'Abrindo…'
-                : `Baixar / compartilhar ${vinculados.length === 1 ? 'foto' : 'fotos'}`}
-            </button>
           </>
         )}
 
-        {/* I7 · guardar fotos do trabalho (Meus Trabalhos) — enquanto em produção
-            E depois de entregue. Rótulo desambiguado do "Guardar inspirações
-            deste pedido" acima (fotos prontas do trabalho ≠ referências/prints). */}
-        {(pedido.status === 'em_producao' || pedido.status === 'entregue') && (
-          <button
-            className="btn-secundario"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
-            onClick={() => navegar(`/pedidos/${pedido.id}/fotos`)}
-          >
-            <Icone nome="trabalhos" size={16} /> Guardar fotos do trabalho
-          </button>
-        )}
+        {/* UX-030 (D1/P0) · "Mais ações" — as acoes secundarias que antes eram
+            5 a 7 botoes full-width identicos viram uma LISTA (padrao .lista
+            .item), sobrando uma unica acao primaria na tela (o CTA fixo). */}
+        <div className="secao"><span className="confeito" /><h2>Mais ações</h2></div>
+        <div className="card" style={{ padding: '2px 14px' }}>
+          <div className="lista">
+            {pedido.proposta_id && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={() => navegar(`/propostas/${pedido.proposta_id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navegar(`/propostas/${pedido.proposta_id}`)}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="precos" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Ver proposta original</div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+
+            {vinculados.length > 0 && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={compartilharFotos}
+                onKeyDown={(e) => e.key === 'Enter' && compartilharFotos()}
+                aria-disabled={compartilhandoFotos}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="compartilhar" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+                    {compartilhandoFotos
+                      ? 'Abrindo…'
+                      : `Baixar ou compartilhar ${vinculados.length === 1 ? 'foto' : 'fotos'}`}
+                  </div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+
+            {/* I7 · fotos prontas do trabalho (≠ referencias) — em producao e entregue */}
+            {(pedido.status === 'em_producao' || pedido.status === 'entregue') && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={() => navegar(`/pedidos/${pedido.id}/fotos`)}
+                onKeyDown={(e) => e.key === 'Enter' && navegar(`/pedidos/${pedido.id}/fotos`)}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="trabalhos" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Guardar fotos do trabalho</div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+
+            {linkZap && cliente && (
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={() => window.open(linkZap, '_blank', 'noopener')}
+                onKeyDown={(e) => e.key === 'Enter' && window.open(linkZap, '_blank', 'noopener')}
+              >
+                <div
+                  className="bola"
+                  style={{ width: 36, height: 36, background: 'var(--cor-sucesso-fundo)', color: 'var(--cor-whatsapp)' }}
+                >
+                  <Icone nome="whatsapp" size={17} />
+                </div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
+                    Abrir conversa de {cliente.nome.split(' ')[0]}
+                  </div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* UX-030 · a UNICA acao primaria da tela */}
+      <div className="cta-area">
+        <button className="cta" onClick={compartilharLink} disabled={compartilhandoLink}>
+          <Icone nome="compartilhar" size={16} />{' '}
+          {compartilhandoLink ? 'Preparando o link…' : 'Compartilhar com a cliente'}
+        </button>
+      </div>
+
+      {/* UX-030 · menu do ✎ — editar (comum) e cancelar (excecao, destrutivo). */}
+      {menuAberto && (
+        <div className="painel-overlay" onClick={() => setMenuAberto(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <div className="form-acervo-titulo">Este pedido</div>
+            <div className="lista">
+              <div
+                className="item"
+                role="button"
+                tabIndex={0}
+                onClick={() => { setMenuAberto(false); navegar(`/pedidos/${pedido.id}/editar`) }}
+                onKeyDown={(e) => e.key === 'Enter' && navegar(`/pedidos/${pedido.id}/editar`)}
+              >
+                <div className="bola" style={{ width: 36, height: 36 }}><Icone nome="editar" size={17} /></div>
+                <div className="card-info">
+                  <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Editar pedido</div>
+                </div>
+                <span aria-hidden>›</span>
+              </div>
+              {pedido.status !== 'cancelado' && (
+                <div
+                  className="item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { setMenuAberto(false); setACancelar(true) }}
+                  onKeyDown={(e) => e.key === 'Enter' && (setMenuAberto(false), setACancelar(true))}
+                >
+                  <div
+                    className="bola"
+                    style={{ width: 36, height: 36, background: 'var(--cor-erro-fundo)', color: 'var(--cor-erro)' }}
+                  >
+                    <Icone nome="fechar" size={17} />
+                  </div>
+                  <div className="card-info">
+                    <div className="card-nome" style={{ fontSize: 'var(--t-base)', color: 'var(--cor-erro)' }}>
+                      Cancelar pedido
+                    </div>
+                  </div>
+                  <span aria-hidden style={{ color: 'var(--cor-erro)' }}>›</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UX-030 (com a confirmacao do item 2b) · o texto conta a VERDADE:
+          o que sai da agenda, o que acontece com o link e como desfazer. */}
+      {aCancelar && (
+        <Confirmar
+          titulo="Cancelar este pedido?"
+          descricao="O pedido sai da agenda e o link da cliente deixa de abrir. Dá para reabrir depois, escolhendo outro status."
+          rotuloConfirmar="Cancelar pedido"
+          onConfirmar={confirmarCancelar}
+          onCancelar={() => setACancelar(false)}
+        />
+      )}
 
       {/* Modal: adicionar ao acervo */}
       {modalAcervo && (

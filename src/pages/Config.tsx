@@ -150,16 +150,16 @@ export function Config() {
             }}
             style={{ color: 'var(--framboesa)' }}
           >
-            <div className="bola" style={{ color: 'var(--framboesa)' }}>
+            <div className="bola" style={{ background: 'var(--cor-erro-fundo)', color: 'var(--cor-erro)' }}>
               <Icone nome="lixo" />
             </div>
             <div className="card-info">
-              <div className="card-nome" style={{ fontSize: 'var(--t-base)', color: 'var(--framboesa)' }}>
+              <div className="card-nome" style={{ fontSize: 'var(--t-base)', color: 'var(--cor-erro)' }}>
                 Excluir minha conta
               </div>
               <div className="apoio">Apague sua conta e todos os seus dados</div>
             </div>
-            <span aria-hidden style={{ color: 'var(--framboesa)' }}>›</span>
+            <span aria-hidden style={{ color: 'var(--cor-erro)' }}>›</span>
           </div>
         </div>
 

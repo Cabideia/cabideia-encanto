@@ -141,6 +141,8 @@ export function PedidoForm() {
   const [tickConversao, setTickConversao] = useState(0)
   // R2b · confirmação do descarte do rascunho de conversão (voltar/Cancelar).
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
+  // UX-033 · aviso "sair sem salvar" fora da conversao (paridade c/ PropostaForm).
+  const [confirmarSaida, setConfirmarSaida] = useState(false)
   // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
   const [refARemover, setRefARemover] = useState<RefVisual | null>(null)
   // M-044 (regra de 17/07) · itens lançados na criação, antes de o pedido existir.
@@ -354,13 +356,42 @@ export function PedidoForm() {
     }
   }
 
-  // R2b · guarda de saída do rascunho de conversão: voltar (seta ou back
-  // nativo) sempre pergunta antes de descartar — é a escolha da espec ("sair
-  // sem salvar descarta tudo"). Fora da conversão o form segue sem guarda.
+  /**
+   * UX-033 (D1/P0) · Há conteúdo NÃO salvo? Espelha o `haAlteracoes` do
+   * PropostaForm — era a paridade que faltava entre os dois formulários.
+   * Itens e referências são gravados ao vivo (não entram aqui); o que depende
+   * do "Salvar" são os campos do form. Na criação pura, qualquer conteúdo
+   * digitado conta; na edição, comparamos com o que está salvo.
+   */
+  function haAlteracoes(): boolean {
+    const nomeN = form.nome.trim() || null
+    const temaN = form.tema.trim() || null
+    const valorN = precoParaNumero(form.valor)
+    const dataN = form.data_entrega || null
+    if (!edicao) {
+      // Criação pura: sem registro salvo, qualquer coisa digitada é "não salvo"
+      // (os itens locais também — eles só viram linhas ao criar o pedido).
+      return !!nomeN || !!temaN || valorN != null || !!dataN || itensLocais.length > 0
+    }
+    if (!pedido) return false
+    return (
+      nomeN !== (pedido.nome ?? null) ||
+      temaN !== (pedido.tema ?? null) ||
+      valorN !== (pedido.valor ?? null) ||
+      dataN !== (pedido.data_entrega ?? null) ||
+      form.status !== pedido.status ||
+      form.cliente_id !== pedido.cliente_id
+    )
+  }
+
+  // Guarda de saída. R2b · no rascunho de CONVERSÃO, sair = descartar, então
+  // pergunta sempre. UX-033 · fora da conversão (criação e edição normais) a
+  // guarda agora também existe, mas só interrompe quando há algo não salvo —
+  // mesma regra e mesmo texto do PropostaForm.
   const { tentarSair, sair, navegarLimpo } = useGuardaSaida({
-    ativo: conversao && !!pedido,
-    temAlteracoes: () => true, // rascunho de conversão: sair = descartar → sempre confirma
-    aoPedirConfirmacao: () => setConfirmarDescarte(true),
+    ativo: conversao ? !!pedido : !edicao || !!pedido,
+    temAlteracoes: () => (conversao ? true : haAlteracoes()),
+    aoPedirConfirmacao: () => (conversao ? setConfirmarDescarte(true) : setConfirmarSaida(true)),
   })
 
   // R2b · descarte confirmado: apaga o rascunho (CASCADE limpa itens e
@@ -414,8 +445,9 @@ export function PedidoForm() {
         // Se este pedido um dia foi rascunho de conversão que sobrou no Set
         // (saída pela barra inferior), o salvar explícito o adota de vez.
         rascunhosConversao.delete(id)
+        saindoParaFilho.current = true // UX-033 · salvou: a guarda não deve barrar
         avisar('Pedido atualizado ✓')
-        navegar(`/pedidos/${id}`, { replace: true })
+        navegarLimpo(() => navegar(`/pedidos/${id}`, { replace: true }))
       }
     } else {
       const res = await criar(campos)
@@ -437,12 +469,13 @@ export function PedidoForm() {
               }))
             )
           : null
+      saindoParaFilho.current = true // UX-033 · salvou: a guarda não deve barrar
       avisar(
         erroItens
           ? 'Pedido salvo, mas os itens não entraram — abra o pedido e confira.'
           : 'Pedido salvo ✓'
       )
-      navegar(`/pedidos/${res.id}`, { replace: true })
+      navegarLimpo(() => navegar(`/pedidos/${res.id}`, { replace: true }))
     }
   }
 
@@ -454,8 +487,9 @@ export function PedidoForm() {
       setAExcluir(false)
       return
     }
+    saindoParaFilho.current = true
     avisar('Pedido excluído')
-    navegar('/pedidos', { replace: true })
+    navegarLimpo(() => navegar('/pedidos', { replace: true }))
   }
 
   // M-044 · soma dos itens (qtd × preço; item sem preço conta como 0). Base do
@@ -549,9 +583,12 @@ export function PedidoForm() {
       )
       if (erroItens) avisar(erroItens)
     }
+    saindoParaFilho.current = true
     avisar('Pedido salvo ✓')
-    navegar(`/pedidos/${res.id}/editar`, { replace: true })
-    navegar(`/pedidos/${res.id}/referencias`)
+    navegarLimpo(() => {
+      navegar(`/pedidos/${res.id}/editar`, { replace: true })
+      navegar(`/pedidos/${res.id}/referencias`)
+    })
   }
 
   // R2b · modelos visuais das referências (miniatura + selo + destino).
@@ -707,7 +744,7 @@ export function PedidoForm() {
     <div className="tela">
       <BarraTopo
         titulo={conversao ? 'Virar pedido' : edicao ? 'Editar pedido' : 'Novo pedido'}
-        aoVoltar={conversao ? tentarSair : undefined}
+        aoVoltar={tentarSair}
       />
 
       <div className="conteudo">
@@ -948,7 +985,7 @@ export function PedidoForm() {
             type="button"
             className="btn-secundario"
             style={{ flex: 1 }}
-            onClick={() => (conversao ? tentarSair() : navegar(-1))}
+            onClick={tentarSair}
             disabled={salvando}
           >
             Cancelar
@@ -1223,6 +1260,21 @@ export function PedidoForm() {
           rotuloConfirmar="Descartar"
           onConfirmar={descartarConversao}
           onCancelar={() => setConfirmarDescarte(false)}
+        />
+      )}
+
+      {/* UX-033 · aviso "sair sem salvar" fora da conversao (texto identico ao
+          do PropostaForm — paridade entre os dois formularios). */}
+      {confirmarSaida && (
+        <Confirmar
+          titulo="Sair sem salvar?"
+          descricao="Você tem alterações que ainda não foram salvas neste pedido."
+          rotuloConfirmar="Sair sem salvar"
+          onConfirmar={() => {
+            setConfirmarSaida(false)
+            sair()
+          }}
+          onCancelar={() => setConfirmarSaida(false)}
         />
       )}
 
