@@ -20,7 +20,7 @@ import {
 } from '../hooks/usePedidos'
 import { formatarReal } from '../hooks/useCardapio'
 import { compartilharImagens } from '../lib/compartilhar'
-import { formatarDataLonga, formatarDataNumerica, rotuloEntrega } from '../lib/datas'
+import { diasAte, formatarDataLonga, formatarDataNumerica, rotuloEntrega } from '../lib/datas'
 
 // UX-030 (D1/P0) · os chips mostram so o CAMINHO NORMAL do pedido. "Cancelado"
 // e uma acao destrutiva de excecao: saiu dos chips e virou item do menu (✎),
@@ -97,6 +97,22 @@ export function PedidoDetalhe() {
 
   const info = STATUS_INFO[pedido.status]
   const linkZap = cliente ? linkWhatsApp(cliente) : null
+
+  // UX-030 (mockup 1a) · linha única do card: "Ana Paula · entrega sáb, 8 de
+  // agosto". `rotuloEntrega` devolve a data curta quando falta mais de 1 dia —
+  // nesse caso repetiria a data longa, então só entra quando é urgência real.
+  const diasParaEntrega = pedido.data_entrega ? diasAte(pedido.data_entrega) : null
+  const urgenciaUtil =
+    diasParaEntrega != null && diasParaEntrega <= 1
+      ? rotuloEntrega(pedido.data_entrega!)
+      : null
+  const linhaResumo = [
+    cliente?.nome,
+    pedido.data_entrega ? `entrega ${formatarDataLonga(pedido.data_entrega)}` : null,
+    urgenciaUtil,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   async function aoMudarStatus(s: StatusPedido) {
     if (s === pedido!.status) return
@@ -253,13 +269,12 @@ export function PedidoDetalhe() {
               <div className="card-nome" style={{ whiteSpace: 'normal', fontSize: 'var(--t-card)' }}>
                 {tituloPedido(pedido)}
               </div>
-              {pedido.data_entrega && (
-                <div className="apoio" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icone nome="calendario" size={14} /> {formatarDataLonga(pedido.data_entrega)} · {rotuloEntrega(pedido.data_entrega)}
-                </div>
-              )}
-              {cliente && (
-                <div className="apoio" style={{ marginTop: 4 }}>{cliente.nome}</div>
+              {/* UX-030 (mockup 1a) · cliente e entrega na MESMA linha
+                  ("Ana Paula · entrega sáb, 8 de agosto"), como no mockup — antes
+                  eram duas linhas de apoio empilhadas. A urgência (Hoje/Amanhã/
+                  Atrasado) só entra quando diz algo que a data longa não diz. */}
+              {linhaResumo && (
+                <div className="apoio" style={{ marginTop: 4 }}>{linhaResumo}</div>
               )}
             </div>
             <span className={`chip ${info.chip}`}>{info.rotulo}</span>
@@ -290,6 +305,44 @@ export function PedidoDetalhe() {
               </b>
             </div>
           )}
+        </div>
+
+        {/* UX-030 (mockup 1a) · Status e Pagamento sobem para LOGO ABAIXO do
+            card — é o que a doceira mexe todo dia. Antes ficavam depois das
+            referências e do legado, obrigando a rolar a tela inteira para
+            marcar "Em produção". Ordem do mockup: card → Status → Pagamento →
+            Referências → Mais ações → CTA. */}
+        <div className="secao"><span className="confeito" /><h2>Status</h2></div>
+        <div className="escolha">
+          {ORDEM_STATUS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`filtro${pedido.status === s ? ' ativo' : ''}`}
+              aria-pressed={pedido.status === s}
+              onClick={() => aoMudarStatus(s)}
+            >
+              {STATUS_INFO[s].rotulo}
+            </button>
+          ))}
+        </div>
+
+        {/* Pagamento — sempre visível, com ou sem valor no pedido */}
+        <div className="secao"><span className="confeito" /><h2>Pagamento</h2></div>
+        <div className="escolha">
+          {ORDEM_PAGAMENTO.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`filtro${
+                pedido.status_pagamento === s ? (s === 'nao_pago' ? ' ativo' : ' ativo sucesso') : ''
+              }`}
+              aria-pressed={pedido.status_pagamento === s}
+              onClick={() => aoMudarPagamento(s)}
+            >
+              {PAGAMENTO_CURTO[s]}
+            </button>
+          ))}
         </div>
 
         {/* Foto de referência */}
@@ -389,36 +442,6 @@ export function PedidoDetalhe() {
             <span aria-hidden>›</span>
           </button>
         )}
-
-        {/* Mudar status */}
-        <div className="secao"><span className="confeito" /><h2>Status</h2></div>
-        <div className="escolha">
-          {ORDEM_STATUS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`filtro${pedido.status === s ? ' ativo' : ''}`}
-              onClick={() => aoMudarStatus(s)}
-            >
-              {STATUS_INFO[s].rotulo}
-            </button>
-          ))}
-        </div>
-
-        {/* Mudar status de pagamento — sempre visível, com ou sem valor no pedido */}
-        <div className="secao"><span className="confeito" /><h2>Pagamento</h2></div>
-        <div className="escolha">
-          {ORDEM_PAGAMENTO.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`filtro${pedido.status_pagamento === s ? ' ativo' : ''}`}
-              onClick={() => aoMudarPagamento(s)}
-            >
-              {PAGAMENTO_CURTO[s]}
-            </button>
-          ))}
-        </div>
 
         {/* Galeria dos trabalhos ligados a este pedido (M-028) */}
         {vinculados.length > 0 && (
@@ -530,7 +553,7 @@ export function PedidoDetalhe() {
                 </div>
                 <div className="card-info">
                   <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
-                    Abrir conversa de {cliente.nome.split(' ')[0]}
+                    Abrir conversa da {cliente.nome.split(' ')[0]}
                   </div>
                 </div>
                 <span aria-hidden>›</span>

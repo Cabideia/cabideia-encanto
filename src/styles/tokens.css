@@ -194,6 +194,13 @@ body{
 }
 .filtro:active{transform:scale(.96)}
 .filtro.ativo{background:var(--cor-primaria);border-color:var(--cor-primaria);color:#fff}
+/* UX-030 (mockup 1a · item 1a.3) · chip de PAGAMENTO ativo em "sinal"/"pago"
+   usa as cores de sucesso, não a cor do tema: dinheiro que entrou é verde em
+   qualquer tema, e assim não se confunde com o chip de status logo acima.
+   Preenchido (não a versão clarinha do mockup) para o "selecionado" continuar
+   lendo como selecionado — chip claro fica perto demais do não-marcado — e para
+   o contraste passar em AA (branco sobre #2E7D53 ≈ 4,9:1). */
+.filtro.ativo.sucesso{background:var(--cor-sucesso);border-color:var(--cor-sucesso);color:#fff}
 
 /* ---------- PADRÃO 7 · FORMULÁRIOS ---------- */
 .campo{margin-bottom:14px}
