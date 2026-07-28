@@ -170,6 +170,8 @@ export function PedidoForm() {
   const prefilled = useRef(false)
   const prefilledNovo = useRef(false)
   const prefilledProposta = useRef(false)
+  // Data que veio pronta do calendario (?data=): nao conta como alteracao.
+  const dataInicial = useRef<string | null>(null)
 
   // Pré-preenche no modo edição quando o pedido carrega (uma vez).
   const pedido = edicao && id ? buscarPorId(id) : undefined
@@ -197,6 +199,7 @@ export function PedidoForm() {
     const data = searchParams.get('data')
     if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return
     prefilledNovo.current = true
+    dataInicial.current = data // UX-033 · pre-preenchida != digitada pela dona
     setForm((f) => ({ ...f, data_entrega: data }))
   }, [edicao, searchParams])
 
@@ -371,7 +374,8 @@ export function PedidoForm() {
     if (!edicao) {
       // Criação pura: sem registro salvo, qualquer coisa digitada é "não salvo"
       // (os itens locais também — eles só viram linhas ao criar o pedido).
-      return !!nomeN || !!temaN || valorN != null || !!dataN || itensLocais.length > 0
+      const dataDigitada = !!dataN && dataN !== dataInicial.current
+      return !!nomeN || !!temaN || valorN != null || dataDigitada || itensLocais.length > 0
     }
     if (!pedido) return false
     return (

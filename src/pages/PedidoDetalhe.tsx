@@ -45,8 +45,7 @@ export function PedidoDetalhe() {
   const { buscarPorId: buscarCliente } = useClientes(sessao?.user.id)
   const { trabalhos, criarTrabalhoDeBlob } = useAcervo(sessao?.user.id)
   const { inspiracoes, buscarPorId: buscarInspiracao } = useInspiracoes(sessao?.user.id)
-  const { referencias, remover: removerReferencia, garantirFotosPublicas } =
-    usePedidoReferencias(sessao?.user.id, id)
+  const { referencias, garantirFotosPublicas } = usePedidoReferencias(sessao?.user.id, id)
 
   const pedido = id ? buscarPorId(id) : undefined
   const cliente = pedido?.cliente_id ? buscarCliente(pedido.cliente_id) : undefined
@@ -60,8 +59,6 @@ export function PedidoDetalhe() {
   const [enviandoAcervo, setEnviandoAcervo] = useState(false)
   const [compartilhandoFotos, setCompartilhandoFotos] = useState(false)
   const [compartilhandoLink, setCompartilhandoLink] = useState(false)
-  // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
-  const [refARemover, setRefARemover] = useState<{ id: string; origem: 'trabalho' | 'inspiracao' } | null>(null)
   // UX-030 · menu do ✎ (editar / cancelar) + confirmacao do cancelamento.
   const [menuAberto, setMenuAberto] = useState(false)
   const [aCancelar, setACancelar] = useState(false)
@@ -157,12 +154,6 @@ export function PedidoDetalhe() {
       return
     }
     avisar('Pedido cancelado')
-  }
-
-  // M-042 · tira uma referência do pedido (não apaga o trabalho/inspiração).
-  async function aoRemoverReferencia(refId: string) {
-    const erro = await removerReferencia(refId)
-    avisar(erro ?? 'Referência removida')
   }
 
   // R2b · modelos visuais das referências (grade compartilhada — UX-029).
@@ -460,6 +451,12 @@ export function PedidoDetalhe() {
         {/* UX-030 (D1/P0) · "Mais ações" — as acoes secundarias que antes eram
             5 a 7 botoes full-width identicos viram uma LISTA (padrao .lista
             .item), sobrando uma unica acao primaria na tela (o CTA fixo). */}
+        {(pedido.proposta_id ||
+          vinculados.length > 0 ||
+          pedido.status === 'em_producao' ||
+          pedido.status === 'entregue' ||
+          (linkZap && cliente)) && (
+        <>
         <div className="secao"><span className="confeito" /><h2>Mais ações</h2></div>
         <div className="card" style={{ padding: '2px 14px' }}>
           <div className="lista">
@@ -541,6 +538,8 @@ export function PedidoDetalhe() {
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* UX-030 · a UNICA acao primaria da tela */}
@@ -649,26 +648,6 @@ export function PedidoDetalhe() {
             </button>
           </div>
         </div>
-      )}
-
-      {/* UX-026 · o × da referência só DESVINCULA — o texto por origem deixa
-          claro que a foto continua guardada onde estava. */}
-      {refARemover && (
-        <Confirmar
-          titulo="Tirar esta foto do pedido?"
-          descricao={
-            refARemover.origem === 'trabalho'
-              ? 'Ela continua em Meus Trabalhos.'
-              : 'Ela continua em Inspirações.'
-          }
-          rotuloConfirmar="Tirar foto"
-          onConfirmar={() => {
-            const alvo = refARemover.id
-            setRefARemover(null)
-            aoRemoverReferencia(alvo)
-          }}
-          onCancelar={() => setRefARemover(null)}
-        />
       )}
 
     </div>

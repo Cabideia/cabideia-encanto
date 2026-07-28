@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
+import { Confirmar } from '../components/Confirmar'
 import { GradeReferencias, resolverReferencias, type RefVisual } from '../components/GradeReferencias'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, tituloPedido } from '../hooks/usePedidos'
 import { useAcervo } from '../hooks/useAcervo'
 import { useInspiracoes } from '../hooks/useInspiracoes'
 import { usePedidoReferencias } from '../hooks/usePedidoReferencias'
+import { useAviso } from '../components/Toast'
 
 /**
  * R2b (UX-029 · Decisão #72) · Galeria de referências do pedido.
@@ -26,9 +28,19 @@ export function GaleriaReferencias() {
   const { carregando, buscarPorId } = usePedidos(sessao?.user.id)
   const { trabalhos, carregando: carregandoAcervo } = useAcervo(sessao?.user.id)
   const { inspiracoes, carregando: carregandoInsp } = useInspiracoes(sessao?.user.id)
-  const { referencias, carregando: carregandoRefs } = usePedidoReferencias(sessao?.user.id, id)
+  const { referencias, carregando: carregandoRefs, remover: removerReferencia } =
+    usePedidoReferencias(sessao?.user.id, id)
+  const avisar = useAviso()
 
   const [ampliada, setAmpliada] = useState<RefVisual | null>(null)
+  // UX-026/UX-030 · tirar referencia MIGROU do detalhe para ca: o detalhe agora
+  // mostra so a pilha (leitura) e esta e a tela que gerencia as referencias.
+  const [refARemover, setRefARemover] = useState<RefVisual | null>(null)
+
+  async function aoRemover(refId: string) {
+    const erro = await removerReferencia(refId)
+    avisar(erro ?? 'Referência removida')
+  }
 
   const pedido = id ? buscarPorId(id) : undefined
 
@@ -75,7 +87,7 @@ export function GaleriaReferencias() {
             <p>Este pedido ainda não tem referências.</p>
           </div>
         ) : (
-          <GradeReferencias itens={itens} colunas={2} aoTocar={aoTocar} />
+          <GradeReferencias itens={itens} colunas={2} aoTocar={aoTocar} aoRemover={setRefARemover} />
         )}
 
         <button
@@ -87,6 +99,25 @@ export function GaleriaReferencias() {
           {itens.length > 0 ? 'Adicionar mais fotos' : 'Selecionar fotos'}
         </button>
       </div>
+
+      {/* UX-026 · o × so DESVINCULA — o texto por origem diz onde a foto fica. */}
+      {refARemover && (
+        <Confirmar
+          titulo="Tirar esta foto do pedido?"
+          descricao={
+            refARemover.origem === 'trabalho'
+              ? 'Ela continua em Meus Trabalhos.'
+              : 'Ela continua em Inspirações.'
+          }
+          rotuloConfirmar="Tirar foto"
+          onConfirmar={() => {
+            const alvo = refARemover.refId
+            setRefARemover(null)
+            aoRemover(alvo)
+          }}
+          onCancelar={() => setRefARemover(null)}
+        />
+      )}
 
       {/* UX-029 · foto ampliada — mesmo lightbox da vitrine pública (UX-009). */}
       {ampliada && (

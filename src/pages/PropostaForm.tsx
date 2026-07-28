@@ -126,6 +126,9 @@ export function PropostaForm() {
   // UX-031 (D1/P0) · estado do salvamento automatico, refletido no selo da barra.
   const [estadoSalvo, setEstadoSalvo] = useState<'ocioso' | 'salvando' | 'salvo'>('ocioso')
   const [abrindoPrevia, setAbrindoPrevia] = useState(false)
+  // Gatilhos do autosave que nao sao campos de texto: troca de capa e retentativa.
+  const [fotoVersao, setFotoVersao] = useState(0)
+  const [tickSalvar, setTickSalvar] = useState(0)
   const [aExcluir, setAExcluir] = useState(false)
   const [confirmarSaida, setConfirmarSaida] = useState(false) // M3
   // UX-026 · confirmar antes de tirar uma referência (desvincula, não exclui).
@@ -333,6 +336,7 @@ export function PropostaForm() {
     try {
       const { blob } = await comprimirImagem(f)
       blobNovo.current = blob
+      setFotoVersao((n) => n + 1) // capa nova: acorda o autosave (blob e ref)
       const bmp = await bitmapDeBlob(blob)
       if (bmp) {
         setFotoBitmap((antigo) => {
@@ -445,28 +449,60 @@ export function PropostaForm() {
    * para um filho, ou quando nao ha nada diferente do que esta salvo.
    */
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Serializa o autosave: sem isso, um save em voo + o CTA "Enviar" podiam
+  // chamar `criar()` duas vezes e nascer DUAS propostas na ficha da cliente.
+  const salvandoAutoRef = useRef(false)
+  // A tela ainda existe? (um save em voo nao pode navegar depois do unmount)
+  const montadoForm = useRef(true)
   useEffect(() => {
-    if (travada || !clienteIdAtivo || saindoParaFilho.current) return
+    montadoForm.current = true
+    return () => {
+      montadoForm.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (travada || !clienteIdAtivo) return
     if (edicao && !proposta) return // ainda carregando a proposta
     if (!haAlteracoes()) return
     if (autosaveRef.current) clearTimeout(autosaveRef.current)
     autosaveRef.current = setTimeout(async () => {
+      // As tres checagens sao REFEITAS aqui dentro: 1,2s se passaram desde o
+      // agendamento e o mundo pode ter mudado (a dona tocou em Enviar, abriu um
+      // picker, ou saiu da tela).
+      if (!montadoForm.current || saindoParaFilho.current || salvandoAutoRef.current) return
+      salvandoAutoRef.current = true
       setEstadoSalvo('salvando')
-      const res = await garantirProposta()
-      if (!res) {
-        setEstadoSalvo('ocioso')
-        return
+      try {
+        const res = await garantirProposta()
+        if (!montadoForm.current) return // saiu no meio: nao navega nem pinta
+        if (!res) {
+          setEstadoSalvo('ocioso')
+          // Falhou (offline, por ex.): re-tenta sozinha em vez de esperar a
+          // proxima tecla — senao o selo mente ("salva automaticamente").
+          setTimeout(() => montadoForm.current && setTickSalvar((n) => n + 1), 4000)
+          return
+        }
+        if (res.criou) {
+          // O rascunho nasceu: a URL passa a ser /propostas/:id. `prefilled`
+          // PRECISA ser marcado ANTES — a rota reusa o mesmo componente, e sem
+          // isso o efeito de pre-preenchimento sobrescreveria o que a dona
+          // acabou de digitar com o snapshot recem-gravado.
+          prefilled.current = true
+          rascunhosAbertos.delete(res.id) // tem conteudo: nao e mais descartavel
+          navegarLimpo(() => navegar(`/propostas/${res.id}`, { replace: true }), true)
+        }
+        setEstadoSalvo('salvo')
+      } finally {
+        salvandoAutoRef.current = false
       }
-      // Criacao: adota o rascunho na URL (mesma mecanica do abrirFilho), para
-      // as proximas gravacoes caírem no UPDATE e o "voltar" nao ver "/nova".
-      if (res.criou) navegarLimpo(() => navegar(`/propostas/${res.id}`, { replace: true }))
-      setEstadoSalvo('salvo')
     }, 1200)
     return () => {
       if (autosaveRef.current) clearTimeout(autosaveRef.current)
     }
+    // `fotoVersao` entra nas deps porque a capa nova vive num ref (blobNovo) —
+    // sem ele, trocar SO a foto nunca disparava o autosave.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [titulo, descricao, detalhes, valor, validade, modoPreco, condicoes, incluirCardapio, travada, clienteIdAtivo, edicao, proposta])
+  }, [titulo, descricao, detalhes, valor, validade, modoPreco, condicoes, incluirCardapio, fotoVersao, tickSalvar, travada, clienteIdAtivo, edicao, proposta])
 
   /**
    * UX-031 · "Ver como a cliente ve" — abre a PAGINA PUBLICA real pelo token
@@ -474,7 +510,8 @@ export function PropostaForm() {
    * para a pagina refletir o que esta na tela.
    */
   async function verComoCliente() {
-    if (abrindoPrevia) return
+    if (abrindoPrevia || salvandoAutoRef.current) return
+    if (autosaveRef.current) clearTimeout(autosaveRef.current)
     setAbrindoPrevia(true)
     saindoParaFilho.current = true // persistir aqui nao pode descartar o rascunho
     try {
@@ -570,7 +607,9 @@ export function PropostaForm() {
    * pronto + o link. Não exige foto (o link mostra tudo).
    */
   async function compartilhar() {
+    if (compartilhando || salvandoAutoRef.current) return // nao concorre com o autosave
     saindoParaFilho.current = true // persistir aqui não pode descartar o rascunho
+    if (autosaveRef.current) clearTimeout(autosaveRef.current) // cancela o debounce pendente
     setCompartilhando(true)
     let idCriado: string | null = null // proposta recém-criada a adotar (replace)
     try {
@@ -1139,9 +1178,9 @@ export function PropostaForm() {
       {/* M3 · aviso "sair sem salvar" quando há conteúdo não salvo no form. */}
       {confirmarSaida && (
         <Confirmar
-          titulo="Sair sem salvar?"
-          descricao="Você tem alterações que ainda não foram salvas nesta proposta."
-          rotuloConfirmar="Sair sem salvar"
+          titulo="Sair agora?"
+          descricao="A proposta salva sozinha, mas as últimas letras que você digitou ainda não foram gravadas."
+          rotuloConfirmar="Sair mesmo assim"
           onConfirmar={() => {
             setConfirmarSaida(false)
             sair()
