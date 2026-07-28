@@ -5,7 +5,7 @@ import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos } from '../hooks/usePedidos'
-import { useCardapio, formatarReal } from '../hooks/useCardapio'
+import { useCardapio, formatarReal, unidadesParaChips } from '../hooks/useCardapio'
 import { usePedidoItens, type NovoItemPedido } from '../hooks/usePedidoItens'
 
 /**
@@ -36,14 +36,20 @@ export function PedidoItens() {
   const [criando, setCriando] = useState(false)
   const [novoNome, setNovoNome] = useState('')
   const [novoPreco, setNovoPreco] = useState('')
+  // M-052 · unidade é obrigatória (useCardapio.criar() recusa sem ela) — este
+  // atalho não tinha o campo e ficava sempre recusado. Chips reusam as
+  // unidades que a própria dona já usa no cardápio.
+  const [novoUnidade, setNovoUnidade] = useState('')
+  const chipsUnidade = unidadesParaChips(cardapio)
 
   async function criarItem() {
     const nome = novoNome.trim()
     if (!nome) return avisar('Dê um nome ao item.')
+    if (!novoUnidade.trim()) return avisar('Escolha uma unidade (ex.: unidade, kg, cento…).')
     const res = await criarItemCardapio({
       nome,
       preco_base: novoPreco,
-      unidade: '',
+      unidade: novoUnidade,
       detalhes: '',
       na_vitrine: false,
       preco_sob_consulta: false,
@@ -52,6 +58,7 @@ export function PedidoItens() {
     setMarcados((prev) => new Set(prev).add(res.item.id)) // já vai junto ao "Adicionar"
     setNovoNome('')
     setNovoPreco('')
+    setNovoUnidade('')
     setCriando(false)
     avisar('Item criado na tabela de preços ✓')
   }
@@ -148,6 +155,25 @@ export function PedidoItens() {
               inputMode="decimal"
               style={{ marginTop: 8 }}
             />
+            <input
+              value={novoUnidade}
+              onChange={(e) => setNovoUnidade(e.target.value)}
+              placeholder="Unidade (ex.: kg, cento…)"
+              maxLength={40}
+              style={{ marginTop: 8 }}
+            />
+            <div className="escolha" style={{ marginTop: 8 }}>
+              {chipsUnidade.map((u) => (
+                <button
+                  key={u.toLowerCase()}
+                  type="button"
+                  className={`filtro${novoUnidade.trim().toLowerCase() === u.toLowerCase() ? ' ativo' : ''}`}
+                  onClick={() => setNovoUnidade(u)}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
               <button
                 type="button"
@@ -157,6 +183,7 @@ export function PedidoItens() {
                   setCriando(false)
                   setNovoNome('')
                   setNovoPreco('')
+                  setNovoUnidade('')
                 }}
                 disabled={salvandoCardapio}
               >
@@ -167,7 +194,7 @@ export function PedidoItens() {
                 className="cta"
                 style={{ flex: 1 }}
                 onClick={criarItem}
-                disabled={salvandoCardapio || !novoNome.trim()}
+                disabled={salvandoCardapio || !novoNome.trim() || !novoUnidade.trim()}
               >
                 {salvandoCardapio ? 'Criando…' : 'Criar item'}
               </button>
