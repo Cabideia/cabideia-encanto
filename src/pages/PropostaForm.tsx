@@ -294,6 +294,7 @@ export function PropostaForm() {
       descricaoN !== (proposta.descricao ?? null) ||
       detalhesN !== (proposta.detalhes ?? null) ||
       valorNum !== (proposta.valor ?? null) ||
+      fotoPath !== (proposta.foto_path ?? null) || // capa que subiu mas nao gravou
       validadeN !== (proposta.validade ?? null) ||
       modoPreco !== (proposta.modo_preco ?? 'fechado') ||
       condicoesN !== (proposta.condicoes ?? null) ||
@@ -405,6 +406,21 @@ export function PropostaForm() {
    * abre em seguida volta para /propostas/:id, onde o form recarrega tudo.
    */
   async function garantirProposta(): Promise<{ id: string; criou: boolean } | null> {
+    // D1 · SERIALIZACAO no proprio garantirProposta (nao em cada chamador): o
+    // autosave, o "Enviar", o "Ver como a cliente ve" e o abrirFilho podem se
+    // cruzar, e dois `criar()` concorrentes nasciam DUAS propostas na ficha.
+    // Quem chega no meio de um voo espera o MESMO resultado.
+    if (vooRef.current) return vooRef.current
+    const voo = executarGarantia()
+    vooRef.current = voo
+    try {
+      return await voo
+    } finally {
+      vooRef.current = null
+    }
+  }
+
+  async function executarGarantia(): Promise<{ id: string; criou: boolean } | null> {
     if (!clienteIdAtivo) {
       avisar('Proposta sem cliente.')
       return null
@@ -452,6 +468,12 @@ export function PropostaForm() {
   // Serializa o autosave: sem isso, um save em voo + o CTA "Enviar" podiam
   // chamar `criar()` duas vezes e nascer DUAS propostas na ficha da cliente.
   const salvandoAutoRef = useRef(false)
+  /** Voo em curso do garantirProposta (mutex). */
+  const vooRef = useRef<Promise<{ id: string; criou: boolean } | null> | null>(null)
+  /** O rascunho ja foi adotado pela URL? (so o primeiro adota) */
+  const adotadaRef = useRef(false)
+  /** Tentativas seguidas do autosave que falharam (teto para nao virar loop). */
+  const tentativasRef = useRef(0)
   // A tela ainda existe? (um save em voo nao pode navegar depois do unmount)
   const montadoForm = useRef(true)
   useEffect(() => {
@@ -478,19 +500,20 @@ export function PropostaForm() {
         if (!res) {
           setEstadoSalvo('ocioso')
           // Falhou (offline, por ex.): re-tenta sozinha em vez de esperar a
-          // proxima tecla — senao o selo mente ("salva automaticamente").
-          setTimeout(() => montadoForm.current && setTickSalvar((n) => n + 1), 4000)
+          // proxima tecla — mas com TETO de 3, senao offline persistente vira
+          // um toast de erro a cada 5s para sempre.
+          tentativasRef.current += 1
+          if (tentativasRef.current <= 3) {
+            const espera = 4000 * tentativasRef.current // 4s, 8s, 12s
+            setTimeout(() => montadoForm.current && setTickSalvar((n) => n + 1), espera)
+          }
           return
         }
-        if (res.criou) {
-          // O rascunho nasceu: a URL passa a ser /propostas/:id. `prefilled`
-          // PRECISA ser marcado ANTES — a rota reusa o mesmo componente, e sem
-          // isso o efeito de pre-preenchimento sobrescreveria o que a dona
-          // acabou de digitar com o snapshot recem-gravado.
-          prefilled.current = true
-          rascunhosAbertos.delete(res.id) // tem conteudo: nao e mais descartavel
-          navegarLimpo(() => navegar(`/propostas/${res.id}`, { replace: true }), true)
-        }
+        // A tela continua montada -> ficaNaTela = true (repoe a sentinela).
+        // NAO tiramos do `rascunhosAbertos`: se a dona esvaziar tudo e sair, a
+        // limpeza conservadora do unmount ainda precisa poder descartar.
+        adotarRascunho(res.id, res.criou, true)
+        tentativasRef.current = 0
         setEstadoSalvo('salvo')
       } finally {
         salvandoAutoRef.current = false
@@ -505,12 +528,25 @@ export function PropostaForm() {
   }, [titulo, descricao, detalhes, valor, validade, modoPreco, condicoes, incluirCardapio, fotoVersao, tickSalvar, travada, clienteIdAtivo, edicao, proposta])
 
   /**
+   * D1 · Adota o rascunho recem-criado na URL — UM UNICO lugar, porque tres
+   * caminhos podem cria-lo. Marca `prefilled` ANTES de navegar (a rota reusa o
+   * componente e o pre-preenchimento sobrescreveria o que esta sendo digitado)
+   * e repoe a sentinela do historico quando a tela CONTINUA montada.
+   */
+  function adotarRascunho(idNovo: string, criou: boolean, ficaNaTela: boolean) {
+    if (!criou || adotadaRef.current) return
+    adotadaRef.current = true
+    prefilled.current = true
+    navegarLimpo(() => navegar(`/propostas/${idNovo}`, { replace: true }), ficaNaTela)
+  }
+
+  /**
    * UX-031 · "Ver como a cliente ve" — abre a PAGINA PUBLICA real pelo token
    * (substitui a previa em canvas, que mostrava so a capa). Persiste antes,
    * para a pagina refletir o que esta na tela.
    */
   async function verComoCliente() {
-    if (abrindoPrevia || salvandoAutoRef.current) return
+    if (abrindoPrevia) return
     if (autosaveRef.current) clearTimeout(autosaveRef.current)
     setAbrindoPrevia(true)
     saindoParaFilho.current = true // persistir aqui nao pode descartar o rascunho
@@ -528,7 +564,7 @@ export function PropostaForm() {
         return
       }
       window.open(linkProposta(token), '_blank', 'noopener')
-      if (res.criou) navegarLimpo(() => navegar(`/propostas/${res.id}`, { replace: true }))
+      adotarRascunho(res.id, res.criou, true) // a tela continua aqui
     } finally {
       setAbrindoPrevia(false)
       saindoParaFilho.current = false
@@ -544,12 +580,20 @@ export function PropostaForm() {
    */
   async function abrirFilho(destino: (pid: string) => string) {
     saindoParaFilho.current = true
-    const res = await garantirProposta()
+    if (autosaveRef.current) clearTimeout(autosaveRef.current)
+    const res = await garantirProposta() // serializado: nao duplica com o autosave
     if (!res) {
       saindoParaFilho.current = false
       return
     }
     const { id: pid, criou } = res
+    // Adota + empilha o filho num unico colapso da sentinela. Aqui a tela SAI
+    // (o picker assume), entao nao repomos a sentinela — quem volta remonta o
+    // form, e o efeito do hook a repoe sozinho.
+    if (criou && !adotadaRef.current) {
+      adotadaRef.current = true
+      prefilled.current = true
+    }
     navegarLimpo(() => {
       if (criou) navegar(`/propostas/${pid}`, { replace: true })
       navegar(destino(pid))
@@ -607,7 +651,7 @@ export function PropostaForm() {
    * pronto + o link. Não exige foto (o link mostra tudo).
    */
   async function compartilhar() {
-    if (compartilhando || salvandoAutoRef.current) return // nao concorre com o autosave
+    if (compartilhando) return
     saindoParaFilho.current = true // persistir aqui não pode descartar o rascunho
     if (autosaveRef.current) clearTimeout(autosaveRef.current) // cancela o debounce pendente
     setCompartilhando(true)
@@ -641,8 +685,10 @@ export function PropostaForm() {
       // adota o rascunho SEMPRE que foi criado, mesmo se algo acima falhou (não
       // deixa órfão nem gera duplicata no próximo "Salvar"). Em edição, libera a
       // guarda do rascunho.
-      if (idCriado) navegarLimpo(() => navegar(`/propostas/${idCriado}`, { replace: true }))
-      else saindoParaFilho.current = false
+      // A tela continua montada (o WhatsApp abre em outra aba/app): adota com
+      // reposicao da sentinela, senao a seta de voltar pula a ficha da cliente.
+      if (idCriado) adotarRascunho(idCriado, true, true)
+      saindoParaFilho.current = false
     }
   }
 
