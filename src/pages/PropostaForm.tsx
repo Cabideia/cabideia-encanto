@@ -143,6 +143,20 @@ export function PropostaForm() {
   const saindoParaFilho = useRef(false) // indo a um picker/lote → NÃO limpar
   const rascunhoVazioRef = useRef(false)
 
+  // A rota /propostas/:id reusa este componente. Se um dia existir navegacao
+  // proposta -> proposta, os refs de identidade precisam zerar, senao o form
+  // mantem os campos da anterior e o autosave grava por cima.
+  const idAdotado = useRef<string | null>(null)
+  useEffect(() => {
+    // ATENCAO: este efeito tambem roda quando o proprio autosave adota a URL
+    // (id: undefined -> novo). Nesse caso NAO pode zerar `prefilled` — seria
+    // reabrir o bug do pre-preenchimento sobrescrevendo o que esta digitado.
+    if (id && id === idAdotado.current) return
+    prefilled.current = false
+    adotadaRef.current = false
+    tentativasRef.current = 0
+  }, [id])
+
   // Garante as fontes (Fraunces / Nunito Sans) antes de desenhar texto no canvas.
   useEffect(() => {
     let vivo = true
@@ -512,7 +526,10 @@ export function PropostaForm() {
         // A tela continua montada -> ficaNaTela = true (repoe a sentinela).
         // NAO tiramos do `rascunhosAbertos`: se a dona esvaziar tudo e sair, a
         // limpeza conservadora do unmount ainda precisa poder descartar.
-        adotarRascunho(res.id, res.criou, true)
+        // Se ela abriu um picker enquanto este save voava, quem adota a URL e
+        // o abrirFilho (que adota E empilha o filho num colapso so) — adotar
+        // aqui tambem dispararia DOIS history.go(-1) e fecharia o picker.
+        if (!saindoParaFilho.current) adotarRascunho(res.id, res.criou, true)
         tentativasRef.current = 0
         setEstadoSalvo('salvo')
       } finally {
@@ -525,7 +542,7 @@ export function PropostaForm() {
     // `fotoVersao` entra nas deps porque a capa nova vive num ref (blobNovo) —
     // sem ele, trocar SO a foto nunca disparava o autosave.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [titulo, descricao, detalhes, valor, validade, modoPreco, condicoes, incluirCardapio, fotoVersao, tickSalvar, travada, clienteIdAtivo, edicao, proposta])
+  }, [titulo, descricao, detalhes, valor, validade, modoPreco, condicoes, incluirCardapio, fotoPath, fotoVersao, tickSalvar, travada, clienteIdAtivo, edicao, proposta])
 
   /**
    * D1 · Adota o rascunho recem-criado na URL — UM UNICO lugar, porque tres
@@ -536,6 +553,7 @@ export function PropostaForm() {
   function adotarRascunho(idNovo: string, criou: boolean, ficaNaTela: boolean) {
     if (!criou || adotadaRef.current) return
     adotadaRef.current = true
+    idAdotado.current = idNovo // marca a troca de URL como "nossa" (ver efeito acima)
     prefilled.current = true
     navegarLimpo(() => navegar(`/propostas/${idNovo}`, { replace: true }), ficaNaTela)
   }
@@ -592,6 +610,7 @@ export function PropostaForm() {
     // form, e o efeito do hook a repoe sozinho.
     if (criou && !adotadaRef.current) {
       adotadaRef.current = true
+      idAdotado.current = pid
       prefilled.current = true
     }
     navegarLimpo(() => {
@@ -688,7 +707,10 @@ export function PropostaForm() {
       // A tela continua montada (o WhatsApp abre em outra aba/app): adota com
       // reposicao da sentinela, senao a seta de voltar pula a ficha da cliente.
       if (idCriado) adotarRascunho(idCriado, true, true)
-      saindoParaFilho.current = false
+      // So libera a guarda quando NAO criou: a proposta recem-criada pode ser
+      // "vazia" pelo criterio conservador (so condicoes padrao), e a limpeza do
+      // unmount apagaria a linha — matando o link que acabou de ir a cliente.
+      else saindoParaFilho.current = false
     }
   }
 
