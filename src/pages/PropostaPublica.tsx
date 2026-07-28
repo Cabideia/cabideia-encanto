@@ -324,9 +324,9 @@ export function PropostaPublica() {
               <span className="confeito" /><h2>Escolha suas preferidas</h2>
             </div>
             <p className="apoio" style={{ textAlign: 'center', marginTop: 4 }}>
-              Toque no 🤍 das opções que você preferir e me conte no WhatsApp 💬
+              Toque no 🤍 das opções que amar e me conte no WhatsApp
             </p>
-            <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start' }}>
+            <div className="grade-fotos" style={{ marginTop: 8, alignItems: 'start', gridTemplateColumns: 'repeat(2, 1fr)' }}>
               {dados.fotos.map((f, i) => (
                 <div key={i} className={`foto-item${amadas.has(i) ? ' foto-amada' : ''}`}>
                   <div className="acervo-img-wrap" style={{ position: 'relative' }}>
