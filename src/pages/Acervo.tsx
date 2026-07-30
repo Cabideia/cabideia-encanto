@@ -29,6 +29,8 @@ type PainelProps = {
   onAtribuirTag: (trabalhoId: string, tagId: string) => Promise<void>
   onRemoverTag: (trabalhoId: string, tagId: string) => Promise<void>
   onCriarTag: (nome: string) => Promise<Tag | null>
+  /** Decisão #96 · segunda porta para /tags — a folha de filtro some com zero tags. */
+  onGerenciarTags: () => void
   onAtualizar: (
     trabalho: Trabalho,
     dados: { descricao: string; novoBlob?: Blob | null }
@@ -45,6 +47,7 @@ function PainelTrabalho({
   onAtribuirTag,
   onRemoverTag,
   onCriarTag,
+  onGerenciarTags,
   onAtualizar,
 }: PainelProps) {
   const avisar = useAviso()
@@ -244,6 +247,19 @@ function PainelTrabalho({
           onCriar={onCriarTag}
           inputClassName="painel-input"
         />
+
+        {/* Decisão #96 · a segunda porta para /tags. Não é redundante com a folha
+            de filtro: aquela só existe quando já há tags, e o ícone da barra saiu
+            no UX-036 — sem este item, quem ainda não tem tag nenhuma não alcança
+            a tela de manutenção. */}
+        <button
+          type="button"
+          className="btn-secundario"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+          onClick={onGerenciarTags}
+        >
+          <Icone nome="tags" size={16} /> Gerenciar tags
+        </button>
 
         {/* UX-036 · a exclusão saiu da grade e passou a viver só aqui, no detalhe
             (Decisão #87). Abre o mesmo Confirmar de sempre — texto inalterado. */}
@@ -678,11 +694,9 @@ export function Acervo() {
                     </span>
                   )}
                 </button>
-                {!contadorAberto && (
-                  <Link to="/planos" className="contador-plano">
-                    plano <Icone nome="avancar" />
-                  </Link>
-                )}
+                <Link to="/planos" className="contador-plano">
+                  plano <Icone nome="avancar" />
+                </Link>
               </div>
               <div className="contador-barra" style={{ marginTop: 8 }}>
                 <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
@@ -862,6 +876,7 @@ export function Acervo() {
           onAtribuirTag={atribuirTag}
           onRemoverTag={removerTag}
           onCriarTag={criarTag}
+          onGerenciarTags={() => navegar('/tags')}
           onAtualizar={atualizarTrabalho}
         />
       )}
@@ -912,8 +927,9 @@ export function Acervo() {
               </button>
             </div>
 
-            {/* Rodapé: manutenção de tags (renomear/apagar) — a única outra porta é
-                o SeletorTag do painel de detalhe (Decisão #96). */}
+            {/* Rodapé: manutenção de tags (renomear/apagar). A outra porta é o item
+                "Gerenciar tags" do painel de detalhe — necessário porque esta folha
+                só existe com todasTags.length > 0 (Decisão #96). */}
             <button
               type="button"
               className="btn-secundario"
