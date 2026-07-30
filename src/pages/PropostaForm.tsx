@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -834,7 +835,8 @@ export function PropostaForm() {
   // Espera carregar os dados necessários.
   // M-053 · espera também os PEDIDOS: `travada` deriva deles — sem esperar,
   // uma proposta convertida abriria editável por um instante (janela de escrita).
-  if (carregandoClientes || (edicao && (carregandoPropostas || carregandoPedidos))) return null
+  if (carregandoClientes || (edicao && (carregandoPropostas || carregandoPedidos)))
+    return <TelaCarregando titulo="Proposta" variante="formulario" />
 
   if (edicao && !carregandoPropostas && !proposta) {
     return (

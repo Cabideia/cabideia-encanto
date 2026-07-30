@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -173,7 +174,7 @@ export function InspiracaoForm() {
   }
 
   // No modo edição, espera carregar.
-  if (edicao && carregando) return null
+  if (edicao && carregando) return <TelaCarregando titulo="Inspiração" variante="formulario" />
   if (edicao && !carregando && inspiracoes.length > 0 && !insp) {
     return (
       <div className="tela">

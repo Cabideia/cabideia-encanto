@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -54,7 +55,7 @@ export function ClienteDetalhe() {
     }
   }, [cliente])
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Cliente" variante="lista" />
 
   // Carregou mas não achou (link antigo ou cliente já excluída).
   if (!cliente) {

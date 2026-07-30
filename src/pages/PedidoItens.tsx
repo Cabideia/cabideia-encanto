@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
@@ -105,7 +106,8 @@ export function PedidoItens() {
     navegar(-1)
   }
 
-  if (carregandoPedidos || carregandoCardapio || carregandoItens) return null
+  if (carregandoPedidos || carregandoCardapio || carregandoItens)
+    return <TelaCarregando titulo="Itens do pedido" variante="lista" />
 
   if (!id || !pedido) {
     return (

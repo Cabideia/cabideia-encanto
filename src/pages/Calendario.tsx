@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, STATUS_INFO, tituloPedido } from '../hooks/usePedidos'
@@ -53,7 +54,7 @@ export function Calendario() {
     setRef(new Date(ano, mes + delta, 1))
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Calendário" variante="lista" />
 
   return (
     <div className="tela">

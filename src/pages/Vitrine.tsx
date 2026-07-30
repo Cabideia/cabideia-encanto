@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { PerfilForm } from '../components/PerfilForm'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -98,7 +99,7 @@ export function Vitrine() {
     avisar('Link copiado ✓')
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Minha vitrine" variante="formulario" />
 
   const temArroba = !!perfil?.arroba
   const link = temArroba ? `cabideia.com.br/encanto/@${perfil!.arroba}` : ''

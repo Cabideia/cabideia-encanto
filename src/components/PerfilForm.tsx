@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAviso } from './Toast'
 import { Icone } from './Icone'
+import { TelaCarregando } from './TelaCarregando'
 import { useSessao } from '../hooks/useSessao'
 import { supabase } from '../lib/supabase'
 import { BUCKET_PUBLICO, urlPublica } from '../lib/storage'
@@ -216,7 +217,7 @@ export function PerfilForm({ onSalvo, onCancelar }: Props) {
     onSalvo()
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando variante="formulario" />
 
   return (
     <>

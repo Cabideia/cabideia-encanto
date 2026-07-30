@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
@@ -128,7 +129,7 @@ export function Clientes() {
     window.open(link, '_blank', 'noopener')
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Clientes" variante="cartoes" />
 
   return (
     <div className="tela">

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -202,7 +203,8 @@ export function PropostaReferencias() {
     navegar(-1)
   }
 
-  if (carregandoPropostas || carregandoAcervo || carregandoRefs || carregandoPedidos) return null
+  if (carregandoPropostas || carregandoAcervo || carregandoRefs || carregandoPedidos)
+    return <TelaCarregando titulo="Referências" variante="grade" />
 
   if (!id || !proposta) {
     return (

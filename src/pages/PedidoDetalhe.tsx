@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -79,7 +80,7 @@ export function PedidoDetalhe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedido?.foto_referencia_path])
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Pedido" variante="formulario" />
 
   if (!pedido) {
     return (
