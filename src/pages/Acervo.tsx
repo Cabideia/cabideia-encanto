@@ -24,6 +24,7 @@ type PainelProps = {
   todasTags: Tag[]
   enviando: boolean
   onFechar: () => void
+  onPedirRemover: () => void
   onVerPedido: (pedidoId: string) => void
   onAtribuirTag: (trabalhoId: string, tagId: string) => Promise<void>
   onRemoverTag: (trabalhoId: string, tagId: string) => Promise<void>
@@ -39,6 +40,7 @@ function PainelTrabalho({
   todasTags,
   enviando,
   onFechar,
+  onPedirRemover,
   onVerPedido,
   onAtribuirTag,
   onRemoverTag,
@@ -242,6 +244,22 @@ function PainelTrabalho({
           onCriar={onCriarTag}
           inputClassName="painel-input"
         />
+
+        {/* UX-036 · a exclusão saiu da grade e passou a viver só aqui, no detalhe
+            (Decisão #87). Abre o mesmo Confirmar de sempre — texto inalterado. */}
+        {!editando && (
+          <button
+            type="button"
+            className="btn-secundario"
+            style={{
+              width: '100%', justifyContent: 'center', marginTop: 18,
+              color: 'var(--cor-erro)', borderColor: 'var(--cor-erro)', background: 'var(--cor-erro-fundo)',
+            }}
+            onClick={onPedirRemover}
+          >
+            <Icone nome="lixo" size={16} /> Excluir foto
+          </button>
+        )}
       </div>
     </div>
   )
@@ -258,7 +276,6 @@ type CartaoProps = {
   onAbrir: () => void
   onAlternarMarca: () => void
   onLongPress: () => void
-  onPedirRemover: () => void
   onAlternarVitrine: () => void
 }
 
@@ -270,7 +287,6 @@ function CartaoTrabalho({
   onAbrir,
   onAlternarMarca,
   onLongPress,
-  onPedirRemover,
   onAlternarVitrine,
 }: CartaoProps) {
   // Segurar a foto (long-press) entra no modo seleção já marcando esta foto
@@ -344,13 +360,6 @@ function CartaoTrabalho({
               style={vitrineBloqueada ? { opacity: 0.45 } : undefined}
             >
               <Icone nome="vitrine" size={16} />
-            </button>
-            <button
-              className="foto-remover"
-              onClick={(e) => { e.stopPropagation(); onPedirRemover() }}
-              aria-label="Apagar foto"
-            >
-              <Icone nome="fechar" size={15} />
             </button>
           </>
         )}
@@ -445,7 +454,12 @@ export function Acervo() {
   const [params, setParams] = useSearchParams()
 
   const [busca, setBusca] = useState('')
-  const [tagFiltro, setTagFiltro] = useState<string | null>(null)
+  // UX-036 · multi-filtro de tag por OU/união (Decisão #97): a foto entra se tiver
+  // pelo menos uma das tags marcadas. Conjunto vazio = mostra tudo.
+  const [tagsFiltro, setTagsFiltro] = useState<Set<string>>(new Set())
+  const [filtroAberto, setFiltroAberto] = useState(false)
+  // Contador colapsado em 1 linha (default); toque expande para o card completo.
+  const [contadorAberto, setContadorAberto] = useState(false)
   const [abertoId, setAbertoId] = useState<string | null>(null)
 
   const [aApagar, setAApagar] = useState<Trabalho | null>(null)
@@ -461,15 +475,24 @@ export function Acervo() {
 
   const filtrados = trabalhos.filter((t) => {
     const okTexto = !busca || t.descricao?.toLowerCase().includes(busca.toLowerCase())
-    const okTag = !tagFiltro || t.tags.some((tg) => tg.id === tagFiltro)
+    const okTag = tagsFiltro.size === 0 || t.tags.some((tg) => tagsFiltro.has(tg.id))
     return okTexto && okTag
   })
 
   const inspFiltradas = inspiracoes.filter((i) => {
     const okTexto = !busca || i.nota?.toLowerCase().includes(busca.toLowerCase())
-    const okTag = !tagFiltro || i.tags.some((tg) => tg.id === tagFiltro)
+    const okTag = tagsFiltro.size === 0 || i.tags.some((tg) => tagsFiltro.has(tg.id))
     return okTexto && okTag
   })
+
+  function alternarTagFiltro(id: string) {
+    setTagsFiltro((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
 
   const trabalhoAberto = abertoId ? trabalhos.find((t) => t.id === abertoId) ?? null : null
 
@@ -495,6 +518,18 @@ export function Acervo() {
       delete document.documentElement.dataset.ocultarBarra
     }
   }, [modoSelecao])
+
+  // UX-036 · a dica de segurar-para-escolher saiu da tela e virou toast único
+  // (Decisão #96): mostra uma vez na 1ª visita com fotos, marca em localStorage.
+  const dicaMostrada = useRef(false)
+  useEffect(() => {
+    if (dicaMostrada.current || modoSelecao || trabalhos.length === 0) return
+    if (localStorage.getItem('acervo_dica_selecao')) return
+    dicaMostrada.current = true
+    localStorage.setItem('acervo_dica_selecao', 'sim')
+    avisar('Segure uma foto para escolher várias')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabalhos.length, modoSelecao])
 
   // Uso do plano: total de IMAGENS (trabalhos + inspirações-imagem + referências),
   // não só os trabalhos desta tela. Fundadora/Vitrine = ilimitado.
@@ -569,6 +604,8 @@ export function Acervo() {
     const erro = await remover(aApagar)
     avisar(erro ?? 'Foto apagada')
     setAApagar(null)
+    // A exclusão só nasce do painel de detalhe (Decisão #87) — fecha ao concluir.
+    setAbertoId(null)
   }
   async function aoAlternarVitrine(t: Trabalho) {
     // Curadoria travada no excedente: marcar/desmarcar fica bloqueado, mas
@@ -601,12 +638,64 @@ export function Acervo() {
         acao={
           modoSelecao ? (
             <button className="btn-icone" onClick={sairSelecao} aria-label="Sair da seleção"><Icone nome="fechar" /></button>
-          ) : (
-            <Link to="/tags" className="btn-icone" aria-label="Minhas tags"><Icone nome="tags" /></Link>
-          )
+          ) : trabalhos.length > 0 ? (
+            // UX-036 · "Selecionar" virou ícone na barra; "Minhas tags" migrou para a
+            // folha de filtro e o painel de detalhe (Decisão #96).
+            <button className="btn-icone" onClick={entrarSelecao} aria-label="Selecionar fotos"><Icone nome="ok" /></button>
+          ) : undefined
         }
       />
       <div className="conteudo" style={{ paddingBottom: modoSelecao ? 168 : undefined }}>
+
+        {/* UX-036 · contador colapsado no topo (Decisão #87). Fechado: 1 linha
+            "{total} de {limite} fotos" + barra fina + link para os planos. Toque expande
+            para o card completo. O aviso de excedente aparece mesmo fechado. */}
+        {!modoSelecao && (
+          ilimitado ? (
+            <div className="contador-acervo">
+              <div className="contador-texto" style={{ marginBottom: 0 }}>
+                <span className="contador-num">{total}</span>
+                <span className="contador-desc"> imagens · plano sem limite</span>
+              </div>
+            </div>
+          ) : (
+            <div className="contador-acervo">
+              <div className="contador-linha">
+                <button
+                  type="button"
+                  className="contador-toggle"
+                  aria-expanded={contadorAberto}
+                  onClick={() => setContadorAberto((v) => !v)}
+                >
+                  {contadorAberto ? (
+                    <span>
+                      <span className="contador-num">{total}</span>
+                      <span className="contador-desc"> de {limite} imagens do plano Grátis</span>
+                    </span>
+                  ) : (
+                    <span className="contador-desc">
+                      <b className="contador-forte">{total}</b> de {limite} fotos
+                    </span>
+                  )}
+                </button>
+                {!contadorAberto && (
+                  <Link to="/planos" className="contador-plano">
+                    plano <Icone nome="avancar" />
+                  </Link>
+                )}
+              </div>
+              <div className="contador-barra" style={{ marginTop: 8 }}>
+                <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
+              </div>
+              {emExcedente && (
+                <p className="apoio" style={{ marginTop: 6 }}>
+                  Você passou das {limite} imagens. A curadoria da vitrine fica travada
+                  até regularizar — apagar imagens é sempre permitido.
+                </p>
+              )}
+            </div>
+          )
+        )}
 
         {modoSelecao && (
           <>
@@ -653,21 +742,28 @@ export function Acervo() {
           )}
         </div>
 
-        {/* Filtros por tag */}
+        {/* UX-036 · filtro de tag multi-seleção (Decisão #97): botão "Filtrar (N)"
+            abre a folha; as tags marcadas ficam na linha como chips removíveis. */}
         {todasTags.length > 0 && (
-          <div className="filtros">
-            <button className={`filtro${!tagFiltro ? ' ativo' : ''}`} onClick={() => setTagFiltro(null)}>
-              Todas
+          <div className="acervo-filtros-linha">
+            <button type="button" className="acervo-filtrar" onClick={() => setFiltroAberto(true)}>
+              <Icone nome="tags" size={16} /> Filtrar{tagsFiltro.size > 0 ? ` (${tagsFiltro.size})` : ''}
             </button>
-            {todasTags.map((tag) => (
-              <button
-                key={tag.id}
-                className={`filtro${tagFiltro === tag.id ? ' ativo' : ''}`}
-                onClick={() => setTagFiltro(tagFiltro === tag.id ? null : tag.id)}
-              >
-                {tag.nome}
-              </button>
-            ))}
+            {[...tagsFiltro].map((id) => {
+              const tag = todasTags.find((t) => t.id === id)
+              if (!tag) return null
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="tag-chip aplicada"
+                  onClick={() => alternarTagFiltro(id)}
+                  title="Tirar este filtro"
+                >
+                  {tag.nome} <Icone nome="fechar" size={13} />
+                </button>
+              )
+            })}
           </div>
         )}
 
@@ -677,7 +773,7 @@ export function Acervo() {
             <div className="vazio" style={{ marginTop: 16 }}>
               <div className="icone"><Icone nome="inspiracoes" size={44} /></div>
               <p>
-                {busca || tagFiltro
+                {busca || tagsFiltro.size > 0
                   ? 'Nenhuma inspiração encontrada com esse filtro.'
                   : 'Você ainda não guardou inspirações. Crie em Inspirações.'}
               </p>
@@ -698,7 +794,7 @@ export function Acervo() {
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="trabalhos" size={44} /></div>
             <p>
-              {busca || tagFiltro
+              {busca || tagsFiltro.size > 0
                 ? 'Nenhum trabalho encontrado com esse filtro.'
                 : 'Suas fotos ficam guardadas na nuvem — sem ocupar o celular.'}
             </p>
@@ -715,61 +811,10 @@ export function Acervo() {
                 onAbrir={() => setAbertoId(t.id)}
                 onAlternarMarca={() => alternarMarca(`t:${t.id}`)}
                 onLongPress={() => iniciarSelecaoCom(`t:${t.id}`)}
-                onPedirRemover={() => setAApagar(t)}
                 onAlternarVitrine={() => aoAlternarVitrine(t)}
               />
             ))}
           </div>
-        )}
-
-        {/* UX-036 (Decisão #83) — contador e "Selecionar" descem para depois da grade;
-            busca e filtros ficam acima. Modo seleção segue começando pelas fotos. */}
-        {!modoSelecao && (
-          <>
-            <div className="contador-acervo" style={{ marginTop: 16 }}>
-              {ilimitado ? (
-                <div className="contador-texto">
-                  <span className="contador-num">{total}</span>
-                  <span className="contador-desc"> imagens · plano sem limite</span>
-                </div>
-              ) : (
-                <>
-                  <div className="contador-texto">
-                    <span className="contador-num">{total}</span>
-                    <span className="contador-desc">
-                      {' '}de {limite} imagens do plano Grátis
-                    </span>
-                  </div>
-                  <div className="contador-barra">
-                    <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
-                  </div>
-                  {emExcedente && (
-                    <p className="apoio" style={{ marginTop: 6 }}>
-                      Você passou das {limite} imagens. A curadoria da vitrine fica travada
-                      até regularizar — apagar imagens é sempre permitido.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Entrar no modo seleção para baixar/compartilhar fotos em lote (M-035).
-                Também dá pra segurar uma foto na grade para entrar já marcando. */}
-            {trabalhos.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <button
-                  className="btn-secundario"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={entrarSelecao}
-                >
-                  <Icone nome="ok" size={16} /> Selecionar
-                </button>
-                <p className="apoio" style={{ textAlign: 'center', marginTop: 6 }}>
-                  ou segure uma foto para escolher
-                </p>
-              </div>
-            )}
-          </>
         )}
 
       </div>
@@ -812,12 +857,73 @@ export function Acervo() {
           todasTags={todasTags}
           enviando={enviando}
           onFechar={() => setAbertoId(null)}
+          onPedirRemover={() => setAApagar(trabalhoAberto)}
           onVerPedido={(pedidoId) => navegar(`/pedidos/${pedidoId}`)}
           onAtribuirTag={atribuirTag}
           onRemoverTag={removerTag}
           onCriarTag={criarTag}
           onAtualizar={atualizarTrabalho}
         />
+      )}
+
+      {/* UX-036 · folha de filtro por tag (multi-seleção, união). Herda também o
+          acesso a "Minhas tags" que saiu da barra (Decisão #96). */}
+      {filtroAberto && (
+        <div className="painel-overlay" onClick={() => setFiltroAberto(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <button className="painel-fechar" onClick={() => setFiltroAberto(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
+
+            <div className="painel-secao" style={{ marginTop: 4 }}>Filtrar por tag</div>
+            <div className="tags-area">
+              {todasTags.map((tag) => {
+                const marcada = tagsFiltro.has(tag.id)
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    className={`tag-chip${marcada ? ' aplicada' : ''}`}
+                    onClick={() => alternarTagFiltro(tag.id)}
+                    aria-pressed={marcada}
+                  >
+                    {tag.nome}{marcada && <> <Icone nome="ok" size={13} /></>}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => setTagsFiltro(new Set())}
+                disabled={tagsFiltro.size === 0}
+              >
+                Limpar tudo
+              </button>
+              <button
+                type="button"
+                className="cta"
+                style={{ flex: 2, height: 48 }}
+                onClick={() => setFiltroAberto(false)}
+              >
+                Ver fotos
+              </button>
+            </div>
+
+            {/* Rodapé: manutenção de tags (renomear/apagar) — a única outra porta é
+                o SeletorTag do painel de detalhe (Decisão #96). */}
+            <button
+              type="button"
+              className="btn-secundario"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+              onClick={() => { setFiltroAberto(false); navegar('/tags') }}
+            >
+              <Icone nome="tags" size={16} /> Gerenciar tags
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Confirmação de exclusão */}

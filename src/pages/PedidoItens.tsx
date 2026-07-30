@@ -107,7 +107,7 @@ export function PedidoItens() {
   }
 
   if (carregandoPedidos || carregandoCardapio || carregandoItens)
-    return <TelaCarregando titulo="Itens do pedido" variante="lista" />
+    return <TelaCarregando titulo="Escolher itens" variante="lista" />
 
   if (!id || !pedido) {
     return (

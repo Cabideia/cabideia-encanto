@@ -134,7 +134,7 @@ export function SeletorClienteProposta({ aoFechar }: { aoFechar: () => void }) {
                         <div className="card-nome">{c.nome}</div>
                         {ctx && <div className="apoio">{ctx}</div>}
                       </div>
-                      <span aria-hidden>›</span>
+                      <Icone nome="avancar" />
                     </div>
                   )
                 })}

@@ -836,7 +836,7 @@ export function PropostaForm() {
   // M-053 · espera também os PEDIDOS: `travada` deriva deles — sem esperar,
   // uma proposta convertida abriria editável por um instante (janela de escrita).
   if (carregandoClientes || (edicao && (carregandoPropostas || carregandoPedidos)))
-    return <TelaCarregando titulo="Proposta" variante="formulario" />
+    return <TelaCarregando titulo={edicao ? 'Proposta' : 'Nova proposta'} variante="formulario" />
 
   if (edicao && !carregandoPropostas && !proposta) {
     return (
@@ -1203,6 +1203,7 @@ export function PropostaForm() {
           <label className="interruptor">
             <input
               type="checkbox"
+              aria-label="Incluir meu cardápio"
               checked={incluirCardapio}
               disabled={travada}
               onChange={(e) => setIncluirCardapio(e.target.checked)}
@@ -1232,7 +1233,7 @@ export function PropostaForm() {
                 </div>
                 <div className="apoio">abre a página que ela vai receber</div>
               </div>
-              <span aria-hidden>›</span>
+              <Icone nome="avancar" />
             </div>
 
             {!travada && (
@@ -1251,7 +1252,7 @@ export function PropostaForm() {
                   </div>
                   <div className="apoio">a foto que aparece na mensagem do WhatsApp</div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
 
@@ -1267,7 +1268,7 @@ export function PropostaForm() {
                 <div className="card-info">
                   <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Baixar imagem da capa</div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
 
@@ -1290,7 +1291,7 @@ export function PropostaForm() {
                     Abrir conversa com {cliente.nome.split(' ')[0]}
                   </div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
           </div>

@@ -174,7 +174,7 @@ export function InspiracaoForm() {
   }
 
   // No modo edição, espera carregar.
-  if (edicao && carregando) return <TelaCarregando titulo="Inspiração" variante="formulario" />
+  if (edicao && carregando) return <TelaCarregando titulo="Editar inspiração" variante="formulario" />
   if (edicao && !carregando && inspiracoes.length > 0 && !insp) {
     return (
       <div className="tela">

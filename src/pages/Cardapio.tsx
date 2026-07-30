@@ -325,6 +325,7 @@ export function Cardapio() {
               <label className="interruptor">
                 <input
                   type="checkbox"
+                  aria-label="Mostrar na vitrine"
                   checked={form.na_vitrine}
                   onChange={(e) =>
                     setForm({
@@ -350,6 +351,7 @@ export function Cardapio() {
                 <label className="interruptor">
                   <input
                     type="checkbox"
+                    aria-label="Preço sob consulta"
                     checked={form.preco_sob_consulta}
                     onChange={(e) => setForm({ ...form, preco_sob_consulta: e.target.checked })}
                   />
@@ -418,7 +420,7 @@ export function Cardapio() {
                       <div className="apoio" style={{ marginTop: 2 }}>{i.detalhes}</div>
                     )}
                   </div>
-                  <span aria-hidden>›</span>
+                  <Icone nome="avancar" />
                 </div>
               </div>
             ))}

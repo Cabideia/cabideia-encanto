@@ -112,7 +112,7 @@ export function PropostaItens() {
   }
 
   if (carregandoPropostas || carregandoCardapio || carregandoItens || carregandoPedidos)
-    return <TelaCarregando titulo="Itens da proposta" variante="lista" />
+    return <TelaCarregando titulo="Escolher itens" variante="lista" />
 
   if (!id || !proposta) {
     return (

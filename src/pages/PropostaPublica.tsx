@@ -6,6 +6,7 @@ import { aplicarTema } from '../lib/tema'
 import { formatarReal } from '../hooks/useCardapio'
 import { formatarDataNumerica } from '../lib/datas'
 import { Icone } from '../components/Icone'
+import { TelaCarregandoPublica } from '../components/TelaCarregando'
 
 /**
  * M-042 F2b — Página pública de uma PROPOSTA (cabideia.com.br/encanto/proposta/:token).
@@ -171,13 +172,7 @@ export function PropostaPublica() {
   }
 
   if (estado === 'carregando') {
-    return (
-      <div className="tela">
-        <div className="conteudo" style={{ paddingTop: 40, textAlign: 'center' }}>
-          <p className="apoio">Carregando…</p>
-        </div>
-      </div>
-    )
+    return <TelaCarregandoPublica />
   }
 
   if (estado === 'invalida' || !dados) {

@@ -35,6 +35,35 @@ export function TelaCarregando({ titulo, variante = 'lista' }: Props) {
   )
 }
 
+/**
+ * UX-034 · Esqueleto das 4 telas públicas (Decisão #94).
+ * Preserva a FORMA do `.pub-cabecalho` (altura, avatar redondo, linha de
+ * título, linha de subtítulo, babado) + 2 cards-fantasma, para que a chegada
+ * do conteúdo real não produza salto de layout. Cor NEUTRA, sem tema: o tema
+ * só chega na 1ª resposta da RPC (`aplicarTema` roda depois do dado), então
+ * pintar aqui produziria flash de cor na primeira tela que a cliente vê.
+ * Componente irmão — não uma variante nova — para não sobrecarregar a
+ * assinatura de `TelaCarregando`, que já tem dois modos (Decisão #82).
+ */
+export function TelaCarregandoPublica() {
+  return (
+    <div className="tela">
+      <div className="conteudo">
+        <div role="status" aria-label="Carregando">
+          <div className="pub-cabecalho-esq" aria-hidden="true">
+            <div className="esqueleto pub-avatar-esq" />
+            <div className="esqueleto pub-esq-titulo" />
+            <div className="esqueleto pub-esq-sub" />
+            <div className="babado-ondas" />
+          </div>
+          <div className="esqueleto pub-esq-card" aria-hidden="true" />
+          <div className="esqueleto pub-esq-card" aria-hidden="true" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Esqueleto({ variante }: { variante: Variante }) {
   if (variante === 'cartoes') {
     return (
@@ -64,7 +93,7 @@ function Esqueleto({ variante }: { variante: Variante }) {
 
   if (variante === 'formulario') {
     return (
-      <div aria-hidden="true">
+      <div className="esqueleto-form" aria-hidden="true">
         <div className="esqueleto" style={{ width: '40%', height: 20, marginBottom: 16 }} />
         {[0, 1, 2, 3].map((i) => (
           <div key={i} style={{ marginBottom: 14 }}>

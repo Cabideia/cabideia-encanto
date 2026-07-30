@@ -86,7 +86,7 @@ export function Config() {
               <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Meu plano</div>
               <div className="apoio">{resumoPlano}</div>
             </div>
-            <span aria-hidden>›</span>
+            <Icone nome="avancar" />
           </Link>
           <div
             className="item"
@@ -167,7 +167,7 @@ export function Config() {
               </div>
               <div className="apoio">Apague sua conta e todos os seus dados</div>
             </div>
-            <span aria-hidden style={{ color: 'var(--cor-erro)' }}>›</span>
+            <Icone nome="avancar" style={{ color: 'var(--cor-erro)' }} />
           </div>
         </div>
 
