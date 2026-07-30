@@ -90,6 +90,14 @@ export function Vitrine() {
     }
   }
 
+  /** Copia o link público da vitrine. Usada no endereço da moldura (toque e
+      Enter) e no botão "Copiar link" — uma regra só, três gatilhos. */
+  function copiarLink() {
+    if (!perfil?.arroba) return
+    navigator.clipboard?.writeText(`https://cabideia.com.br/encanto/@${perfil.arroba}`)
+    avisar('Link copiado ✓')
+  }
+
   if (carregando) return null
 
   const temArroba = !!perfil?.arroba
@@ -141,16 +149,8 @@ export function Vitrine() {
                   className="link-vitrine"
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
-                    navigator.clipboard?.writeText('https://' + link)
-                    avisar('Link copiado ✓')
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      navigator.clipboard?.writeText('https://' + link)
-                      avisar('Link copiado ✓')
-                    }
-                  }}
+                  onClick={copiarLink}
+                  onKeyDown={(e) => { if (e.key === 'Enter') copiarLink() }}
                 >
                   <Icone nome="link" size={16} /> {link} · copiar
                 </div>
@@ -164,13 +164,7 @@ export function Vitrine() {
         {/* 2 · Ações duplas — copiar o link e ver como a cliente vê (só publicada) */}
         {publicada && temArroba && (
           <div className="acoes-duplas">
-            <button
-              className="btn-secundario"
-              onClick={() => {
-                navigator.clipboard?.writeText('https://' + link)
-                avisar('Link copiado ✓')
-              }}
-            >
+            <button className="btn-secundario" onClick={copiarLink}>
               <Icone nome="link" /> Copiar link
             </button>
             {/* Link interno (mesma aba): no TWA, target=_blank abria fora do app
@@ -187,13 +181,22 @@ export function Vitrine() {
         <div className="card" style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>Vitrine publicada</div>
+            {/* O rótulo é fixo (o estado é dito pelo interruptor), mas o apoio
+                acompanha o estado: com a vitrine oculta, dizer "qualquer pessoa
+                com o link pode ver" seria falso (UX-026 / Decisão #64). */}
             <div className="apoio" style={{ marginTop: 2 }}>
-              Qualquer pessoa com o link pode ver.
+              {publicada
+                ? 'Qualquer pessoa com o link pode ver.'
+                : 'Só você vê. Publique quando estiver pronta.'}
             </div>
           </div>
           <label className="interruptor">
+            {/* O label não contém texto (só a pista), então o nome acessível
+                precisa vir do aria-label — senão o leitor de tela anuncia
+                "caixa de seleção" sem dizer do quê. */}
             <input
               type="checkbox"
+              aria-label="Vitrine publicada"
               checked={publicada}
               disabled={salvando || !temArroba}
               onChange={alternarPublicacao}
