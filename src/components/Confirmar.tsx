@@ -7,7 +7,7 @@ type Props = {
   titulo: string
   descricao?: string
   rotuloConfirmar?: string
-  /** Ação destrutiva (vermelho). Default true — as 12 telas que já usam continuam iguais. */
+  /** Ação destrutiva (vermelho). Default true — as 16 chamadas destrutivas que já existem continuam iguais. */
   perigo?: boolean
   onConfirmar: () => void
   onCancelar: () => void

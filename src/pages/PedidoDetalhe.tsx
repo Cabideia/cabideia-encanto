@@ -405,7 +405,7 @@ export function PedidoDetalhe() {
                   </div>
                   {inspiracao.nota && <div className="apoio">{inspiracao.nota}</div>}
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </button>
             ) : (
               inspiracao.url && (
@@ -420,7 +420,7 @@ export function PedidoDetalhe() {
                     <div className="card-nome">{dominioDe(inspiracao.url)}</div>
                     <div className="apoio">{inspiracao.nota || 'Toque para abrir no navegador'}</div>
                   </div>
-                  <span aria-hidden>›</span>
+                  <Icone nome="avancar" />
                 </button>
               )
             )}
@@ -440,7 +440,7 @@ export function PedidoDetalhe() {
               <div className="card-nome">Link da cliente</div>
               <div className="apoio">{dominioDe(pedido.link_inspiracao)} · toque para abrir</div>
             </div>
-            <span aria-hidden>›</span>
+            <Icone nome="avancar" />
           </button>
         )}
 
@@ -496,7 +496,7 @@ export function PedidoDetalhe() {
                 <div className="card-info">
                   <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Ver proposta original</div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
 
@@ -517,7 +517,7 @@ export function PedidoDetalhe() {
                       : `Baixar ou compartilhar ${vinculados.length === 1 ? 'foto' : 'fotos'}`}
                   </div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
 
@@ -534,7 +534,7 @@ export function PedidoDetalhe() {
                 <div className="card-info">
                   <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Guardar fotos do trabalho</div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
 
@@ -557,7 +557,7 @@ export function PedidoDetalhe() {
                     Abrir conversa com {cliente.nome.split(' ')[0]}
                   </div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             )}
           </div>
@@ -592,7 +592,7 @@ export function PedidoDetalhe() {
                 <div className="card-info">
                   <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Editar pedido</div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
               {pedido.status !== 'cancelado' && (
                 <div
@@ -613,7 +613,7 @@ export function PedidoDetalhe() {
                       Cancelar pedido
                     </div>
                   </div>
-                  <span aria-hidden style={{ color: 'var(--cor-erro)' }}>›</span>
+                  <Icone nome="avancar" style={{ color: 'var(--cor-erro)' }} />
                 </div>
               )}
             </div>

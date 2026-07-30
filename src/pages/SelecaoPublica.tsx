@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { Icone } from '../components/Icone'
+import { TelaCarregandoPublica } from '../components/TelaCarregando'
 
 /**
  * M-020/M-022 — Página pública de uma seleção (cabideia.com.br/encanto/s/:token).
@@ -96,13 +97,7 @@ export function SelecaoPublica() {
   }
 
   if (estado === 'carregando') {
-    return (
-      <div className="tela">
-        <div className="conteudo" style={{ paddingTop: 40, textAlign: 'center' }}>
-          <p className="apoio">Carregando…</p>
-        </div>
-      </div>
-    )
+    return <TelaCarregandoPublica />
   }
 
   if (estado === 'invalida' || !dados) {

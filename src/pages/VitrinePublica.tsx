@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { Icone } from '../components/Icone'
+import { TelaCarregandoPublica } from '../components/TelaCarregando'
 import { useSessao } from '../hooks/useSessao'
 
 /**
@@ -158,13 +159,7 @@ export function VitrinePublica() {
   }
 
   if (carregando) {
-    return (
-      <div className="tela">
-        <div className="conteudo" style={{ paddingTop: 40, textAlign: 'center' }}>
-          <p className="apoio">Carregando…</p>
-        </div>
-      </div>
-    )
+    return <TelaCarregandoPublica />
   }
 
   if (!perfil) {

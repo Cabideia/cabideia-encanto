@@ -7,6 +7,7 @@ import { formatarReal } from '../hooks/useCardapio'
 import { formatarDataLonga } from '../lib/datas'
 import type { StatusPedido, StatusPagamento } from '../hooks/usePedidos'
 import { Icone } from '../components/Icone'
+import { TelaCarregandoPublica } from '../components/TelaCarregando'
 
 /**
  * M-047 · Página pública de um PEDIDO (cabideia.com.br/encanto/pedido/:token).
@@ -128,13 +129,7 @@ export function PedidoPublico() {
   }
 
   if (estado === 'carregando') {
-    return (
-      <div className="tela">
-        <div className="conteudo" style={{ paddingTop: 40, textAlign: 'center' }}>
-          <p className="apoio">Carregando…</p>
-        </div>
-      </div>
-    )
+    return <TelaCarregandoPublica />
   }
 
   if (estado === 'invalida' || !dados) {

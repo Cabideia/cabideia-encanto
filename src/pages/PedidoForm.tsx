@@ -739,7 +739,7 @@ export function PedidoForm() {
   }
 
   // No modo edição, espera o pedido carregar.
-  if (edicao && carregando) return <TelaCarregando titulo="Pedido" variante="formulario" />
+  if (edicao && carregando) return <TelaCarregando titulo={conversao ? 'Virar pedido' : 'Editar pedido'} variante="formulario" />
   if (edicao && !carregando && !pedido) {
     return (
       <div className="tela">

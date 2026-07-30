@@ -441,6 +441,35 @@ body{
   }
   @keyframes pulso{0%,100%{opacity:1}50%{opacity:.45}}
 }
+/* UX-034 · onda escalonada: cada bloco irmão entra .15s depois do anterior, em
+   vez de todos pulsarem em fase. Só quando a animação está ligada. */
+@media (prefers-reduced-motion:no-preference){
+  .esqueleto-linha:nth-child(2) .esqueleto,.esqueleto-linha:nth-child(2) .esqueleto-bola,
+  .esqueleto-cartao:nth-child(2) .esqueleto,.esqueleto-cartao:nth-child(2) .esqueleto-chip,
+  .esqueleto-grade .esqueleto-quadro:nth-child(2),
+  .esqueleto-form>div:nth-child(2) .esqueleto,.esqueleto-form>div:nth-child(2) .esqueleto-campo,
+  .pub-esq-titulo{animation-delay:.15s}
+
+  .esqueleto-linha:nth-child(3) .esqueleto,.esqueleto-linha:nth-child(3) .esqueleto-bola,
+  .esqueleto-cartao:nth-child(3) .esqueleto,.esqueleto-cartao:nth-child(3) .esqueleto-chip,
+  .esqueleto-grade .esqueleto-quadro:nth-child(3),
+  .esqueleto-form>div:nth-child(3) .esqueleto,.esqueleto-form>div:nth-child(3) .esqueleto-campo,
+  .pub-esq-sub{animation-delay:.3s}
+
+  .esqueleto-linha:nth-child(4) .esqueleto,.esqueleto-linha:nth-child(4) .esqueleto-bola,
+  .esqueleto-cartao:nth-child(4) .esqueleto,.esqueleto-cartao:nth-child(4) .esqueleto-chip,
+  .esqueleto-grade .esqueleto-quadro:nth-child(4),
+  .esqueleto-form>div:nth-child(4) .esqueleto,.esqueleto-form>div:nth-child(4) .esqueleto-campo,
+  .pub-esq-card{animation-delay:.45s}
+
+  .esqueleto-linha:nth-child(5) .esqueleto,.esqueleto-linha:nth-child(5) .esqueleto-bola,
+  .esqueleto-grade .esqueleto-quadro:nth-child(5),
+  .esqueleto-form>div:nth-child(5) .esqueleto,.esqueleto-form>div:nth-child(5) .esqueleto-campo,
+  .pub-esq-card + .pub-esq-card{animation-delay:.6s}
+
+  .esqueleto-linha:nth-child(6) .esqueleto,.esqueleto-linha:nth-child(6) .esqueleto-bola,
+  .esqueleto-grade .esqueleto-quadro:nth-child(6){animation-delay:.75s}
+}
 button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.card-toque:focus-visible{
   outline:3px solid var(--framboesa);outline-offset:2px;
 }
@@ -564,7 +593,7 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 .acervo-selo-tags {
   display: block; width: 100%; padding: 6px 8px; border: none;
   background: var(--acucar); color: var(--cacau-claro); font: inherit;
-  font-size: 11px; font-weight: 700; text-align: left; cursor: pointer;
+  font-size: 12px; font-weight: 700; text-align: left; cursor: pointer;
 }
 .acervo-selo-tags:active { background: var(--neutro-suave); }
 
@@ -595,6 +624,28 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 .contador-desc { color: var(--cacau-claro); }
 .contador-barra { height: 5px; background: var(--linha); border-radius: 3px; overflow: hidden; }
 .contador-progresso { height: 100%; border-radius: 3px; transition: width .4s ease; }
+/* UX-036 · contador colapsado em 1 linha + link "plano ›" */
+.contador-linha { display: flex; align-items: center; gap: 10px; }
+.contador-toggle {
+  flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center;
+  background: none; border: none; padding: 0; font: inherit; text-align: left;
+  color: inherit; cursor: pointer;
+}
+.contador-forte { font-weight: 800; color: var(--cacau); }
+.contador-plano {
+  display: inline-flex; align-items: center; gap: 2px; flex: none; min-height: 44px;
+  color: var(--framboesa); font-weight: 700; font-size: var(--t-apoio); text-decoration: none;
+}
+
+/* UX-036 · linha do filtro de tag (botão "Filtrar (N)" + chips removíveis) */
+.acervo-filtros-linha { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0 4px; }
+.acervo-filtrar {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px;
+  border: 1.5px dashed var(--framboesa); border-radius: var(--raio-m);
+  background: var(--framboesa-suave); color: var(--framboesa);
+  font: inherit; font-size: var(--t-base); font-weight: var(--peso-forte); cursor: pointer;
+}
+.acervo-filtrar:active { transform: scale(.98); }
 
 /* -- Formulário de adição -- */
 .form-acervo {
@@ -924,7 +975,7 @@ img.logo-redonda { object-fit: cover; }
 }
 .nav-item{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  min-height:var(--alvo-toque);justify-content:center;font-size:11px;font-weight:var(--peso-forte);
+  min-height:var(--alvo-toque);justify-content:center;font-size:12px;font-weight:var(--peso-forte);
   color:var(--cacau-claro);border:none;background:none;cursor:pointer;border-radius:var(--raio-m);
   transition:var(--transicao);text-decoration:none;font-family:inherit;
 }
@@ -975,11 +1026,21 @@ img.logo-redonda { object-fit: cover; }
 .pub-avatar img{width:100%;height:100%;object-fit:cover}
 /* Babado ondulado — assinatura visual das páginas públicas (não confundir com
    o .babado de 5px do cabeçalho antigo, que segue em uso na vitrine/proposta). */
-.pub-cabecalho .babado-ondas{
+.pub-cabecalho .babado-ondas,.pub-cabecalho-esq .babado-ondas{
   position:absolute;left:0;right:0;bottom:-1px;height:22px;
   background:radial-gradient(circle at 12px -6px, transparent 15px, var(--cor-fundo) 16px);
   background-size:24px 22px;background-position:center bottom;
 }
+/* UX-034 · esqueleto público (Decisão #94): mesma FORMA do .pub-cabecalho, porém
+   em cinza neutro (--linha, via .esqueleto) — sem tema, para não piscar cor. */
+.pub-cabecalho-esq{
+  margin:-8px calc(-1 * var(--espaco)) 0;background:var(--neutro-suave);
+  padding:30px 20px 40px;text-align:center;position:relative;
+}
+.pub-avatar-esq{width:70px;height:70px;border-radius:50%;margin:0 auto 12px}
+.pub-esq-titulo{width:60%;height:22px;margin:0 auto;border-radius:var(--raio-s)}
+.pub-esq-sub{width:40%;height:14px;margin:8px auto 0;border-radius:var(--raio-s)}
+.pub-esq-card{height:96px;border-radius:var(--raio-card);margin-top:18px}
 /* Linha do tempo do andamento (vocabulário travado: 3 passos) */
 .linha-tempo{position:relative;padding-left:34px}
 .linha-tempo::before{content:"";position:absolute;left:13px;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--linha)}

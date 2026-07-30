@@ -120,7 +120,7 @@ export function InspiracaoDetalhe() {
                   <div className="card-nome">{dominioDe(insp.url)}</div>
                   <div className="apoio">Toque para abrir no navegador</div>
                 </div>
-                <span aria-hidden>›</span>
+                <Icone nome="avancar" />
               </div>
             </button>
           </>

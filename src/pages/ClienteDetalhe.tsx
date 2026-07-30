@@ -145,7 +145,7 @@ export function ClienteDetalhe() {
               {p.validade ? ` · vale até ${formatarDataNumerica(p.validade)}` : ''}
             </div>
           </div>
-          <span aria-hidden>›</span>
+          <Icone nome="avancar" />
         </div>
         {pedido && (
           <button
