@@ -415,7 +415,7 @@ export function PropostaPublica() {
             </div>
             <img
               src={dados.cardapioUrl}
-              alt="Cardápio de recheios e sabores"
+              alt="Recheios e sabores"
               loading="lazy"
               style={{ width: '100%', borderRadius: 'var(--raio-card)', display: 'block', marginTop: 8, border: '1px solid var(--linha)' }}
             />

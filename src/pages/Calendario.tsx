@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, STATUS_INFO, tituloPedido } from '../hooks/usePedidos'
 import { formatarDataLonga, isoDeData } from '../lib/datas'
@@ -61,11 +62,11 @@ export function Calendario() {
         {/* Navegação do mês */}
         <div className="cal-cabecalho">
           <button className="btn-icone" onClick={() => irMes(-1)} aria-label="Mês anterior">
-            ‹
+            <Icone nome="anterior" />
           </button>
           <div className="cal-mes">{rotuloMes}</div>
           <button className="btn-icone" onClick={() => irMes(1)} aria-label="Próximo mês">
-            ›
+            <Icone nome="proximo" />
           </button>
         </div>
 
@@ -149,7 +150,7 @@ export function Calendario() {
           className="cta"
           onClick={() => navegar(`/pedidos/novo?data=${selecionado}`)}
         >
-          ＋ Novo pedido nesta data
+          <Icone nome="mais" /> Novo pedido nesta data
         </button>
       </div>
     </div>

@@ -4,7 +4,7 @@ import {
   Pencil, Share2, Upload, Link2, MapPin, X, Check, ChevronRight, ChevronLeft,
   Lock, Camera, Image as ImageIcon, Plus, Star, Eye, RotateCw, AlertCircle,
   Sparkle, ArrowLeft, ArrowRight, ArrowDownToLine, Hand, Square, RotateCcw,
-  Crop, ListChecks, House, Menu, type LucideProps,
+  Crop, ListChecks, House, Menu, WifiOff, type LucideProps,
 } from 'lucide-react'
 
 /**
@@ -38,6 +38,11 @@ const MAPA = {
   ok: Check,
   avancar: ChevronRight,
   voltar: ChevronLeft,
+  // Aliases semânticos p/ navegação de mês no Calendário (Decisão #9): "voltar"
+  // é navegação de histórico no resto do app, então mês usa nomes próprios.
+  anterior: ChevronLeft,
+  proximo: ChevronRight,
+  semConexao: WifiOff,
   cadeado: Lock,
   camera: Camera,
   imagem: ImageIcon,

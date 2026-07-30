@@ -553,7 +553,7 @@ export function PedidoDetalhe() {
                 </div>
                 <div className="card-info">
                   <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
-                    Abrir conversa da {cliente.nome.split(' ')[0]}
+                    Abrir conversa com {cliente.nome.split(' ')[0]}
                   </div>
                 </div>
                 <span aria-hidden>›</span>

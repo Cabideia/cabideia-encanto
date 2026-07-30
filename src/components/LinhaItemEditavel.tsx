@@ -112,7 +112,7 @@ export function LinhaItemEditavel({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 8 }}>
-        <label style={{ flex: '0 0 68px' }}>
+        <label className="campo-linha" style={{ flex: '0 0 68px' }}>
           <span className="apoio" style={{ display: 'block', marginBottom: 2 }}>Qtd</span>
           <input
             value={qtdTexto}
@@ -123,7 +123,7 @@ export function LinhaItemEditavel({
             aria-label={`Quantidade de ${item.nome_snapshot}`}
           />
         </label>
-        <label style={{ flex: '1 1 92px', minWidth: 0 }}>
+        <label className="campo-linha" style={{ flex: '1 1 92px', minWidth: 0 }}>
           <span className="apoio" style={{ display: 'block', marginBottom: 2 }}>Preço (R$)</span>
           <input
             value={precoTexto}
@@ -135,7 +135,7 @@ export function LinhaItemEditavel({
             aria-label={`Preço de ${item.nome_snapshot} nesta lista`}
           />
         </label>
-        <label style={{ flex: '1 1 84px', minWidth: 0 }}>
+        <label className="campo-linha" style={{ flex: '1 1 84px', minWidth: 0 }}>
           <span className="apoio" style={{ display: 'block', marginBottom: 2 }}>Unidade</span>
           <input
             value={unidadeTexto}
@@ -152,7 +152,7 @@ export function LinhaItemEditavel({
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
         <span className="apoio">
           Total do item:{' '}
-          <b style={{ color: 'var(--framboesa)' }}>
+          <b style={{ color: 'var(--framboesa)', fontWeight: 700 }}>
             {totalItem != null ? formatarReal(totalItem) : 'sem preço'}
           </b>
         </span>

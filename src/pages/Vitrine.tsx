@@ -90,6 +90,14 @@ export function Vitrine() {
     }
   }
 
+  /** Copia o link público da vitrine. Usada no endereço da moldura (toque e
+      Enter) e no botão "Copiar link" — uma regra só, três gatilhos. */
+  function copiarLink() {
+    if (!perfil?.arroba) return
+    navigator.clipboard?.writeText(`https://cabideia.com.br/encanto/@${perfil.arroba}`)
+    avisar('Link copiado ✓')
+  }
+
   if (carregando) return null
 
   const temArroba = !!perfil?.arroba
@@ -98,17 +106,36 @@ export function Vitrine() {
 
   return (
     <div className="tela">
-      <BarraTopo titulo="Minha vitrine" />
+      <BarraTopo
+        titulo="Minha vitrine"
+        acao={
+          <>
+            {/* O compartilhar entra só quando publicada; quando escondido, o
+                .vaga segura o lugar para a barra não saltar (UX-039). */}
+            {publicada && temArroba ? (
+              <button
+                className="btn-icone"
+                aria-label="Compartilhar vitrine"
+                onClick={compartilhar}
+              >
+                <Icone nome="compartilhar" />
+              </button>
+            ) : (
+              <span className="vaga" />
+            )}
+            <button
+              className="btn-icone"
+              aria-label="Editar perfil"
+              onClick={() => setEditarPerfil(true)}
+            >
+              <Icone nome="editar" />
+            </button>
+          </>
+        }
+      />
       <div className="conteudo">
-        {/* 1 · Primeira parte — toque na logo/nome para editar o perfil (M-017) */}
-        <div
-          className="vitrine-moldura"
-          role="button"
-          tabIndex={0}
-          onClick={() => setEditarPerfil(true)}
-          onKeyDown={(e) => e.key === 'Enter' && setEditarPerfil(true)}
-          style={{ cursor: 'pointer' }}
-        >
+        {/* 1 · Moldura só de exibição — edição vai pelo lápis da barra (M-017) */}
+        <div className="vitrine-moldura">
           <div className="babado" />
           <div className="vitrine-corpo">
             <div className="logo-redonda">
@@ -122,12 +149,8 @@ export function Vitrine() {
                   className="link-vitrine"
                   role="button"
                   tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    navigator.clipboard?.writeText('https://' + link)
-                    avisar('Link copiado ✓')
-                  }}
-                  onKeyDown={(e) => e.stopPropagation()}
+                  onClick={copiarLink}
+                  onKeyDown={(e) => { if (e.key === 'Enter') copiarLink() }}
                 >
                   <Icone nome="link" size={16} /> {link} · copiar
                 </div>
@@ -135,76 +158,51 @@ export function Vitrine() {
             ) : (
               <div className="apoio">Complete seu perfil para abrir a vitrine</div>
             )}
-            <div className="apoio" style={{ marginTop: 10, fontWeight: 600, color: 'var(--framboesa)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Icone nome="editar" size={15} /> Toque para editar o perfil
-            </div>
           </div>
         </div>
 
-        {/* 2 · Compartilhar vitrine (só se publicada) */}
+        {/* 2 · Ações duplas — copiar o link e ver como a cliente vê (só publicada) */}
         {publicada && temArroba && (
-          <button
-            onClick={compartilhar}
-            style={{
-              width: '100%', padding: '14px', borderRadius: 16,
-              border: '2px solid var(--framboesa)', background: 'transparent',
-              color: 'var(--framboesa)', fontWeight: 600, fontSize: 15,
-              cursor: 'pointer', marginTop: 16,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}
-          >
-            <Icone nome="compartilhar" size={18} /> Compartilhar link
-          </button>
-        )}
-
-        {/* 3 · Veja como a cliente vê (só se publicada) */}
-        {temArroba && publicada && (
-          <p className="apoio" style={{ textAlign: 'center', marginTop: 16 }}>
-            <Icone nome="olho" size={15} style={{ verticalAlign: '-2px' }} /> Veja como a cliente vê:{' '}
+          <div className="acoes-duplas">
+            <button className="btn-secundario" onClick={copiarLink}>
+              <Icone nome="link" /> Copiar link
+            </button>
             {/* Link interno (mesma aba): no TWA, target=_blank abria fora do app
                 e sem sessão não havia caminho de volta. A rota /@arroba é do
                 próprio router (basename /encanto), então funciona igual em
-                cabideia.com.br e no preview .pages.dev. */}
-            <Link to={`/@${perfil!.arroba}`} style={{ color: 'var(--framboesa)', fontWeight: 700 }}>
-              abrir minha vitrine
+                cabideia.com.br e no preview .pages.dev. NÃO trocar por <a>. */}
+            <Link to={`/@${perfil!.arroba}`} className="btn-secundario">
+              <Icone nome="olho" /> Ver como cliente
             </Link>
-          </p>
+          </div>
         )}
 
-        {/* 4 · Publicada / Oculta */}
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            margin: '16px 0', padding: '14px 16px', background: 'var(--acucar)',
-            borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}
-        >
+        {/* 3 · Publicação — interruptor (copiado do "Incluir meu cardápio") */}
+        <div className="card" style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{
-                width: 10, height: 10, borderRadius: '50%', flex: 'none',
-                background: publicada ? 'var(--pistache)' : 'var(--neutro)',
-              }} />
-              {publicada ? 'Vitrine publicada' : 'Vitrine oculta'}
-            </div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Vitrine publicada</div>
+            {/* O rótulo é fixo (o estado é dito pelo interruptor), mas o apoio
+                acompanha o estado: com a vitrine oculta, dizer "qualquer pessoa
+                com o link pode ver" seria falso (UX-026 / Decisão #64). */}
             <div className="apoio" style={{ marginTop: 2 }}>
-              {publicada ? 'Clientes podem ver sua vitrine' : 'Só você vê. Publique quando estiver pronta.'}
+              {publicada
+                ? 'Qualquer pessoa com o link pode ver.'
+                : 'Só você vê. Publique quando estiver pronta.'}
             </div>
           </div>
-          <button
-            onClick={alternarPublicacao}
-            disabled={salvando || !temArroba}
-            style={{
-              flexShrink: 0, marginLeft: 12, padding: '8px 18px', borderRadius: 20,
-              border: 'none', fontWeight: 600, fontSize: 14,
-              cursor: salvando || !temArroba ? 'not-allowed' : 'pointer',
-              background: publicada ? 'var(--neutro-suave)' : 'var(--framboesa)',
-              color: publicada ? 'var(--cacau)' : '#fff',
-              opacity: salvando ? 0.6 : 1, transition: 'all 0.2s',
-            }}
-          >
-            {salvando ? '…' : publicada ? 'Ocultar' : 'Publicar'}
-          </button>
+          <label className="interruptor">
+            {/* O label não contém texto (só a pista), então o nome acessível
+                precisa vir do aria-label — senão o leitor de tela anuncia
+                "caixa de seleção" sem dizer do quê. */}
+            <input
+              type="checkbox"
+              aria-label="Vitrine publicada"
+              checked={publicada}
+              disabled={salvando || !temArroba}
+              onChange={alternarPublicacao}
+            />
+            <span className="pista" />
+          </label>
         </div>
 
         {!temArroba && (
@@ -213,7 +211,7 @@ export function Vitrine() {
           </p>
         )}
 
-        {/* 5 · xx Fotos na vitrine — origem das fotos: Meus trabalhos. Caminho único. */}
+        {/* 4 · xx Fotos na vitrine — origem das fotos: Meus trabalhos. Caminho único. */}
         <div className="card" style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div className="emoji" style={{ width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--acento-suave)', color: 'var(--acento)' }}>
