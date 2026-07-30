@@ -279,14 +279,21 @@ body{
 .bloco.destaque{grid-column:1/-1;flex-direction:row;align-items:center;min-height:0}
 .bloco.destaque .texto{flex:1}
 
-.entregas{display:flex;gap:10px;overflow-x:auto;padding:4px 0 6px;scrollbar-width:none}
-.entregas::-webkit-scrollbar{display:none}
+/* UX-037 · "Próximas entregas" protagonista: cards verticais empilhados (não
+   mais carrossel), com bloco de data à esquerda. */
+.entregas{display:flex;flex-direction:column;gap:10px;padding:4px 0 6px}
 .entrega{
-  flex:none;width:200px;background:var(--acucar);border:1px solid var(--linha);
+  display:flex;align-items:center;gap:12px;background:var(--acucar);border:1px solid var(--linha);
   border-radius:var(--raio-card);padding:12px 14px;box-shadow:var(--sombra);cursor:pointer;
 }
-.entrega .quando{font-size:var(--t-apoio);font-weight:800;color:var(--framboesa);margin-bottom:4px}
-.entrega .o-que{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entrega-data{
+  flex:none;width:52px;padding:6px 0;border-radius:12px;background:var(--framboesa-suave);
+  color:var(--framboesa);display:flex;flex-direction:column;align-items:center;line-height:1.05;
+}
+.entrega-data .dia-semana{font-size:11px;font-weight:700;text-transform:uppercase}
+.entrega-data .dia-num{font-size:20px;font-weight:800}
+.entrega-info{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.entrega .o-que{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 
 .aviso-teste{
   display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px 14px;cursor:pointer;
@@ -608,9 +615,9 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 .tag-chip.aplicada { background: var(--pistache); border-color: var(--pistache); color: #fff; }
 .tag-chip.selecionada { background: var(--pistache); border-color: var(--pistache); color: #fff; }
 .tag-criar {
-  display: inline-flex; align-items: center; height: 28px; padding: 0 12px;
-  border: 1px dashed var(--pistache); border-radius: var(--raio-pill);
-  background: transparent; color: var(--pistache); font: inherit;
+  display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 12px;
+  border: 1px dashed var(--framboesa); border-radius: var(--raio-pill);
+  background: transparent; color: var(--framboesa); font: inherit;
   font-size: var(--t-apoio); font-weight: 700; cursor: pointer;
 }
 
@@ -705,7 +712,7 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   border-radius: 14px; font: inherit; font-size: var(--t-base);
   background: var(--acucar); color: var(--cacau); outline: none;
 }
-.painel-input:focus { border-color: var(--pistache); }
+.painel-input:focus { border-color: var(--framboesa); box-shadow: 0 0 0 3px var(--framboesa-suave); }
 
 /* ============================================================
    RECORTE DE IMAGEM (M-009 · refino)
@@ -802,7 +809,8 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
 .barra-selecao-conta { font-weight: 800; font-size: var(--t-base); color: var(--cacau); flex: none; }
 
 /* Link discreto no canto de um cabeçalho de seção ("Ver todas ›") */
-.secao-link { font-size: var(--t-apoio); font-weight: 800; color: var(--framboesa); flex: none; }
+.secao-link { font-size: var(--t-apoio); font-weight: 800; color: var(--framboesa); flex: none; display: inline-flex; align-items: center; gap: 2px; }
+.link-texto { color: var(--framboesa); font-weight: 700; }
 
 /* ── Calendário (M-006) ── */
 .cal-cabecalho { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 12px; }

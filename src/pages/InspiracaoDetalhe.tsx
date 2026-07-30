@@ -3,11 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
+import { SeletorTag } from '../components/SeletorTag'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes, dominioDe } from '../hooks/useInspiracoes'
-import type { Tag } from '../hooks/useAcervo'
 
 /**
  * M-007 · Detalhe da inspiração.
@@ -161,16 +161,45 @@ export function InspiracaoDetalhe() {
         </button>
       </div>
 
-      {/* Bottom sheet de tags (mesmo padrão do acervo) */}
+      {/* Bottom sheet de tags — mesma folha do acervo, agora com o SeletorTag
+          único no miolo de entrada (UX-038): a folha e os chips com ✕ ficam. */}
       {tagsAbertas && (
-        <PainelTags
-          tagsAplicadas={insp.tags}
-          todasTags={todasTags}
-          onFechar={() => setTagsAbertas(false)}
-          onAtribuir={(tagId) => atribuirTag(insp.id, tagId)}
-          onRemover={(tagId) => removerTag(insp.id, tagId)}
-          onCriar={criarTag}
-        />
+        <div className="painel-overlay" onClick={() => setTagsAbertas(false)}>
+          <div className="painel" onClick={(e) => e.stopPropagation()}>
+            <div className="painel-puxador" />
+            <button className="painel-fechar" onClick={() => setTagsAbertas(false)} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
+
+            <div className="painel-secao" style={{ marginTop: 0 }}>Tags desta inspiração</div>
+            {insp.tags.length > 0 ? (
+              <div className="tags-area">
+                {insp.tags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    className="tag-chip aplicada"
+                    onClick={() => removerTag(insp.id, tag.id)}
+                    title="Toque para tirar esta tag"
+                  >
+                    {tag.nome} <Icone nome="fechar" size={13} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="apoio" style={{ padding: '2px 2px 4px' }}>
+                Nenhuma tag ainda. Adicione abaixo para achar essa inspiração depois.
+              </p>
+            )}
+
+            <div className="painel-secao">Adicionar tag</div>
+            <SeletorTag
+              todasTags={todasTags}
+              selecionadas={insp.tags.map((t) => t.id)}
+              onSelecionar={(tag) => atribuirTag(insp.id, tag.id)}
+              onCriar={criarTag}
+              inputClassName="painel-input"
+            />
+          </div>
+        </div>
       )}
 
       {/* UX-026 · exclusão REAL (M-051): a mesma verdade do Acervo. Só a imagem
@@ -188,105 +217,6 @@ export function InspiracaoDetalhe() {
           onCancelar={() => setAExcluir(false)}
         />
       )}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────
-// Bottom sheet de tags — espelha o painel de tags do acervo.
-// ─────────────────────────────────────────────────────────
-type PainelTagsProps = {
-  tagsAplicadas: Tag[]
-  todasTags: Tag[]
-  onFechar: () => void
-  onAtribuir: (tagId: string) => Promise<void>
-  onRemover: (tagId: string) => Promise<void>
-  onCriar: (nome: string) => Promise<Tag | null>
-}
-
-function PainelTags({
-  tagsAplicadas,
-  todasTags,
-  onFechar,
-  onAtribuir,
-  onRemover,
-  onCriar,
-}: PainelTagsProps) {
-  const [texto, setTexto] = useState('')
-
-  const disponiveis = todasTags.filter((t) => !tagsAplicadas.some((tg) => tg.id === t.id))
-  const sugestoes = disponiveis.filter((t) => !texto || t.nome.includes(texto.toLowerCase()))
-  const podeCriar =
-    !!texto.trim() && !todasTags.some((t) => t.nome === texto.trim().toLowerCase())
-
-  async function adicionar(tagId: string) {
-    await onAtribuir(tagId)
-    setTexto('')
-  }
-  async function criarEAdicionar() {
-    if (!texto.trim()) return
-    const tag = await onCriar(texto)
-    if (tag) await onAtribuir(tag.id)
-    setTexto('')
-  }
-
-  return (
-    <div className="painel-overlay" onClick={onFechar}>
-      <div className="painel" onClick={(e) => e.stopPropagation()}>
-        <div className="painel-puxador" />
-        <button className="painel-fechar" onClick={onFechar} aria-label="Fechar"><Icone nome="fechar" size={16} /></button>
-
-        <div className="painel-secao" style={{ marginTop: 0 }}>Tags desta inspiração</div>
-        {tagsAplicadas.length > 0 ? (
-          <div className="tags-area">
-            {tagsAplicadas.map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                className="tag-chip aplicada"
-                onClick={() => onRemover(tag.id)}
-                title="Toque para tirar esta tag"
-              >
-                {tag.nome} <Icone nome="fechar" size={13} />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="apoio" style={{ padding: '2px 2px 4px' }}>
-            Nenhuma tag ainda. Adicione abaixo para achar essa inspiração depois.
-          </p>
-        )}
-
-        <div className="painel-secao">Adicionar tag</div>
-        <input
-          className="painel-input"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              if (sugestoes.length > 0) adicionar(sugestoes[0].id)
-              else if (podeCriar) criarEAdicionar()
-            }
-          }}
-          placeholder="Digite para buscar ou criar…"
-          autoCapitalize="none"
-        />
-        {(sugestoes.length > 0 || podeCriar) && (
-          <div className="tags-area" style={{ paddingTop: 8 }}>
-            {sugestoes.map((t) => (
-              <button key={t.id} type="button" className="tag-chip" onClick={() => adicionar(t.id)}>
-                + {t.nome}
-              </button>
-            ))}
-            {podeCriar && (
-              <button type="button" className="tag-criar" onClick={criarEAdicionar}>
-                Criar “{texto.trim()}”
-              </button>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

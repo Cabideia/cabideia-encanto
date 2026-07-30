@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { urlPublica } from '../lib/storage'
 import { aplicarTema } from '../lib/tema'
 import { Icone } from '../components/Icone'
+import { Lightbox } from '../components/Lightbox'
 import { TelaCarregandoPublica } from '../components/TelaCarregando'
 import { useSessao } from '../hooks/useSessao'
 
@@ -389,27 +390,11 @@ export function VitrinePublica() {
 
       {/* UX-009 — foto ampliada com a legenda em overlay (toque para fechar). */}
       {ampliada && (
-        <div
-          className="lightbox-overlay"
-          onClick={() => setAmpliada(null)}
-          role="dialog"
-          aria-label="Foto ampliada"
-        >
-          <button
-            type="button"
-            className="lightbox-fechar"
-            onClick={() => setAmpliada(null)}
-            aria-label="Fechar"
-          >
-            <Icone nome="fechar" size={18} />
-          </button>
-          <div className="lightbox-quadro" onClick={(e) => e.stopPropagation()}>
-            <img src={ampliada.url} alt={ampliada.descricao ?? ''} />
-            {ampliada.descricao && (
-              <div className="lightbox-legenda">{ampliada.descricao}</div>
-            )}
-          </div>
-        </div>
+        <Lightbox
+          url={ampliada.url}
+          legenda={ampliada.descricao ?? undefined}
+          aoFechar={() => setAmpliada(null)}
+        />
       )}
     </div>
   )

@@ -5,6 +5,7 @@ import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { Confirmar } from '../components/Confirmar'
 import { GradeReferencias, resolverReferencias, type RefVisual } from '../components/GradeReferencias'
+import { Lightbox } from '../components/Lightbox'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, tituloPedido } from '../hooks/usePedidos'
 import { useAcervo } from '../hooks/useAcervo'
@@ -121,31 +122,13 @@ export function GaleriaReferencias() {
         />
       )}
 
-      {/* UX-029 · foto ampliada — mesmo lightbox da vitrine pública (UX-009). */}
+      {/* UX-029 · foto ampliada — mesmo Lightbox da vitrine pública (UX-009). */}
       {ampliada && (
-        <div
-          className="lightbox-overlay"
-          onClick={() => setAmpliada(null)}
-          role="dialog"
-          aria-label="Foto ampliada"
-        >
-          <button
-            type="button"
-            className="lightbox-fechar"
-            onClick={() => setAmpliada(null)}
-            aria-label="Fechar"
-          >
-            <Icone nome="fechar" size={18} />
-          </button>
-          <div className="lightbox-quadro" onClick={(e) => e.stopPropagation()}>
-            <img src={ampliada.url ?? ''} alt={ampliada.legenda ?? ''} />
-            {(ampliada.codigo || ampliada.legenda) && (
-              <div className="lightbox-legenda">
-                {[ampliada.codigo, ampliada.legenda].filter(Boolean).join(' · ')}
-              </div>
-            )}
-          </div>
-        </div>
+        <Lightbox
+          url={ampliada.url ?? ''}
+          legenda={[ampliada.codigo, ampliada.legenda].filter(Boolean).join(' · ') || undefined}
+          aoFechar={() => setAmpliada(null)}
+        />
       )}
     </div>
   )

@@ -68,22 +68,18 @@ export function MinhasTags() {
               <div className="item" key={tag.id} style={{ cursor: 'default' }}>
                 {editandoId === tag.id ? (
                   <>
-                    <input
-                      autoFocus
-                      value={texto}
-                      onChange={(e) => setTexto(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') salvar(tag.id)
-                        if (e.key === 'Escape') { setEditandoId(null); setTexto('') }
-                      }}
-                      autoCapitalize="none"
-                      style={{
-                        flex: 1, minHeight: 40, padding: '8px 12px',
-                        border: '1px solid var(--pistache)', borderRadius: 10,
-                        font: 'inherit', fontSize: 'var(--t-base)', outline: 'none',
-                        background: 'var(--acucar)', color: 'var(--cacau)',
-                      }}
-                    />
+                    <div className="campo-linha" style={{ flex: 1 }}>
+                      <input
+                        autoFocus
+                        value={texto}
+                        onChange={(e) => setTexto(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') salvar(tag.id)
+                          if (e.key === 'Escape') { setEditandoId(null); setTexto('') }
+                        }}
+                        autoCapitalize="none"
+                      />
+                    </div>
                     <button className="btn-primario-peq" onClick={() => salvar(tag.id)}>Salvar</button>
                     <button
                       className="btn-icone"
@@ -96,9 +92,7 @@ export function MinhasTags() {
                 ) : (
                   <>
                     <div className="card-info">
-                      <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
-                        {tag.nome}
-                      </div>
+                      <div className="card-nome">{tag.nome}</div>
                       <div className="apoio">
                         em {tag.uso} foto{tag.uso !== 1 ? 's' : ''}
                       </div>
