@@ -1,26 +1,37 @@
 import { Link } from 'react-router-dom'
 import { useSessao } from '../hooks/useSessao'
-import { usePedidos, tituloPedido } from '../hooks/usePedidos'
-import { rotuloEntrega } from '../lib/datas'
+import { usePedidos, tituloPedido, STATUS_INFO, PAGAMENTO_CURTO } from '../hooks/usePedidos'
+import { usePropostas } from '../hooks/usePropostas'
+import { dataLocal } from '../lib/datas'
 import { Icone } from '../components/Icone'
 
-/** Home em blocos (UX-001): sem barra inferior, engrenagem no topo. */
+// Bloco de data do card de entrega: dia da semana curto derivado da data_entrega
+// com Intl, sem tocar no `rotuloEntrega` (que é usado em outras telas).
+const DIA_SEMANA = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' })
+
+/** Home em blocos (UX-001): engrenagem no topo; a navegação é pela barra inferior. */
 export function Home() {
   const { sessao } = useSessao()
   const { proximasEntregas } = usePedidos(sessao?.user.id)
   // Resumo enxuto na home: as próximas entregas de 7 dias. A visão completa
-  // (mês a mês) vive no Calendário, alcançável pelo "Ver todas".
+  // (mês a mês) vive no Calendário, alcançável pelo "Ver agenda".
   const entregas = proximasEntregas('7d')
+  // Decisão #101 · atalho vivo de propostas aguardando: custa UMA consulta nova
+  // na Home (o usePropostas busca todas as propostas da dona). Aceito por ser o
+  // coração do item 3a; registrado aqui para a próxima onda não achar descuido.
+  const { propostas } = usePropostas(sessao?.user.id)
+  const aguardando = propostas.filter((p) => !p.resolvida).length
   const nome = sessao?.user.user_metadata?.name?.split(' ')[0] ?? 'confeiteira'
+  // Formato curto para caber em uma linha no `.titulo` (22px) sem inline style.
   const hoje = new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long', day: 'numeric', month: 'long'
+    weekday: 'short', day: 'numeric', month: 'long'
   }).format(new Date())
 
   return (
     <div className="tela">
       <div className="barra">
         <span className="vaga" />
-        <div className="titulo" style={{ fontSize: 17, color: 'var(--cacau-claro)' }}>{hoje}</div>
+        <div className="titulo">{hoje}</div>
         <Link to="/config" className="btn-icone" aria-label="Configurações"><Icone nome="config" /></Link>
       </div>
       <div className="conteudo">
@@ -33,69 +44,73 @@ export function Home() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="confeito" /><h2>Próximas entregas</h2>
           </span>
-          <Link to="/calendario" className="secao-link">Ver todas ›</Link>
+          <Link to="/calendario" className="secao-link">Ver agenda <Icone nome="avancar" size={15} /></Link>
         </div>
         {entregas.length === 0 ? (
           <p className="apoio">
-            Nenhuma entrega nos próximos 7 dias. Veja o mês todo no <Link to="/calendario" style={{ color: 'var(--framboesa)', fontWeight: 700 }}>Calendário</Link>.
+            Nenhuma entrega nos próximos 7 dias. Veja o mês todo no{' '}
+            <Link to="/calendario" className="link-texto">Calendário</Link>.
           </p>
         ) : (
           <div className="entregas">
-            {entregas.map((p) => (
-              <Link key={p.id} to={`/pedidos/${p.id}`} className="entrega">
-                <div className="quando">{p.data_entrega ? rotuloEntrega(p.data_entrega) : ''}</div>
-                <div className="o-que">{tituloPedido(p)}</div>
-                <div className="apoio" style={{ marginTop: 2 }}>{p.cliente_nome ?? 'sem cliente'}</div>
-              </Link>
-            ))}
+            {entregas.map((p) => {
+              const info = STATUS_INFO[p.status]
+              const d = p.data_entrega ? dataLocal(p.data_entrega) : null
+              return (
+                <Link key={p.id} to={`/pedidos/${p.id}`} className="entrega">
+                  {d && (
+                    <div className="entrega-data">
+                      <span className="dia-semana">{DIA_SEMANA.format(d).replace('.', '')}</span>
+                      <span className="dia-num">{d.getDate()}</span>
+                    </div>
+                  )}
+                  <div className="entrega-info">
+                    <div className="o-que">{tituloPedido(p)}</div>
+                    <div className="apoio">
+                      {p.cliente_nome ?? 'sem cliente'}
+                      {p.status_pagamento !== 'nao_pago' ? ` · ${PAGAMENTO_CURTO[p.status_pagamento]}` : ''}
+                    </div>
+                    <span className={`chip ${info.chip}`}>{info.rotulo}</span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
 
-        <div className="blocos">
-          <Link to="/vitrine" className="bloco destaque">
-            <div className="emoji"><Icone nome="vitrine" /></div>
-            <div className="texto">
-              <div className="nome">Minha vitrine</div>
-              <div className="conta">monte e compartilhe seu link</div>
-            </div>
-            <span aria-hidden>›</span>
+        {/* Decisão #101 · atalho vivo — só renderiza com pendências (vazio é ruído). */}
+        {aguardando > 0 && (
+          <Link to="/propostas" className="aviso-teste">
+            <Icone nome="acompanhar" size={18} />
+            {aguardando === 1
+              ? '1 proposta aguardando resposta'
+              : `${aguardando} propostas aguardando resposta`}
+            <span className="seta"><Icone nome="avancar" size={16} /></span>
           </Link>
+        )}
+
+        <div className="secao"><span className="confeito" /><h2>Meu ateliê</h2></div>
+        <div className="blocos">
           <Link to="/acervo" className="bloco">
             <div className="emoji"><Icone nome="trabalhos" /></div>
             <div><div className="nome">Meus trabalhos</div><div className="conta">suas fotos na nuvem</div></div>
           </Link>
-          <Link to="/inspiracoes" className="bloco">
-            <div className="emoji"><Icone nome="inspiracoes" /></div>
-            <div><div className="nome">Inspirações</div><div className="conta">guarde referências</div></div>
-          </Link>
-          <Link to="/pedidos" className="bloco">
-            <div className="emoji"><Icone nome="pedidos" /></div>
-            <div><div className="nome">Pedidos</div><div className="conta">leves e rápidos</div></div>
-          </Link>
-          <Link to="/clientes" className="bloco">
-            <div className="emoji"><Icone nome="clientes" /></div>
-            <div><div className="nome">Clientes</div><div className="conta">com botão WhatsApp</div></div>
-          </Link>
-          <Link to="/calendario" className="bloco">
-            <div className="emoji"><Icone nome="calendario" /></div>
-            <div><div className="nome">Calendário</div><div className="conta">entregas do mês</div></div>
+          <Link to="/vitrine" className="bloco">
+            <div className="emoji"><Icone nome="vitrine" /></div>
+            <div><div className="nome">Minha vitrine</div><div className="conta">monte e compartilhe seu link</div></div>
           </Link>
           <Link to="/cardapio" className="bloco">
             <div className="emoji"><Icone nome="precos" /></div>
             <div><div className="nome">Tabela de preços</div><div className="conta">seus preços de referência</div></div>
           </Link>
-          <Link to="/anotacoes" className="bloco">
-            <div className="emoji"><Icone nome="anotacoes" /></div>
-            <div><div className="nome">Anotações</div><div className="conta">texto livre</div></div>
-          </Link>
-          <Link to="/propostas" className="bloco">
-            <div className="emoji"><Icone nome="acompanhar" /></div>
-            <div><div className="nome">Propostas</div><div className="conta">acompanhe as respostas</div></div>
+          <Link to="/inspiracoes" className="bloco">
+            <div className="emoji"><Icone nome="inspiracoes" /></div>
+            <div><div className="nome">Inspirações</div><div className="conta">guarde referências</div></div>
           </Link>
         </div>
 
         <Link to="/planos" className="aviso-teste">
-          <Icone nome="loja" size={18} /> Conheça o Plano Vitrine <span className="seta">Ver planos ›</span>
+          <Icone nome="loja" size={18} /> Conheça o Plano Vitrine <span className="seta">Ver planos <Icone nome="avancar" size={16} /></span>
         </Link>
       </div>
     </div>

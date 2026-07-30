@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Recorte } from '../components/Recorte'
 import { LimiteModal } from '../components/LimiteModal'
+import { SeletorTag } from '../components/SeletorTag'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
-import { useAcervo } from '../hooks/useAcervo'
+import { useAcervo, type Tag } from '../hooks/useAcervo'
 import { useAssinatura } from '../hooks/useAssinatura'
 import { recortarEComprimir, type AreaRecorte } from '../lib/imagem'
 
@@ -27,7 +28,6 @@ export function GuardarTrabalho() {
 
   const [descricao, setDescricao] = useState('')
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([])
-  const [novaTagTexto, setNovaTagTexto] = useState('')
   const [limiteAberto, setLimiteAberto] = useState(false)
 
   // Fluxo de adição (recorte → compressão no cliente → blob pronto p/ subir)
@@ -69,13 +69,10 @@ export function GuardarTrabalho() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
   }
-  async function aoAdicionarNovaTag() {
-    if (!novaTagTexto.trim()) return
-    const tag = await criarTag(novaTagTexto)
-    if (tag && !tagsSelecionadas.includes(tag.id))
-      setTagsSelecionadas((prev) => [...prev, tag.id])
-    setNovaTagTexto('')
-  }
+  // O SeletorTag só ADICIONA (nunca desmarca); a fileira de chips de cima é quem
+  // desmarca, via toggleTagForm. Por isso não ligamos o seletor ao toggle.
+  const aplicarTag = (tag: Tag) =>
+    setTagsSelecionadas((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]))
   async function aoEnviar() {
     if (!blobPronto) return avisar('Escolha uma foto primeiro')
     if (!podeAdicionar) {
@@ -144,27 +141,13 @@ export function GuardarTrabalho() {
               ))}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              value={novaTagTexto}
-              onChange={(e) => setNovaTagTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault()
-                  aoAdicionarNovaTag()
-                }
-              }}
-              placeholder="Nova tag… Enter para criar"
-              style={{ flex: 1, minHeight: 44, padding: '10px 14px', border: '1px solid var(--linha)', borderRadius: 12, font: 'inherit', fontSize: 'var(--t-base)', outline: 'none', background: 'var(--acucar)', color: 'var(--cacau)' }}
-            />
-            <button
-              type="button"
-              onClick={aoAdicionarNovaTag}
-              style={{ height: 44, padding: '0 16px', border: '1px solid var(--linha)', borderRadius: 12, background: 'var(--pistache-suave)', color: 'var(--pistache)', fontWeight: 700, cursor: 'pointer', fontSize: 18 }}
-            >
-              ＋
-            </button>
-          </div>
+          <SeletorTag
+            todasTags={todasTags}
+            selecionadas={tagsSelecionadas}
+            onSelecionar={aplicarTag}
+            onCriar={criarTag}
+            placeholder="Nova tag… Enter para criar"
+          />
         </div>
       </div>
 

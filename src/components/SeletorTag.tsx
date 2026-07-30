@@ -75,7 +75,7 @@ export function SeletorTag({
           ))}
           {podeCriar && (
             <button type="button" className="tag-criar" onClick={criar}>
-              Criar “{texto.trim()}”
+              <Icone nome="mais" size={13} /> Criar tag “{texto.trim()}”
             </button>
           )}
         </div>

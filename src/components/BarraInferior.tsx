@@ -9,7 +9,8 @@ import { SeletorClienteProposta } from './SeletorClienteProposta'
  * Renderizada só nas telas privadas (dentro de `Privada` no App). As páginas
  * públicas, o login e as páginas legais seguem SEM barra (regra do CLAUDE.md).
  * O FAB abre a folha "O que você quer criar?"; o Menu abre a folha de destinos
- * que saíram da barra (Clientes fica a 1 toque aqui e no bloco da home).
+ * que saíram da barra. Desde a D3b (Decisão #98) "Anotações" vive SÓ aqui — o
+ * bloco da Home saiu no mesmo PR, então esta é a única porta da tela no app.
  * Ambas usam o padrão .painel/.painel-overlay já existente no app.
  *
  * UX-022 (Decisão #57/#76, mockup 2c) · "Nova proposta" NÃO navega mais para
@@ -111,6 +112,9 @@ export function BarraInferior() {
             </button>
             <button className="acao-folha" onClick={() => ir('/cardapio')}>
               <span className="acao-ico"><Icone nome="precos" /></span>Tabela de preços
+            </button>
+            <button className="acao-folha" onClick={() => ir('/anotacoes')}>
+              <span className="acao-ico"><Icone nome="anotacoes" /></span>Anotações
             </button>
             <button className="acao-folha" onClick={() => ir('/config')}>
               <span className="acao-ico"><Icone nome="config" /></span>Configurações
