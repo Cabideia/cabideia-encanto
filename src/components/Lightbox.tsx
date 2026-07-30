@@ -17,8 +17,9 @@ const ESCALA_MAX = 4
  * VitrinePublica) para o gesto de pinça viver num lugar só — reimplementá-lo
  * duas vezes é exatamente o padrão que gerou a UX-041.
  *
- * Zoom por pinça (1×–4×), duplo-toque (1×↔2× no ponto tocado) e pan quando
- * ampliado, tudo via pointer events e sem biblioteca. Toque na IMAGEM não fecha
+ * Zoom por pinça (1×–4×), duplo-toque (1×↔2× no ponto tocado, decidido no
+ * pointerup para não confundir o primeiro dedo de uma pinça com um toque) e pan
+ * quando ampliado, tudo via pointer events e sem biblioteca. Toque na IMAGEM não fecha
  * (stopPropagation no `.lightbox-quadro` — §0.3); fecha o toque no overlay em
  * volta e o ✕. O zoom reseta sozinho ao fechar, porque o componente desmonta.
  */
@@ -34,6 +35,11 @@ export function Lightbox({ url, legenda, aoFechar }: LightboxProps) {
   const pincaInicial = useRef<{ dist: number; escala: number } | null>(null)
   const arrasto = useRef<{ x: number; y: number } | null>(null)
   const ultimoToque = useRef(0)
+  // Candidato a toque limpo: só vira duplo-toque no pointerup, e só se nenhum
+  // segundo dedo apareceu e o dedo não arrastou.
+  const toque = useRef<{ x: number; y: number; t: number } | null>(null)
+  const houvePinca = useRef(false)
+  const moveu = useRef(false)
 
   // Limita o pan às bordas: com transform-origin no centro, cada lado transborda
   // (escala−1)·tamanho/2 — além disso apareceria fundo preto ao lado da imagem.
@@ -75,21 +81,26 @@ export function Lightbox({ url, legenda, aoFechar }: LightboxProps) {
       const [a, b] = [...ponteiros.current.values()]
       pincaInicial.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), escala }
       arrasto.current = null
+      // Chegou um segundo dedo: é pinça, não toque. Mata o candidato.
+      houvePinca.current = true
+      toque.current = null
     } else if (ponteiros.current.size === 1) {
       arrasto.current = { x: e.clientX, y: e.clientY }
-      const agora = Date.now()
-      if (agora - ultimoToque.current < 300) {
-        alternarZoom(e.clientX, e.clientY)
-        ultimoToque.current = 0
-      } else {
-        ultimoToque.current = agora
-      }
+      houvePinca.current = false
+      moveu.current = false
+      toque.current = { x: e.clientX, y: e.clientY, t: Date.now() }
     }
   }
 
   function aoMoverPonteiro(e: React.PointerEvent) {
     if (!ponteiros.current.has(e.pointerId)) return
     ponteiros.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (toque.current && !moveu.current) {
+      const dx = e.clientX - toque.current.x
+      const dy = e.clientY - toque.current.y
+      if (Math.hypot(dx, dy) > 10) moveu.current = true
+    }
 
     if (ponteiros.current.size === 2 && pincaInicial.current) {
       const [a, b] = [...ponteiros.current.values()]
@@ -111,12 +122,34 @@ export function Lightbox({ url, legenda, aoFechar }: LightboxProps) {
   function aoSubirPonteiro(e: React.PointerEvent) {
     ponteiros.current.delete(e.pointerId)
     if (ponteiros.current.size < 2) pincaInicial.current = null
+
     if (ponteiros.current.size === 1) {
       // Um dedo saiu da pinça: continua o pan a partir do que ficou.
       const [rem] = [...ponteiros.current.values()]
       arrasto.current = { x: rem.x, y: rem.y }
+      return
     }
-    if (ponteiros.current.size === 0) arrasto.current = null
+
+    if (ponteiros.current.size > 0) return
+    arrasto.current = null
+
+    // Toque limpo = um dedo só, sem pinça no meio, sem arrastar e rápido.
+    // Só um toque limpo abre e fecha a janela de 300ms do duplo-toque; assim
+    // uma pinça nunca "semeia" um duplo-toque no gesto seguinte.
+    const t = toque.current
+    toque.current = null
+    if (!t || houvePinca.current || moveu.current || Date.now() - t.t > 250) {
+      ultimoToque.current = 0
+      return
+    }
+
+    const agora = Date.now()
+    if (agora - ultimoToque.current < 300) {
+      alternarZoom(t.x, t.y)
+      ultimoToque.current = 0
+    } else {
+      ultimoToque.current = agora
+    }
   }
 
   const emGesto = pincaInicial.current !== null || arrasto.current !== null
