@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -129,7 +130,7 @@ export function GuardarLotePedido() {
     navegar(`/pedidos/${id}`, { replace: true })
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Fotos do pedido" variante="grade" />
 
   return (
     <div className="tela">

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icone } from './Icone'
+import { TelaCarregando } from './TelaCarregando'
 import { useAviso } from './Toast'
 import { useSessao } from '../hooks/useSessao'
 import { useClientes, type CamposCliente } from '../hooks/useClientes'
@@ -83,7 +84,7 @@ export function SeletorClienteProposta({ aoFechar }: { aoFechar: () => void }) {
         <div className="painel-puxador" />
         <div className="folha-titulo">Nova proposta — pra quem?</div>
 
-        {carregando ? null : (
+        {carregando ? <TelaCarregando variante="lista" /> : (
           <>
             {clientes.length > 0 && (
               <div className="busca" style={{ marginTop: 4 }}>

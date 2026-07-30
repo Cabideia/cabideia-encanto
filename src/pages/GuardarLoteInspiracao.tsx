@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { LimiteModal } from '../components/LimiteModal'
 import { Icone } from '../components/Icone'
 import { SeletorTag } from '../components/SeletorTag'
@@ -198,7 +199,13 @@ export function GuardarLoteInspiracao() {
     }
   }
 
-  if (carregando) return null
+  if (carregando)
+    return (
+      <TelaCarregando
+        titulo={modoProposta ? 'Inspirações da proposta' : 'Inspirações do pedido'}
+        variante="grade"
+      />
+    )
 
   if (!alvoOk) {
     return (

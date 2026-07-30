@@ -28,9 +28,9 @@
 
   /* ---- STATUS DO PEDIDO (vocabulário travado) ---- */
   --st-afazer-fundo:#F1E9EC; --st-afazer-texto:#6B5A62;
-  --st-producao-fundo:#FBF2DF; --st-producao-texto:#A9741B;
-  --st-entregue-fundo:#E8F4EE; --st-entregue-texto:#2E7D53;
-  --st-cancelado-fundo:#EFEFEF; --st-cancelado-texto:#9A9A9A;
+  --st-producao-fundo:#FBF2DF; --st-producao-texto:#8F6214;   /* UX-036 era #A9741B — 3,63 → 4,81 (AA) */
+  --st-entregue-fundo:#E8F4EE; --st-entregue-texto:#2A764D;   /* UX-036 era #2E7D53 — 4,46 → 4,90 (AA) */
+  --st-cancelado-fundo:#EFEFEF; --st-cancelado-texto:#6B6B6B; /* UX-036 era #9A9A9A — 2,45 → 4,63 (AA) */
 
   /* ---- FORMA ---- */
   --raio-s:10px; --raio-m:14px; --raio-g:20px; --raio-cheio:999px;
@@ -419,6 +419,28 @@ body{
   .conteudo{animation:chega .22s ease}
   @keyframes chega{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
 }
+
+/* ---------- ESQUELETO DE CARREGAMENTO (UX-034) ---------- */
+.esqueleto{background:var(--linha);border-radius:var(--raio-s)}
+.esqueleto-bola{width:44px;height:44px;border-radius:50%;flex:none;background:var(--linha)}
+.esqueleto-linha{display:flex;align-items:center;gap:12px;padding:15px 4px;border-bottom:1px solid var(--linha)}
+.esqueleto-linha:last-child{border-bottom:none}
+.esqueleto-cartao{
+  background:var(--acucar);border-radius:var(--raio-card);box-shadow:var(--sombra-1);
+  padding:var(--espaco);margin-bottom:10px;display:flex;gap:12px;align-items:center;
+}
+.esqueleto-chip{width:72px;height:26px;border-radius:var(--raio-pill);background:var(--linha);flex:none}
+.esqueleto-grade{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.esqueleto-quadro{aspect-ratio:1;border-radius:var(--raio-card);background:var(--linha)}
+.esqueleto-campo{height:48px;border-radius:var(--raio-m);background:var(--linha)}
+.sem-animacao{animation:none !important}
+
+@media (prefers-reduced-motion:no-preference){
+  .esqueleto,.esqueleto-bola,.esqueleto-quadro,.esqueleto-campo,.esqueleto-chip{
+    animation:pulso 1.4s ease-in-out infinite;
+  }
+  @keyframes pulso{0%,100%{opacity:1}50%{opacity:.45}}
+}
 button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.card-toque:focus-visible{
   outline:3px solid var(--framboesa);outline-offset:2px;
 }
@@ -697,6 +719,13 @@ button:focus-visible,a:focus-visible,.foto:focus-visible,.bloco:focus-visible,.c
   background: var(--cor-erro); color: #fff; font: inherit; font-size: var(--t-base); font-weight: 800;
 }
 .confirmar-perigo:active { background: color-mix(in srgb, var(--cor-erro) 84%, #000); }
+/* UX-035 · confirmar não-destrutivo (ex.: "Sair"): mesma forma do .confirmar-perigo,
+   só troca a cor para a da marca — não é vermelho porque sair não é destrutivo. */
+.confirmar-ok{
+  flex:1;height:42px;border:none;border-radius:var(--raio-pill);cursor:pointer;
+  background:var(--framboesa);color:#fff;font:inherit;font-size:var(--t-base);font-weight:800;
+}
+.confirmar-ok:active{background:var(--framboesa-escura)}
 
 /* ============================================================
    M-020 · SELEÇÃO COMPARTILHÁVEL — modo seleção no acervo

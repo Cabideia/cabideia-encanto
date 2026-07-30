@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { supabase } from '../lib/supabase'
 import { comprimirImagem } from '../lib/imagem'
 import { urlPublica } from '../lib/storage'
@@ -162,7 +163,7 @@ export function Cardapio() {
     setAExcluir(null)
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Tabela de preços" variante="cartoes" />
 
   const formAberto = editandoId !== null
   const precoPreview = precoParaNumero(form.preco_base)

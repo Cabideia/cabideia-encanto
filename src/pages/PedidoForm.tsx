@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -738,7 +739,7 @@ export function PedidoForm() {
   }
 
   // No modo edição, espera o pedido carregar.
-  if (edicao && carregando) return null
+  if (edicao && carregando) return <TelaCarregando titulo="Pedido" variante="formulario" />
   if (edicao && !carregando && !pedido) {
     return (
       <div className="tela">

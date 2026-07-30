@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
 import { useInspiracoes, dominioDe, type Inspiracao } from '../hooks/useInspiracoes'
@@ -60,7 +61,7 @@ export function Inspiracoes() {
     return okTexto && okTag
   })
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Inspirações" variante="grade" />
 
   const vazioTotal = inspiracoes.length === 0
 

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
 import { Icone } from '../components/Icone'
 import { SeletorTema } from '../components/SeletorTema'
+import { Confirmar } from '../components/Confirmar'
 import { VersaoApp } from '../components/VersaoApp'
 import { supabase } from '../lib/supabase'
 import { useSessao } from '../hooks/useSessao'
@@ -30,6 +31,8 @@ export function Config() {
   // M-033 · exclusão real da conta. Abre confirmação que só libera o botão
   // quando a usuária digita EXCLUIR; aí invoca a Edge Function `excluir-conta`.
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  // UX-035 · sair da conta pede confirmação (sair não é destrutivo, mas há custo: entrar de novo).
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false)
   const [textoConfirma, setTextoConfirma] = useState('')
   const [excluindo, setExcluindo] = useState(false)
 
@@ -85,7 +88,13 @@ export function Config() {
             </div>
             <span aria-hidden>›</span>
           </Link>
-          <div className="item" onClick={() => supabase.auth.signOut()} role="button" tabIndex={0}>
+          <div
+            className="item"
+            onClick={() => setConfirmandoSaida(true)}
+            onKeyDown={(e) => e.key === 'Enter' && setConfirmandoSaida(true)}
+            role="button"
+            tabIndex={0}
+          >
             <div className="bola"><Icone nome="sair" /></div>
             <div className="card-info">
               <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>Sair</div>
@@ -225,6 +234,17 @@ export function Config() {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmandoSaida && (
+        <Confirmar
+          titulo="Sair da sua conta?"
+          descricao="Suas fotos e seus pedidos continuam guardados. Você vai precisar entrar de novo com seu e-mail."
+          rotuloConfirmar="Sair"
+          perigo={false}
+          onConfirmar={() => supabase.auth.signOut()}
+          onCancelar={() => setConfirmandoSaida(false)}
+        />
       )}
     </div>
   )

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
 import { useSessao } from '../hooks/useSessao'
@@ -95,7 +96,7 @@ export function Propostas() {
             : 'A proposta vira um link que a cliente abre sem instalar nada. Aqui você acompanha o que aconteceu com cada uma.'}
         </p>
 
-        {carregando ? null : filtradas.length === 0 ? (
+        {carregando ? <TelaCarregando variante="cartoes" /> : filtradas.length === 0 ? (
           <div className="vazio" style={{ marginTop: 16 }}>
             <div className="icone"><Icone nome="editar" size={34} /></div>
             <p>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { useAviso } from '../components/Toast'
@@ -68,7 +69,7 @@ export function Anotacoes() {
     setAExcluir(null)
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Anotações" variante="lista" />
 
   const formAberto = editandoId !== null
 

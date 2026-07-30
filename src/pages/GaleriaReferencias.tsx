@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { Confirmar } from '../components/Confirmar'
 import { GradeReferencias, resolverReferencias, type RefVisual } from '../components/GradeReferencias'
@@ -44,7 +45,8 @@ export function GaleriaReferencias() {
 
   const pedido = id ? buscarPorId(id) : undefined
 
-  if (carregando || carregandoRefs || carregandoAcervo || carregandoInsp) return null
+  if (carregando || carregandoRefs || carregandoAcervo || carregandoInsp)
+    return <TelaCarregando titulo="Referências" variante="grade" />
 
   if (!pedido) {
     return (

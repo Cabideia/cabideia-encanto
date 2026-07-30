@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Icone } from '../components/Icone'
 import { useSessao } from '../hooks/useSessao'
 import { usePedidos, STATUS_INFO, PAGAMENTO_CURTO, tituloPedido, type StatusPedido } from '../hooks/usePedidos'
@@ -37,7 +38,7 @@ export function Pedidos() {
 
   const filtrados = pedidos.filter((p) => statusLigados.has(p.status))
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Pedidos" variante="cartoes" />
 
   return (
     <div className="tela">

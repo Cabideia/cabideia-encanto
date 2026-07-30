@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BarraTopo } from '../components/BarraTopo'
+import { TelaCarregando } from '../components/TelaCarregando'
 import { Confirmar } from '../components/Confirmar'
 import { Icone } from '../components/Icone'
 import { SeletorTag } from '../components/SeletorTag'
@@ -581,7 +582,7 @@ export function Acervo() {
     else avisar(t.na_vitrine ? 'Removido da vitrine' : 'Adicionado à vitrine ✓')
   }
 
-  if (carregando) return null
+  if (carregando) return <TelaCarregando titulo="Meus trabalhos" variante="grade" />
 
   const qtdMarcados = marcados.size
   // Quantas das marcadas têm imagem de fato (links-só de inspiração não contam)
@@ -606,54 +607,6 @@ export function Acervo() {
         }
       />
       <div className="conteudo" style={{ paddingBottom: modoSelecao ? 168 : undefined }}>
-
-        {!modoSelecao && (
-          <>
-            <div className="contador-acervo">
-              {ilimitado ? (
-                <div className="contador-texto">
-                  <span className="contador-num">{total}</span>
-                  <span className="contador-desc"> imagens · plano sem limite</span>
-                </div>
-              ) : (
-                <>
-                  <div className="contador-texto">
-                    <span className="contador-num">{total}</span>
-                    <span className="contador-desc">
-                      {' '}de {limite} imagens do plano Grátis
-                    </span>
-                  </div>
-                  <div className="contador-barra">
-                    <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
-                  </div>
-                  {emExcedente && (
-                    <p className="apoio" style={{ marginTop: 6 }}>
-                      Você passou das {limite} imagens. A curadoria da vitrine fica travada
-                      até regularizar — apagar imagens é sempre permitido.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Entrar no modo seleção para baixar/compartilhar fotos em lote (M-035).
-                Também dá pra segurar uma foto na grade para entrar já marcando. */}
-            {trabalhos.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <button
-                  className="btn-secundario"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={entrarSelecao}
-                >
-                  <Icone nome="ok" size={16} /> Selecionar
-                </button>
-                <p className="apoio" style={{ textAlign: 'center', marginTop: 6 }}>
-                  ou segure uma foto para escolher
-                </p>
-              </div>
-            )}
-          </>
-        )}
 
         {modoSelecao && (
           <>
@@ -681,7 +634,7 @@ export function Acervo() {
         )}
 
         {/* Busca */}
-        <div className="busca" style={{ marginTop: 12 }}>
+        <div className="busca" style={{ marginTop: 4 }}>
           <Icone nome="busca" size={18} />
           <input
             value={busca}
@@ -767,6 +720,56 @@ export function Acervo() {
               />
             ))}
           </div>
+        )}
+
+        {/* UX-036 (Decisão #83) — contador e "Selecionar" descem para depois da grade;
+            busca e filtros ficam acima. Modo seleção segue começando pelas fotos. */}
+        {!modoSelecao && (
+          <>
+            <div className="contador-acervo" style={{ marginTop: 16 }}>
+              {ilimitado ? (
+                <div className="contador-texto">
+                  <span className="contador-num">{total}</span>
+                  <span className="contador-desc"> imagens · plano sem limite</span>
+                </div>
+              ) : (
+                <>
+                  <div className="contador-texto">
+                    <span className="contador-num">{total}</span>
+                    <span className="contador-desc">
+                      {' '}de {limite} imagens do plano Grátis
+                    </span>
+                  </div>
+                  <div className="contador-barra">
+                    <div className="contador-progresso" style={{ width: `${pct}%`, background: corBarra }} />
+                  </div>
+                  {emExcedente && (
+                    <p className="apoio" style={{ marginTop: 6 }}>
+                      Você passou das {limite} imagens. A curadoria da vitrine fica travada
+                      até regularizar — apagar imagens é sempre permitido.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Entrar no modo seleção para baixar/compartilhar fotos em lote (M-035).
+                Também dá pra segurar uma foto na grade para entrar já marcando. */}
+            {trabalhos.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <button
+                  className="btn-secundario"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={entrarSelecao}
+                >
+                  <Icone nome="ok" size={16} /> Selecionar
+                </button>
+                <p className="apoio" style={{ textAlign: 'center', marginTop: 6 }}>
+                  ou segure uma foto para escolher
+                </p>
+              </div>
+            )}
+          </>
         )}
 
       </div>
