@@ -204,7 +204,7 @@ export function PropostaReferencias() {
   }
 
   if (carregandoPropostas || carregandoAcervo || carregandoRefs || carregandoPedidos)
-    return <TelaCarregando titulo="Referências" variante="grade" />
+    return <TelaCarregando titulo="Selecionar fotos" variante="grade" />
 
   if (!id || !proposta) {
     return (

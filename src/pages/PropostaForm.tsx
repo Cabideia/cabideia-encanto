@@ -836,7 +836,7 @@ export function PropostaForm() {
   // M-053 · espera também os PEDIDOS: `travada` deriva deles — sem esperar,
   // uma proposta convertida abriria editável por um instante (janela de escrita).
   if (carregandoClientes || (edicao && (carregandoPropostas || carregandoPedidos)))
-    return <TelaCarregando titulo="Proposta" variante="formulario" />
+    return <TelaCarregando titulo={edicao ? 'Proposta' : 'Nova proposta'} variante="formulario" />
 
   if (edicao && !carregandoPropostas && !proposta) {
     return (

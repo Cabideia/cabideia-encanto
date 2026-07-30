@@ -223,7 +223,7 @@ export function PedidoReferencias() {
   }
 
   if (carregandoPedidos || carregandoAcervo || carregandoRefs)
-    return <TelaCarregando titulo="Referências" variante="grade" />
+    return <TelaCarregando titulo="Selecionar referências" variante="grade" />
 
   if (!id || !pedido) {
     return (
