@@ -152,6 +152,9 @@ body{
   min-width:0;
 }
 .btn-secundario:active{transform:scale(.98);background:var(--cor-primaria-borda)}
+/* UX-039 — par de ações lado a lado (copiar link · ver como cliente) */
+.acoes-duplas{display:flex;gap:10px;margin-top:16px}
+.acoes-duplas > *{flex:1}
 
 /* ---------- PADRÃO 4 · CARDS ---------- */
 .card{
@@ -212,6 +215,14 @@ body{
 }
 .campo textarea{min-height:96px;resize:vertical}
 .campo input:focus,.campo textarea:focus,.campo select:focus{border-color:var(--framboesa);box-shadow:0 0 0 3px var(--framboesa-suave)}
+/* UX-039 — inputs em linha compacta (LinhaItemEditavel): só o input, sem a
+   margem de 14px do .campo que quebraria a linha flex de Qtd/Preço/Unidade. */
+.campo-linha input{
+  width:100%;min-height:var(--alvo-toque);padding:12px 14px;font:inherit;color:var(--cacau);
+  background:var(--acucar);border:1.5px solid var(--linha);border-radius:var(--raio-m);outline:none;
+  transition:var(--transicao);
+}
+.campo-linha input:focus{border-color:var(--framboesa);box-shadow:0 0 0 3px var(--framboesa-suave)}
 .escolha{display:flex;gap:8px;flex-wrap:wrap}
 .escolha .filtro{height:40px}
 
@@ -321,6 +332,15 @@ body{
   border:none;background:var(--pistache-suave);color:var(--pistache);
   font:inherit;font-size:var(--t-apoio);font-weight:800;cursor:pointer;
 }
+/* UX-039 — primário pequeno preenchido (o DS só tinha .cta e .btn-secundario).
+   Herda o margin-left:auto do .zap para continuar colado à direita no .item. */
+.btn-primario-peq{
+  margin-left:auto;flex:none;height:38px;padding:0 14px;border-radius:var(--raio-pill);
+  border:none;background:var(--framboesa);color:#fff;
+  font:inherit;font-size:var(--t-apoio);font-weight:800;cursor:pointer;
+  transition:var(--transicao);
+}
+.btn-primario-peq:active{background:var(--framboesa-escura);transform:scale(.96)}
 
 /* ---------- PLANOS ---------- */
 .troca-periodo{display:flex;background:var(--neutro-suave);border-radius:var(--raio-pill);padding:4px;margin:8px 0 14px}

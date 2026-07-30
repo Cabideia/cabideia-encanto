@@ -83,7 +83,7 @@ export function MinhasTags() {
                         background: 'var(--acucar)', color: 'var(--cacau)',
                       }}
                     />
-                    <button className="zap" onClick={() => salvar(tag.id)}>Salvar</button>
+                    <button className="btn-primario-peq" onClick={() => salvar(tag.id)}>Salvar</button>
                     <button
                       className="btn-icone"
                       onClick={() => { setEditandoId(null); setTexto('') }}

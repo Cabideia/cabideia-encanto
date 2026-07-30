@@ -76,10 +76,20 @@ export function Planos() {
         </div>
 
         <div className="troca-periodo" role="tablist" style={{ marginTop: 12 }}>
-          <button className={periodo === 'anual' ? 'ativo' : ''} onClick={() => setPeriodo('anual')}>
+          <button
+            role="tab"
+            aria-selected={periodo === 'anual'}
+            className={periodo === 'anual' ? 'ativo' : ''}
+            onClick={() => setPeriodo('anual')}
+          >
             Anual · 2 meses grátis
           </button>
-          <button className={periodo === 'mensal' ? 'ativo' : ''} onClick={() => setPeriodo('mensal')}>
+          <button
+            role="tab"
+            aria-selected={periodo === 'mensal'}
+            className={periodo === 'mensal' ? 'ativo' : ''}
+            onClick={() => setPeriodo('mensal')}
+          >
             Mensal
           </button>
         </div>

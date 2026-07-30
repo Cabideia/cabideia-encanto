@@ -264,7 +264,7 @@ export function VitrinePublica() {
               className={`filtro${aba === 'precos' ? ' ativo' : ''}`}
               onClick={() => setAba('precos')}
             >
-              <Icone nome="precos" size={15} /> Cardápio
+              <Icone nome="precos" size={15} /> Tabela de preços
             </button>
           </div>
         )}
@@ -358,7 +358,7 @@ export function VitrinePublica() {
             {perfil.cardapio_path && (
               <img
                 src={urlPublica(perfil.cardapio_path)}
-                alt={`Cardápio de ${perfil.nome_negocio ?? 'recheios e sabores'}`}
+                alt={`Recheios e sabores de ${perfil.nome_negocio ?? ''}`.trim()}
                 loading="lazy"
                 style={{ width: '100%', borderRadius: 'var(--raio-card)', display: 'block', marginBottom: 12, border: '1px solid var(--linha)' }}
               />

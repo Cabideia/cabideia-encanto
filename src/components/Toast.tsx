@@ -12,7 +12,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setMensagem(m)
     setVisivel(true)
     clearTimeout(cronometro.current)
-    cronometro.current = setTimeout(() => setVisivel(false), 1900)
+    // Mensagens longas ficam mais tempo na tela; as curtas (ex.: "Link copiado ✓")
+    // mantêm o ritmo rápido de sempre.
+    const ms = m.length > 60 ? 3000 : 1900
+    cronometro.current = setTimeout(() => setVisivel(false), ms)
   }, [])
 
   return (

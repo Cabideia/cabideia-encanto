@@ -126,8 +126,8 @@ export function Config() {
 
         {/* M-023 · Nota sobre o comportamento offline — evita a impressão de "perdi meus dados". */}
         <div className="card" style={{ marginTop: 14 }}>
-          <div className="card-nome" style={{ fontSize: 'var(--t-base)' }}>
-            📴 Funciona sem internet?
+          <div className="card-nome" style={{ fontSize: 'var(--t-base)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icone nome="semConexao" size={18} /> Funciona sem internet?
           </div>
           <div className="apoio" style={{ marginTop: 8, lineHeight: 1.7 }}>
             Seus dados ficam guardados na nuvem, em segurança. Sem internet, o app
@@ -148,7 +148,6 @@ export function Config() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') setConfirmandoExclusao(true)
             }}
-            style={{ color: 'var(--framboesa)' }}
           >
             <div className="bola" style={{ background: 'var(--cor-erro-fundo)', color: 'var(--cor-erro)' }}>
               <Icone nome="lixo" />

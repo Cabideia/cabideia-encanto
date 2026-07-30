@@ -1,4 +1,5 @@
 import { useOnline } from '../lib/conexao'
+import { Icone } from './Icone'
 
 /**
  * M-023 · Banner global de leitura offline.
@@ -12,7 +13,7 @@ export function AvisoOffline() {
   if (online) return null
   return (
     <div className="aviso-offline" role="status">
-      <span aria-hidden>📴</span>
+      <Icone nome="semConexao" />
       <span>
         Você está offline. Mostrando dados salvos. Para criar ou editar,
         conecte-se à internet.
